@@ -90,6 +90,51 @@ export async function getAnnouncements() {
   return serializeList(result)
 }
 
+export async function getTenantDetails(id: string) {
+  const session = await auth()
+  if (session?.user?.role !== 'super_admin') return { error: 'Unauthorized' }
+
+  const db = await dbConnect()
+
+  const [tenant] = await db.select().from(tenants).where(eq(tenants.id, toNum(id)))
+  if (!tenant) return { error: 'Tenant not found' }
+
+  const tenantUsers = await db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    role: users.role,
+    status: users.status,
+    lastLogin: users.lastLogin,
+    createdAt: users.createdAt,
+  }).from(users).where(eq(users.tenantId, toNum(id)))
+
+  return {
+    tenant: serializeRow(tenant),
+    users: serializeList(tenantUsers),
+  }
+}
+
+export async function getTenantGrowth() {
+  const session = await auth()
+  if (session?.user?.role !== 'super_admin') return { error: 'Unauthorized' }
+
+  const db = await dbConnect()
+  const allTenants = await db.select({ createdAt: tenants.createdAt }).from(tenants).orderBy(tenants.createdAt)
+
+  const monthlyMap: Record<string, number> = {}
+  for (const t of allTenants) {
+    const month = t.createdAt?.substring(0, 7) ?? 'unknown'
+    monthlyMap[month] = (monthlyMap[month] ?? 0) + 1
+  }
+
+  const growth = Object.entries(monthlyMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, count]) => ({ month, count }))
+
+  return { growth }
+}
+
 export async function createAnnouncement(data: { title: string; message: string; priority: 'low' | 'medium' | 'high' }) {
   const session = await auth()
   if (session?.user?.role !== 'super_admin') return { error: 'Unauthorized' }

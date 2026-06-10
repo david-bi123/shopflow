@@ -12,6 +12,7 @@ import {
   FileText,
   LogOut,
   Menu,
+  Package,
   Receipt,
   Settings,
   Store,
@@ -45,6 +46,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Products", href: "/dashboard/products", icon: Package },
   { label: "Sales", href: "/dashboard/sales", icon: Receipt },
   { label: "Invoices", href: "/dashboard/invoices", icon: FileText },
   { label: "Customers", href: "/dashboard/customers", icon: Users },

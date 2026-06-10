@@ -201,22 +201,29 @@ export default function AdminAnnouncementsPage() {
       ) : (
         <div className="space-y-3">
           {announcements.map((a) => (
-            <Card key={a.id}>
-              <CardHeader className="flex flex-row items-start justify-between py-4">
+            <Card key={a.id} className="overflow-hidden border-0 bg-card shadow-sm transition-shadow hover:shadow-md">
+              <CardHeader className="flex flex-row items-start justify-between gap-4 py-4">
                 <div className="flex items-start gap-3">
-                  <Megaphone className="mt-0.5 h-5 w-5 text-muted-foreground" />
-                  <div>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <Megaphone className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="space-y-1">
                     <CardTitle className="text-base">{a.title}</CardTitle>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(a.createdAt)}
-                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{formatDate(a.createdAt, 'datetime')}</span>
+                      <span>·</span>
+                      <span className="capitalize">{a.priority} priority</span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {!a.active && (
-                    <Badge variant="secondary">Inactive</Badge>
-                  )}
-                  <Badge variant={priorityColors[a.priority]}>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge
+                    variant={a.active ? 'default' : 'secondary'}
+                    className="text-xs"
+                  >
+                    {a.active ? 'Active' : 'Inactive'}
+                  </Badge>
+                  <Badge variant={priorityColors[a.priority]} className="text-xs capitalize">
                     {a.priority}
                   </Badge>
                   <Button
@@ -235,9 +242,11 @@ export default function AdminAnnouncementsPage() {
               </CardHeader>
               {expanded === a.id && (
                 <CardContent className="pb-4 pt-0">
-                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                    {a.message}
-                  </p>
+                  <div className="ml-12 rounded-lg bg-muted/50 p-3">
+                    <p className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">
+                      {a.message}
+                    </p>
+                  </div>
                 </CardContent>
               )}
             </Card>

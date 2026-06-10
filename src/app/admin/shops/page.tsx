@@ -14,6 +14,10 @@ import {
   UserCheck,
   ChevronLeft,
   ChevronRight,
+  Eye,
+  Users,
+  Calendar,
+  Tag,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,6 +48,18 @@ interface Tenant {
   createdAt: string
 }
 
+interface TenantDetail extends Tenant {
+  users: Array<{
+    id: string
+    name: string
+    email: string
+    role: string
+    status: string
+    lastLogin: string | null
+    createdAt: string
+  }>
+}
+
 const statusColors: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   active: 'default',
   pending: 'secondary',
@@ -65,6 +81,8 @@ export default function AdminShopsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [detailTarget, setDetailTarget] = useState<TenantDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   const [stats, setStats] = useState({ total: 0, active: 0, pending: 0 })
 
@@ -162,13 +180,30 @@ export default function AdminShopsPage() {
       : true
   )
 
+  async function handleViewDetail(tenant: Tenant) {
+    setDetailLoading(true)
+    try {
+      const { getTenantDetails } = await import('@/lib/actions/admin-actions')
+      const result = await getTenantDetails(tenant.id)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      setDetailTarget(result as unknown as TenantDetail)
+    } catch {
+      toast.error('Failed to load shop details')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
   const columns: Column<Tenant>[] = [
     {
       key: 'name',
       header: 'Shop Name',
       cell: (t) => (
-        <div>
-          <p className="font-medium">{t.name}</p>
+        <div className="cursor-pointer" onClick={() => handleViewDetail(t)}>
+          <p className="font-medium hover:text-primary transition-colors">{t.name}</p>
           <p className="text-xs text-muted-foreground">{t.slug}</p>
         </div>
       ),
@@ -209,6 +244,18 @@ export default function AdminShopsPage() {
       header: 'Actions',
       cell: (t) => (
         <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleViewDetail(t)
+            }}
+          >
+            <Eye className="h-3 w-3 mr-1" />
+            View
+          </Button>
           {t.status === 'pending' && (
             <Button
               size="sm"
@@ -413,6 +460,86 @@ export default function AdminShopsPage() {
               Delete Shop
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!detailTarget} onOpenChange={(open) => !open && setDetailTarget(null)}>
+        <DialogContent className="sm:max-w-lg">
+          {detailLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : detailTarget ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Store className="h-5 w-5 text-primary" />
+                  {detailTarget.name}
+                </DialogTitle>
+                <DialogDescription>
+                  Detailed information about this shop
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Tag className="h-3 w-3" />
+                      Slug
+                    </p>
+                    <code className="rounded bg-muted px-2 py-1 text-sm">{detailTarget.slug}</code>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Status
+                    </p>
+                    <Badge variant={statusColors[detailTarget.status] ?? 'outline'}>
+                      {detailTarget.status.charAt(0).toUpperCase() + detailTarget.status.slice(1)}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Subscription</p>
+                    <p className="text-sm capitalize">
+                      {detailTarget.subscriptionStatus}
+                      {detailTarget.subscriptionPlan ? ` · ${detailTarget.subscriptionPlan}` : ''}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Created
+                    </p>
+                    <p className="text-sm">{formatDate(detailTarget.createdAt, 'long')}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    Users ({detailTarget.users.length})
+                  </p>
+                  {detailTarget.users.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No users associated with this shop</p>
+                  ) : (
+                    <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-lg border p-2">
+                      {detailTarget.users.map((u) => (
+                        <div key={u.id} className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
+                          <div>
+                            <p className="text-sm font-medium">{u.name}</p>
+                            <p className="text-xs text-muted-foreground">{u.email}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs capitalize">{u.role}</Badge>
+                            <Badge variant={u.status === 'active' ? 'default' : 'secondary'} className="text-xs capitalize">{u.status}</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

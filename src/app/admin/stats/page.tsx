@@ -10,11 +10,14 @@ import {
   DollarSign,
   Loader2,
   AlertCircle,
+  TrendingUp,
+  Users,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/shared/page-header'
-import { formatCurrency } from '@/lib/utils/format'
+import { formatCurrency, formatNumber } from '@/lib/utils/format'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 interface PlatformStats {
   totalTenants: number
@@ -25,28 +28,41 @@ interface PlatformStats {
   totalRevenue: number
 }
 
+interface GrowthData {
+  month: string
+  count: number
+}
+
 export default function AdminStatsPage() {
   const [stats, setStats] = useState<PlatformStats | null>(null)
+  const [growth, setGrowth] = useState<GrowthData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchStats() {
+    async function fetchData() {
       try {
-        const { getPlatformStats } = await import('@/lib/actions/admin-actions')
-        const result = await getPlatformStats()
-        if (result.error) {
-          setError(result.error)
+        const [{ getPlatformStats }, { getTenantGrowth }] = await Promise.all([
+          import('@/lib/actions/admin-actions'),
+          import('@/lib/actions/admin-actions'),
+        ])
+        const [statsResult, growthResult] = await Promise.all([
+          getPlatformStats(),
+          getTenantGrowth(),
+        ])
+        if (statsResult.error) {
+          setError(statsResult.error)
           return
         }
-        setStats(result as PlatformStats)
+        setStats(statsResult as PlatformStats)
+        setGrowth(growthResult.growth ?? [])
       } catch {
         setError('Failed to load platform statistics')
       } finally {
         setLoading(false)
       }
     }
-    fetchStats()
+    fetchData()
   }, [])
 
   if (loading) {
@@ -71,39 +87,51 @@ export default function AdminStatsPage() {
   const statCards = [
     {
       title: 'Total Tenants',
-      value: stats?.totalTenants ?? 0,
+      value: formatNumber(stats?.totalTenants ?? 0),
       icon: Store,
-      color: 'text-blue-600',
+      gradient: 'from-blue-500/10 to-blue-500/5',
+      iconBg: 'bg-blue-500/10',
+      iconColor: 'text-blue-600',
     },
     {
       title: 'Active Shops',
-      value: stats?.activeTenants ?? 0,
+      value: formatNumber(stats?.activeTenants ?? 0),
       icon: CheckCircle2,
-      color: 'text-emerald-600',
+      gradient: 'from-emerald-500/10 to-emerald-500/5',
+      iconBg: 'bg-emerald-500/10',
+      iconColor: 'text-emerald-600',
     },
     {
       title: 'Pending Approvals',
-      value: stats?.pendingTenants ?? 0,
+      value: formatNumber(stats?.pendingTenants ?? 0),
       icon: Clock,
-      color: 'text-amber-600',
+      gradient: 'from-amber-500/10 to-amber-500/5',
+      iconBg: 'bg-amber-500/10',
+      iconColor: 'text-amber-600',
     },
     {
       title: 'Total Sales',
-      value: stats?.totalSales ?? 0,
+      value: formatNumber(stats?.totalSales ?? 0),
       icon: ShoppingCart,
-      color: 'text-violet-600',
+      gradient: 'from-violet-500/10 to-violet-500/5',
+      iconBg: 'bg-violet-500/10',
+      iconColor: 'text-violet-600',
     },
     {
       title: 'Total Invoices',
-      value: stats?.totalInvoices ?? 0,
+      value: formatNumber(stats?.totalInvoices ?? 0),
       icon: FileText,
-      color: 'text-indigo-600',
+      gradient: 'from-indigo-500/10 to-indigo-500/5',
+      iconBg: 'bg-indigo-500/10',
+      iconColor: 'text-indigo-600',
     },
     {
       title: 'Total Revenue',
       value: formatCurrency(stats?.totalRevenue ?? 0),
       icon: DollarSign,
-      color: 'text-green-600',
+      gradient: 'from-green-500/10 to-green-500/5',
+      iconBg: 'bg-green-500/10',
+      iconColor: 'text-green-600',
     },
   ]
 
@@ -118,20 +146,84 @@ export default function AdminStatsPage() {
         {statCards.map((card) => {
           const Icon = card.icon
           return (
-            <Card key={card.title}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <Card key={card.title} className="relative overflow-hidden border-0 bg-gradient-to-br shadow-md">
+              <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient}`} />
+              <CardHeader className="relative flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {card.title}
                 </CardTitle>
-                <Icon className={`h-5 w-5 ${card.color}`} />
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${card.iconBg}`}>
+                  <Icon className={`h-4 w-4 ${card.iconColor}`} />
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{card.value}</div>
+              <CardContent className="relative">
+                <div className="text-3xl font-bold tracking-tight">{card.value}</div>
               </CardContent>
             </Card>
           )
         })}
       </div>
+
+      <Card className="overflow-hidden border-0 bg-gradient-to-br from-primary/5 to-primary/0 shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between pb-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Tenant Growth
+            </CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Monthly new tenant registrations
+            </p>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5 text-sm">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">{formatNumber(stats?.totalTenants ?? 0)}</span>
+            <span className="text-muted-foreground">total</span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {growth.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-sm text-muted-foreground">No tenant growth data available</p>
+            </div>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={growth} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                    }}
+                    cursor={{ fill: 'hsl(var(--accent))', opacity: 0.5 }}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill="hsl(var(--primary))"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={48}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

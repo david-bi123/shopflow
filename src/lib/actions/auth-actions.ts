@@ -87,27 +87,27 @@ export async function registerShop(formData: FormData) {
 
 export async function loginAction(data: { email: string; password: string }) {
   try {
-    await signIn('credentials', {
-      email: data.email,
-      password: data.password,
-      redirect: false,
-    })
-
     const db = await dbConnect()
     const [user] = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
     if (!user) return { error: 'Invalid email or password' }
 
-    if (user.role === 'super_admin') return { redirectTo: '/admin' }
-    if (!user.tenantId) return { error: 'Invalid email or password' }
+    const isValid = await bcrypt.compare(data.password, user.password)
+    if (!isValid) return { error: 'Invalid email or password' }
+    if (user.status === 'suspended') return { error: 'Account has been suspended' }
 
-    const [tenant] = await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).limit(1)
-    if (!tenant) return { error: 'Invalid email or password' }
+    if (user.role !== 'super_admin') {
+      if (!user.tenantId) return { error: 'Invalid email or password' }
 
-    if (tenant.status === 'pending') return { redirectTo: '/pending-approval' }
-    if (tenant.status === 'suspended') return { error: 'Your shop has been suspended' }
-    if (tenant.status === 'rejected') return { error: 'Your registration was not approved' }
+      const [tenant] = await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).limit(1)
+      if (!tenant) return { error: 'Invalid email or password' }
 
-    return { redirectTo: '/dashboard' }
+      if (tenant.status === 'pending') return { redirectTo: '/pending-approval' }
+      if (tenant.status === 'suspended') return { error: 'Your shop has been suspended' }
+      if (tenant.status === 'rejected') return { error: 'Your registration was not approved' }
+    }
+
+    const redirectTo = user.role === 'super_admin' ? '/admin' : '/dashboard'
+    return { ok: true, redirectTo, email: data.email, password: data.password }
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: 'Invalid email or password' }

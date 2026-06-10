@@ -58,7 +58,7 @@ export const sales = mysqlTable('sales', {
   customerName: varchar('customer_name', { length: 255 }),
   customerPhone: varchar('customer_phone', { length: 50 }),
   customerId: int('customer_id').references(() => customers.id),
-  items: json('items').$type<Array<{ name: string; quantity: number; price: number; subtotal: number }>>().notNull(),
+  items: json('items').$type<Array<{ name: string; quantity: number; price: number; subtotal: number; productId?: number }>>().notNull(),
   subtotal: double('subtotal').notNull(),
   discount: double('discount').notNull().default(0),
   tax: double('tax').notNull().default(0),
@@ -174,6 +174,30 @@ export const subscriptions = mysqlTable('subscriptions', {
   createdAt: varchar('created_at', { length: 50 }).notNull(),
   updatedAt: varchar('updated_at', { length: 50 }).notNull(),
 })
+
+export const products = mysqlTable('products', {
+  id: int('id').primaryKey().autoincrement(),
+  tenantId: int('tenant_id').notNull().references(() => tenants.id),
+  name: varchar('name', { length: 255 }).notNull(),
+  sku: varchar('sku', { length: 100 }),
+  description: text('description'),
+  price: double('price').notNull().default(0),
+  costPrice: double('cost_price').notNull().default(0),
+  stockQuantity: int('stock_quantity').notNull().default(0),
+  lowStockThreshold: int('low_stock_threshold').notNull().default(10),
+  category: varchar('category', { length: 100 }),
+  unit: varchar('unit', { length: 50 }).default('pcs'),
+  barcode: varchar('barcode', { length: 100 }),
+  imageUrl: varchar('image_url', { length: 500 }),
+  status: varchar('status', { length: 20 }).default('active'),
+  createdBy: int('created_by').notNull().references(() => users.id),
+  createdAt: varchar('created_at', { length: 50 }).notNull(),
+  updatedAt: varchar('updated_at', { length: 50 }).notNull(),
+}, (table) => [
+  index('product_tenant_name_idx').on(table.tenantId, table.name),
+  uniqueIndex('product_tenant_sku_idx').on(table.tenantId, table.sku),
+  index('product_tenant_category_idx').on(table.tenantId, table.category),
+])
 
 export const announcements = mysqlTable('announcements', {
   id: int('id').primaryKey().autoincrement(),
