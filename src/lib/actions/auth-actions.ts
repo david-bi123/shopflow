@@ -85,6 +85,37 @@ export async function registerShop(formData: FormData) {
   return { success: true, slug }
 }
 
+export async function loginAction(data: { email: string; password: string }) {
+  try {
+    await signIn('credentials', {
+      email: data.email,
+      password: data.password,
+      redirect: false,
+    })
+
+    const db = await dbConnect()
+    const [user] = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
+    if (!user) return { error: 'Invalid email or password' }
+
+    if (user.role === 'super_admin') return { redirectTo: '/admin' }
+    if (!user.tenantId) return { error: 'Invalid email or password' }
+
+    const [tenant] = await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).limit(1)
+    if (!tenant) return { error: 'Invalid email or password' }
+
+    if (tenant.status === 'pending') return { redirectTo: '/pending-approval' }
+    if (tenant.status === 'suspended') return { error: 'Your shop has been suspended' }
+    if (tenant.status === 'rejected') return { error: 'Your registration was not approved' }
+
+    return { redirectTo: '/dashboard' }
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return { error: 'Invalid email or password' }
+    }
+    return { error: 'Something went wrong' }
+  }
+}
+
 export async function login(formData: FormData) {
   const raw = {
     email: formData.get('email') as string,

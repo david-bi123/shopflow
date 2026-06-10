@@ -1,10 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
-import { signIn } from 'next-auth/react'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 import {
@@ -26,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils/cn'
+import { loginAction } from '@/lib/actions/auth-actions'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -47,7 +46,6 @@ const features = [
 ]
 
 export default function LoginPage() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const { theme, setTheme } = useTheme()
@@ -60,30 +58,22 @@ export default function LoginPage() {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
 
-    try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      })
-
-      if (result?.error) {
-        const message = result.code === 'credentials'
-          ? 'Invalid email or password'
-          : result.error === 'CredentialsSignin'
-            ? 'Invalid email or password'
-            : result.error
-        toast.error(message)
-        return
-      }
-
-      const callbackUrl = new URLSearchParams(window.location.search).get('callbackUrl') || '/dashboard'
-      window.location.href = callbackUrl
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
-      toast.error(message)
-    } finally {
+    if (!email || !password) {
+      toast.error('Please enter your email and password')
       setIsLoading(false)
+      return
+    }
+
+    const result = await loginAction({ email, password })
+
+    if (result?.error) {
+      toast.error(result.error)
+      setIsLoading(false)
+      return
+    }
+
+    if (result?.redirectTo) {
+      window.location.href = result.redirectTo
     }
   }
 
@@ -97,6 +87,7 @@ export default function LoginPage() {
         <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
         <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
       </button>
+
       {/* Background gradients */}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(800px_circle_at_5%_20%,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_60%),radial-gradient(600px_circle_at_95%_10%,color-mix(in_oklab,var(--chart-2)_10%,transparent),transparent_55%),radial-gradient(500px_circle_at_50%_90%,color-mix(in_oklab,var(--chart-3)_8%,transparent),transparent_50%)] opacity-90" />
       <div className="pointer-events-none fixed inset-0 bg-gradient-to-b from-transparent via-background/40 to-background" />
@@ -105,7 +96,7 @@ export default function LoginPage() {
       <motion.div
         initial={{ opacity: 0, x: -60 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
+        transition={{ duration: 0.7, ease: 'easeOut' }}
         className="relative hidden w-1/2 flex-col items-center justify-center p-12 lg:flex"
       >
         <div className="relative z-10 max-w-md text-center">
@@ -158,7 +149,6 @@ export default function LoginPage() {
           </motion.div>
         </div>
 
-        {/* Decorative elements */}
         <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-primary/5 blur-3xl" />
         <div className="absolute -bottom-16 -right-16 h-56 w-56 rounded-full bg-chart-2/5 blur-3xl" />
       </motion.div>
@@ -168,10 +158,10 @@ export default function LoginPage() {
         <motion.div
           initial={{ opacity: 0, y: 40, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
           className="w-full max-w-sm"
         >
-          <Card className="border-border/60 shadow-xl shadow-black/5 backdrop-blur-sm dark:shadow-black/20">
+          <Card className="border-border/60 shadow-xl shadow-black/5 backdrop-blur-sm">
             <CardHeader className="space-y-1 text-center">
               <motion.div
                 initial={{ opacity: 0, scale: 0.5 }}
@@ -215,7 +205,7 @@ export default function LoginPage() {
                     <Label htmlFor="password">Password</Label>
                     <Link
                       href="/forgot-password"
-                      className="text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+                      className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                     >
                       Forgot password?
                     </Link>
@@ -234,10 +224,9 @@ export default function LoginPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       tabIndex={-1}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -245,7 +234,7 @@ export default function LoginPage() {
                 </motion.div>
 
                 <motion.div variants={itemVariants}>
-                  <Button type="submit" className="w-full gap-2" size="lg" disabled={isLoading}>
+                  <Button type="submit" className="w-full shadow-lg shadow-primary/25" disabled={isLoading}>
                     {isLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -264,7 +253,7 @@ export default function LoginPage() {
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.6, duration: 0.5 }}
+                transition={{ delay: 0.5 }}
                 className="mt-6 text-center text-sm text-muted-foreground"
               >
                 Don&apos;t have an account?{' '}
@@ -281,8 +270,8 @@ export default function LoginPage() {
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 0.5 }}
-            className="mt-6 text-center text-xs text-muted-foreground/60"
+            transition={{ delay: 0.6 }}
+            className="mt-4 text-center text-xs text-muted-foreground"
           >
             &copy; {new Date().getFullYear()} IndFlow. All rights reserved.
           </motion.p>
