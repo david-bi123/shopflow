@@ -68,17 +68,20 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        toast.error(result.error === 'CredentialsSignin' ? 'Invalid email or password' : result.error)
+        const message = result.code === 'credentials'
+          ? 'Invalid email or password'
+          : result.error === 'CredentialsSignin'
+            ? 'Invalid email or password'
+            : result.error
+        toast.error(message)
         return
       }
 
-      if (result?.ok) {
-        toast.success('Welcome back! Redirecting to your dashboard...')
-        router.push('/dashboard')
-        router.refresh()
-      }
-    } catch {
-      toast.error('Something went wrong. Please try again.')
+      const callbackUrl = new URLSearchParams(window.location.search).get('callbackUrl') || '/dashboard'
+      window.location.href = callbackUrl
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
