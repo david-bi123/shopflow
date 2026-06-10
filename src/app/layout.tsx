@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'ShopFlow - Business Management Platform',
+  title: 'IndFlow - Business Management Platform',
   description: 'Modern business management platform for retail shops and SMEs',
 }
 

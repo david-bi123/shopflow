@@ -103,7 +103,7 @@ function SidebarContent() {
               transition={{ duration: 0.15, ease: "easeInOut" }}
               className="text-lg font-semibold tracking-tight"
             >
-              ShopFlow
+              IndFlow
             </motion.span>
           )}
         </AnimatePresence>

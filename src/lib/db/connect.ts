@@ -14,7 +14,7 @@ async function dbConnect(): Promise<ReturnType<typeof drizzle<typeof schema>>> {
       port: parseInt(process.env.TIDB_PORT || '4000'),
       user: process.env.TIDB_USER || 'root',
       password: process.env.TIDB_PASSWORD || '',
-      database: process.env.TIDB_DATABASE || 'shopflow',
+      database: process.env.TIDB_DATABASE || 'indflow',
       connectionLimit: 10,
       queueLimit: 0,
       ...(isLocal ? {} : { ssl: { rejectUnauthorized: true } }),

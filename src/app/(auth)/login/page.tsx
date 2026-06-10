@@ -121,7 +121,7 @@ export default function LoginPage() {
             transition={{ delay: 0.3, duration: 0.6 }}
             className="mb-4 text-4xl font-bold tracking-tight"
           >
-            ShopFlow
+            IndFlow
           </motion.h1>
 
           <motion.p
@@ -281,7 +281,7 @@ export default function LoginPage() {
             transition={{ delay: 0.8, duration: 0.5 }}
             className="mt-6 text-center text-xs text-muted-foreground/60"
           >
-            &copy; {new Date().getFullYear()} ShopFlow. All rights reserved.
+            &copy; {new Date().getFullYear()} IndFlow. All rights reserved.
           </motion.p>
         </motion.div>
       </div>

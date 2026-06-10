@@ -111,7 +111,7 @@ export default function AdminStatsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Platform Statistics"
-        description="Overview of the entire ShopFlow platform"
+        description="Overview of the entire IndFlow platform"
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

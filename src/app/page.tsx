@@ -31,7 +31,6 @@ import { cn } from '@/lib/utils/cn'
 
 const navLinks = [
   { href: '#features', label: 'Features' },
-  { href: '#pricing', label: 'Pricing' },
   { href: '#faq', label: 'FAQ' },
   { href: '#contact', label: 'Contact' },
 ]
@@ -96,44 +95,14 @@ const steps = [
   },
 ]
 
-const tiers = [
-  {
-    name: 'Starter',
-    price: '$0',
-    period: '/month',
-    description: 'Perfect for small shops just getting started.',
-    features: ['Up to 100 sales/month', '1 staff account', 'Basic reports', 'Email support', 'QR code receipts'],
-    cta: 'Get Started Free',
-    popular: false,
-  },
-  {
-    name: 'Growth',
-    price: '$19',
-    period: '/month',
-    description: 'Ideal for growing retail businesses.',
-    features: ['Unlimited sales', '5 staff accounts', 'Advanced analytics', 'WhatsApp sharing', 'Custom invoices', 'Priority support'],
-    cta: 'Start Free Trial',
-    popular: true,
-  },
-  {
-    name: 'Enterprise',
-    price: '$49',
-    period: '/month',
-    description: 'For established businesses with advanced needs.',
-    features: ['Everything in Growth', 'Unlimited staff', 'API access', 'Dedicated manager', 'Custom integrations', 'SLA guarantee'],
-    cta: 'Contact Sales',
-    popular: false,
-  },
-]
-
 const faqs = [
   {
-    q: 'What is ShopFlow and who is it for?',
-    a: 'ShopFlow is a modern business management platform designed for retail shops and SMEs. It helps you manage sales, invoices, customers, staff, and reports — all in one beautiful interface.',
+    q: 'What is IndFlow and who is it for?',
+    a: 'IndFlow is a modern business management platform designed for retail shops and SMEs. It helps you manage sales, invoices, customers, staff, and reports — all in one beautiful interface.',
   },
   {
-    q: 'Can I try ShopFlow before committing?',
-    a: 'Absolutely! Our Starter plan is free forever with no credit card required. You can start a 14-day free trial of any paid plan to explore all features.',
+    q: 'Can I try IndFlow before committing?',
+    a: 'Absolutely! You can get started right away. Contact our team to learn more and get set up.',
   },
   {
     q: 'Is my data secure?',
@@ -141,7 +110,7 @@ const faqs = [
   },
   {
     q: 'Can I share receipts via WhatsApp?',
-    a: 'Yes! WhatsApp sharing is available on all paid plans. Your customers receive professional receipts and invoices directly on WhatsApp with a single tap.',
+    a: 'Yes! Your customers will receive professional receipts and invoices directly on WhatsApp with a single tap.',
   },
   {
     q: 'How does staff management work?',
@@ -218,7 +187,7 @@ export default function LandingPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-sm transition-transform group-hover:scale-105">
               <Store className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold tracking-tight">ShopFlow</span>
+            <span className="text-lg font-bold tracking-tight">IndFlow</span>
           </Link>
 
           <nav className="hidden items-center gap-8 md:flex">
@@ -354,7 +323,7 @@ export default function LandingPage() {
             >
               <Button size="lg" className="h-12 px-8 text-base font-semibold shadow-lg shadow-primary/25" asChild>
                 <Link href="/register">
-                  Start Free Trial
+                  Get Started
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
@@ -376,7 +345,7 @@ export default function LandingPage() {
                   <div className="h-3 w-3 rounded-full bg-warning/80" />
                   <div className="h-3 w-3 rounded-full bg-success/80" />
                   <div className="ml-4 flex-1 rounded-md bg-muted px-3 py-1 text-left text-xs text-muted-foreground">
-                    shopflow.app/dashboard
+                    indflow.app/dashboard
                   </div>
                 </div>
                 <div className="grid grid-cols-5 gap-px bg-border">
@@ -489,76 +458,13 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Pricing */}
-        <section id="pricing" className="relative px-4 py-24 sm:py-32">
-          <div className="mx-auto max-w-7xl">
-            <SectionHeading
-              label="Pricing"
-              title="Simple, transparent pricing"
-              description="No hidden fees. Start free and upgrade as you grow."
-            />
-
-            <div className="grid gap-8 lg:grid-cols-3 lg:gap-6">
-              {tiers.map((tier, i) => (
-                <FadeInUp key={tier.name} delay={i * 0.1}>
-                  <Card
-                    className={cn(
-                      'relative flex h-full flex-col',
-                      tier.popular
-                        ? 'border-primary shadow-xl ring-1 ring-primary'
-                        : 'shadow-md'
-                    )}
-                  >
-                    {tier.popular && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <Badge className="px-4 py-1 text-xs font-semibold uppercase tracking-wider shadow-lg">
-                          Most Popular
-                        </Badge>
-                      </div>
-                    )}
-                    <CardHeader>
-                      <CardTitle className="text-xl">{tier.name}</CardTitle>
-                      <div className="mt-2 flex items-baseline gap-1">
-                        <span className="text-4xl font-extrabold tracking-tight">{tier.price}</span>
-                        <span className="text-sm text-muted-foreground">{tier.period}</span>
-                      </div>
-                      <CardDescription className="mt-2">{tier.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-1">
-                      <ul className="space-y-3">
-                        {tier.features.map((feat) => (
-                          <li key={feat} className="flex items-start gap-3 text-sm">
-                            <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                              <Check className="h-3 w-3 text-primary" />
-                            </div>
-                            <span>{feat}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                    <CardFooter>
-                      <Button
-                        className={cn('w-full shadow-lg', tier.popular ? 'shadow-primary/25' : '')}
-                        variant={tier.popular ? 'default' : 'outline'}
-                        asChild
-                      >
-                        <Link href="/register">{tier.cta}</Link>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                </FadeInUp>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* FAQ */}
         <section id="faq" className="relative border-t px-4 py-24 sm:py-32">
           <div className="mx-auto max-w-3xl">
             <SectionHeading
               label="FAQ"
               title="Frequently asked questions"
-              description="Everything you need to know about ShopFlow."
+              description="Everything you need to know about IndFlow."
             />
 
             <div className="space-y-3">
@@ -614,7 +520,7 @@ export default function LandingPage() {
                   Ready to transform your business?
                 </CardTitle>
                 <CardDescription className="mt-4 text-lg text-primary-foreground/80">
-                  Join thousands of shops already using ShopFlow. Start your free trial today.
+                  Join thousands of shops already using IndFlow. Get started today.
                 </CardDescription>
               </CardHeader>
               <CardContent className="relative mt-8 p-0">
@@ -644,7 +550,7 @@ export default function LandingPage() {
                   </Button>
                 </form>
                 <p className="mt-4 text-center text-xs text-primary-foreground/60">
-                  No credit card required. Free plan available forever.
+                  Contact us to get started with IndFlow today.
                 </p>
               </CardContent>
             </Card>
@@ -660,12 +566,11 @@ export default function LandingPage() {
               <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary shadow-sm">
                 <Store className="h-3.5 w-3.5 text-primary-foreground" />
               </div>
-              <span className="text-base font-bold tracking-tight">ShopFlow</span>
+              <span className="text-base font-bold tracking-tight">IndFlow</span>
             </Link>
 
             <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
               <Link href="#features" className="transition-colors hover:text-foreground">Features</Link>
-              <Link href="#pricing" className="transition-colors hover:text-foreground">Pricing</Link>
               <Link href="#faq" className="transition-colors hover:text-foreground">FAQ</Link>
               <Link href="#contact" className="transition-colors hover:text-foreground">Contact</Link>
               <Link href="/privacy" className="transition-colors hover:text-foreground">Privacy</Link>
@@ -673,7 +578,7 @@ export default function LandingPage() {
             </div>
 
             <p className="text-sm text-muted-foreground">
-              &copy; {new Date().getFullYear()} ShopFlow. All rights reserved.
+              &copy; {new Date().getFullYear()} IndFlow. All rights reserved.
             </p>
           </div>
         </div>

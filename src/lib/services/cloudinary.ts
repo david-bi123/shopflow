@@ -8,7 +8,7 @@ cloudinary.config({
 
 export async function uploadImage(
   file: string,
-  folder = 'shopflow'
+  folder = 'indflow'
 ): Promise<{ url: string; publicId: string }> {
   const result = await cloudinary.uploader.upload(file, {
     folder,

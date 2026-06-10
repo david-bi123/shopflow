@@ -1,4 +1,4 @@
-export const SHOPFLOW_NAME = 'ShopFlow'
+export const APP_NAME = 'IndFlow'
 export const SHOPFLOW_DESCRIPTION = 'Modern business management platform for retail shops and SMEs'
 
 export const PAGINATION_LIMIT = 20

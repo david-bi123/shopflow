@@ -58,7 +58,7 @@ export function Navbar({ title }: NavbarProps) {
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
           <Store className="h-3.5 w-3.5 text-primary" />
         </div>
-        <span className="text-sm font-semibold">ShopFlow</span>
+        <span className="text-sm font-semibold">IndFlow</span>
       </div>
 
       {/* Page title / breadcrumb */}

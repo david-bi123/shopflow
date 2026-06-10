@@ -33,7 +33,7 @@ export default function PendingApprovalPage() {
               <span>Need help? Contact support</span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              support@shopflow.com &middot; (555) 123-4567
+              support@indflow.com &middot; (555) 123-4567
             </p>
           </div>
         </CardContent>

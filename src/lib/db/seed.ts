@@ -38,14 +38,14 @@ async function seed() {
   const now = new Date().toISOString()
   await db.insert(users).values({
     name: 'Super Admin',
-    email: 'super@shopflow.com',
+    email: 'super@indflow.com',
     password: await bcrypt.hash('Admin123!', 12),
     role: 'super_admin',
     status: 'active',
     createdAt: now,
     updatedAt: now,
   })
-  const [superAdmin] = await db.select().from(users).where(eq(users.email, 'super@shopflow.com')).limit(1)
+  const [superAdmin] = await db.select().from(users).where(eq(users.email, 'super@indflow.com')).limit(1)
 
   const shopData = [
     { name: "Alice's Boutique", slug: 'alices-boutique', currency: 'USD', timezone: 'America/New_York' },
@@ -107,7 +107,7 @@ async function seed() {
       tenantId: tenant.id,
       name: faker.person.fullName(),
       email: ownerEmails[i],
-      password: await bcrypt.hash('ShopFlow123!', 12),
+      password: await bcrypt.hash('IndFlow123!', 12),
       role: 'owner',
       status: 'active',
       createdAt: ts,
@@ -120,7 +120,7 @@ async function seed() {
       tenantId: tenant.id,
       name: faker.person.fullName(),
       email: faker.internet.email(),
-      password: await bcrypt.hash('ShopFlow123!', 12),
+      password: await bcrypt.hash('IndFlow123!', 12),
       role: 'admin',
       status: 'active',
       createdAt: ts,
@@ -131,7 +131,7 @@ async function seed() {
       tenantId: tenant.id,
       name: faker.person.fullName(),
       email: faker.internet.email(),
-      password: await bcrypt.hash('ShopFlow123!', 12),
+      password: await bcrypt.hash('IndFlow123!', 12),
       role: 'staff',
       status: 'active',
       createdAt: ts,

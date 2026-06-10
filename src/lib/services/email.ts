@@ -12,7 +12,7 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
   if (!process.env.RESEND_API_KEY) return
 
   await resend.emails.send({
-    from: 'ShopFlow <noreply@shopflow.com>',
+    from: 'IndFlow <noreply@indflow.com>',
     to,
     subject,
     html,
@@ -42,7 +42,7 @@ export async function sendInvoiceEmail(params: {
 
   await sendEmail({
     to: params.to,
-    subject: `Invoice #${params.invoiceNumber} from ShopFlow`,
+    subject: `Invoice #${params.invoiceNumber} from IndFlow`,
     html,
   })
 }

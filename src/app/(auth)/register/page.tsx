@@ -147,7 +147,7 @@ export default function RegisterPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
                 <Store className="h-5 w-5" />
               </div>
-              <span className="text-xl font-bold tracking-tight">ShopFlow</span>
+              <span className="text-xl font-bold tracking-tight">IndFlow</span>
             </motion.div>
 
             <Badge variant="outline" className="mb-4 border-white/20 bg-white/10 text-white backdrop-blur-sm">
@@ -156,7 +156,7 @@ export default function RegisterPage() {
             </Badge>
 
             <h2 className="mb-3 text-2xl font-bold leading-tight tracking-tight">
-              Why ShopFlow?
+              Why IndFlow?
             </h2>
             <p className="mb-6 text-sm leading-relaxed text-white/80">
               Everything you need to run your online store like a pro.
@@ -184,7 +184,7 @@ export default function RegisterPage() {
           {/* Bottom quote */}
           <div className="relative mt-10 border-t border-white/10 pt-6">
             <p className="text-xs leading-relaxed text-white/60">
-              &quot;ShopFlow transformed how we manage our inventory. The analytics alone saved us hours every week.&quot;
+              &quot;IndFlow transformed how we manage our inventory. The analytics alone saved us hours every week.&quot;
             </p>
             <p className="mt-2 text-xs font-medium text-white/80">— Sarah K., Store Owner</p>
           </div>

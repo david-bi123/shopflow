@@ -171,7 +171,7 @@ export default function DashboardPage() {
             Welcome back{session?.user?.name ? `, ${session.user.name}` : ''}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {stats?.shopName ?? 'ShopFlow'} &mdash; here&apos;s your overview today
+            {stats?.shopName ?? 'IndFlow'} &mdash; here&apos;s your overview today
           </p>
         </div>
       </div>

@@ -1,15 +1,15 @@
-# ShopFlow — Auth Test Logins
+# IndFlow — Auth Test Logins
 
 These accounts are created by the seed script (`src/lib/db/seed.ts`) and use NextAuth Credentials auth (`src/lib/auth/auth.ts`).
 
 ## Super Admin
-- **Email:** `super@shopflow.com`
+- **Email:** `super@indflow.com`
 - **Password:** `Admin123!`
 
 ## Shop Owners (Multi-tenant owners)
-- **Email:** `owner@alice.com` — **Password:** `ShopFlow123!`
-- **Email:** `owner@bob.com` — **Password:** `ShopFlow123!`
-- **Email:** `owner@charlie.com` — **Password:** `ShopFlow123!`
+- **Email:** `owner@alice.com` — **Password:** `IndFlow123!`
+- **Email:** `owner@bob.com` — **Password:** `IndFlow123!`
+- **Email:** `owner@charlie.com` — **Password:** `IndFlow123!`
 
 ## Admin / Staff
 During seeding, **Admin** and **Staff** user emails are generated using Faker, so they are **not deterministic**.

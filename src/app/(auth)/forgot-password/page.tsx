@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm">
               <Sparkles className="h-4 w-4 text-white" />
             </div>
-            <span className="text-lg font-bold text-white">ShopFlow</span>
+            <span className="text-lg font-bold text-white">IndFlow</span>
           </Link>
         </div>
         <div className="relative space-y-8">
@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
           </div>
         </div>
         <div className="relative text-sm text-white/60">
-          &copy; {new Date().getFullYear()} ShopFlow. All rights reserved.
+          &copy; {new Date().getFullYear()} IndFlow. All rights reserved.
         </div>
       </div>
 

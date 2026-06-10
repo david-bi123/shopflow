@@ -4,7 +4,7 @@ const tidbHost = process.env.TIDB_HOST || '127.0.0.1'
 const tidbPort = process.env.TIDB_PORT || '4000'
 const tidbUser = process.env.TIDB_USER || 'root'
 const tidbPassword = process.env.TIDB_PASSWORD || ''
-const tidbDatabase = process.env.TIDB_DATABASE || 'shopflow'
+const tidbDatabase = process.env.TIDB_DATABASE || 'indflow'
 
 export default defineConfig({
   schema: './src/lib/db/schema/index.ts',
