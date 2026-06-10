@@ -112,7 +112,15 @@ export async function login(formData: FormData) {
   const db = await dbConnect()
 
   const [user] = await db.select().from(users).where(eq(users.email, raw.email)).limit(1)
-  if (!user || !user.tenantId) {
+  if (!user) {
+    return { error: 'Invalid email or password' }
+  }
+
+  if (user.role === 'super_admin') {
+    return { redirectTo: '/admin' }
+  }
+
+  if (!user.tenantId) {
     return { error: 'Invalid email or password' }
   }
 
