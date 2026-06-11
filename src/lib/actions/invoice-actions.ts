@@ -11,7 +11,7 @@ import { getNextInvoiceNumber } from '@/lib/services/counter'
 import { createAuditLog } from '@/lib/services/audit'
 import { createNotification } from '@/lib/services/notification'
 import { createInvoiceSchema, updateInvoiceStatusSchema } from '@/lib/validations/invoice'
-import type { CreateInvoiceInput, InvoiceStatus } from '@/lib/validations/invoice'
+import type { CreateInvoiceInput, InvoiceStatus, Invoice } from '@/lib/validations/invoice'
 
 export async function createInvoice(data: CreateInvoiceInput) {
   const session = await auth()
@@ -26,6 +26,14 @@ export async function createInvoice(data: CreateInvoiceInput) {
   const createdBy = toNum(session.user.id)
   const invoiceNumber = await getNextInvoiceNumber(tenantId)
 
+  // Recalculate totals server-side for security
+  const items = validated.data.items.map(item => ({
+    ...item,
+    subtotal: Math.round(item.quantity * item.price * 100) / 100,
+  }))
+  const calculatedSubtotal = items.reduce((sum, i) => sum + i.subtotal, 0)
+  const calculatedTotal = calculatedSubtotal - validated.data.discount + validated.data.tax
+
   const result = await db.insert(invoices).values({
     tenantId,
     invoiceNumber,
@@ -34,11 +42,11 @@ export async function createInvoice(data: CreateInvoiceInput) {
     customerEmail: data.customerEmail || null,
     customerPhone: data.customerPhone || null,
     customerAddress: data.customerAddress || null,
-    items: data.items,
-    subtotal: data.subtotal,
-    discount: data.discount,
-    tax: data.tax,
-    total: data.total,
+    items,
+    subtotal: calculatedSubtotal,
+    discount: validated.data.discount,
+    tax: validated.data.tax,
+    total: calculatedTotal,
     dueDate: new Date(data.dueDate).toISOString(),
     notes: data.notes || null,
     createdBy,
@@ -51,7 +59,7 @@ export async function createInvoice(data: CreateInvoiceInput) {
     await db.update(customers)
       .set({
         totalSales: sql`total_sales + 1`,
-        totalRevenue: sql`total_revenue + ${data.total}`,
+        totalRevenue: sql`total_revenue + ${calculatedTotal}`,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(customers.id, toNum(data.customerId)))
@@ -64,7 +72,7 @@ export async function createInvoice(data: CreateInvoiceInput) {
     entityId: String(invoice.id),
     performedBy: createdBy,
     performedByName: session.user.name || 'Unknown',
-    details: { invoiceNumber, total: data.total },
+    details: { invoiceNumber, total: calculatedTotal },
   })
 
   await createNotification({
@@ -295,8 +303,6 @@ export async function deleteInvoice(id: string) {
   revalidatePath('/invoices')
   return { success: true }
 }
-
-import { Invoice } from '@/lib/validations/invoice'
 
 export async function getInvoiceByNumber(invoiceNumber: string) {
   const db = await dbConnect()

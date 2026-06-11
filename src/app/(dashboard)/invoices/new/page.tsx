@@ -61,7 +61,16 @@ export default function NewInvoicePage() {
   const onSubmit = async (data: FormValues) => {
     setSubmitting(true)
     try {
-      await createInvoice(data)
+      const calculatedSubtotal = items.reduce(
+        (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
+        0
+      )
+      const calculatedTotal = calculatedSubtotal - Number(discount) + Number(tax)
+      await createInvoice({
+        ...data,
+        subtotal: calculatedSubtotal,
+        total: calculatedTotal,
+      })
       toast.success('Invoice created successfully')
       router.push('/invoices')
     } catch {

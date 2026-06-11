@@ -82,7 +82,16 @@ export default function NewSalePage() {
   const onSubmit = async (data: FormValues) => {
     setSubmitting(true)
     try {
-      await createSale(data)
+      const calculatedSubtotal = items.reduce(
+        (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
+        0
+      )
+      const calculatedTotal = calculatedSubtotal - Number(discount) + Number(tax)
+      await createSale({
+        ...data,
+        subtotal: calculatedSubtotal,
+        total: calculatedTotal,
+      })
       toast.success('Sale created successfully')
       router.push('/sales')
     } catch {

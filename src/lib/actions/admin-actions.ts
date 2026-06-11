@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
 import { tenants, users, sales, invoices, announcements } from '@/lib/db/schema'
-import { eq, desc, count, isNotNull } from 'drizzle-orm'
+import { eq, desc, count } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
 

@@ -23,6 +23,14 @@ export async function createSale(data: CreateSaleInput) {
 
   const db = await dbConnect()
 
+  // Recalculate totals server-side for security
+  const items = validated.data.items.map(item => ({
+    ...item,
+    subtotal: Math.round(item.quantity * item.price * 100) / 100,
+  }))
+  const calculatedSubtotal = items.reduce((sum, i) => sum + i.subtotal, 0)
+  const calculatedTotal = calculatedSubtotal - validated.data.discount + validated.data.tax
+
   const saleNumber = await getNextSaleNumber(toNum(session.user.tenantId!))
 
   const result = await db.insert(sales).values({
@@ -31,12 +39,12 @@ export async function createSale(data: CreateSaleInput) {
     customerName: data.customerName || undefined,
     customerPhone: data.customerPhone || undefined,
     customerId: data.customerId ? toNum(data.customerId) : undefined,
-    items: data.items,
-    subtotal: data.subtotal,
-    discount: data.discount ?? 0,
-    tax: data.tax ?? 0,
-    total: data.total,
-    paymentMethod: data.paymentMethod,
+    items,
+    subtotal: calculatedSubtotal,
+    discount: validated.data.discount ?? 0,
+    tax: validated.data.tax ?? 0,
+    total: calculatedTotal,
+    paymentMethod: validated.data.paymentMethod,
     notes: data.notes || undefined,
     createdBy: toNum(session.user.id),
     createdAt: new Date().toISOString(),
@@ -47,7 +55,7 @@ export async function createSale(data: CreateSaleInput) {
   if (data.customerId) {
     await db.update(customers).set({
       totalSales: sql`${customers.totalSales} + 1`,
-      totalRevenue: sql`${customers.totalRevenue} + ${data.total}`,
+      totalRevenue: sql`${customers.totalRevenue} + ${calculatedTotal}`,
     }).where(eq(customers.id, toNum(data.customerId)))
   }
 
@@ -62,7 +70,7 @@ export async function createSale(data: CreateSaleInput) {
     if (existing) {
       await db.update(customers).set({
         totalSales: sql`${customers.totalSales} + 1`,
-        totalRevenue: sql`${customers.totalRevenue} + ${data.total}`,
+        totalRevenue: sql`${customers.totalRevenue} + ${calculatedTotal}`,
       }).where(eq(customers.id, existing.id))
     }
   }
@@ -74,7 +82,7 @@ export async function createSale(data: CreateSaleInput) {
     entityId: String(sale.id),
     performedBy: toNum(session.user.id),
     performedByName: session.user.name || 'Unknown',
-    details: { saleNumber, total: data.total },
+    details: { saleNumber, total: calculatedTotal },
   })
 
   await createNotification({

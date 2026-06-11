@@ -5,7 +5,6 @@ import { sales, invoices, users, customers, auditLogs, settings } from '@/lib/db
 import { eq, and, inArray, desc, asc, gte, lte, count, sql } from 'drizzle-orm'
 import { toNum, serializeList } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
-import { hasPermission, PERMISSIONS } from '@/lib/auth/roles'
 
 export async function getDashboardStats() {
   const session = await auth()
