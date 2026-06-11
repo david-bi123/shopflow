@@ -32,15 +32,24 @@ import {
 import { CURRENCIES, TIMEZONES, PAYMENT_METHODS } from '@/lib/utils/constants'
 import { formatCurrency } from '@/lib/utils/format'
 
+interface TaxLine {
+  name: string
+  rate: number
+  enabled: boolean
+}
+
 interface Settings {
   storeName: string
   storePhone: string
   storeEmail: string
   storeAddress: string
+  storeDescription?: string | null
+  taxNumber?: string | null
   logo: string | null
   currency: string
   timezone: string
   taxRate: number
+  taxes: TaxLine[]
   receiptFooter: string
   showLogoOnReceipt: boolean
   showQrOnReceipt: boolean
@@ -52,10 +61,17 @@ const defaultSettings: Settings = {
   storePhone: '',
   storeEmail: '',
   storeAddress: '',
+  storeDescription: '',
+  taxNumber: '',
   logo: null,
   currency: 'GHS',
   timezone: 'UTC',
   taxRate: 0,
+  taxes: [
+    { name: 'VAT', rate: 15, enabled: true },
+    { name: 'NHIS', rate: 2.5, enabled: false },
+    { name: 'GET Fund', rate: 2.5, enabled: false },
+  ],
   receiptFooter: 'Thank you for your business!',
   showLogoOnReceipt: true,
   showQrOnReceipt: true,
@@ -190,7 +206,7 @@ export default function SettingsPage() {
         <CardContent className="space-y-4 pt-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="storeName">Store Name</Label>
+              <Label htmlFor="storeName">Store Name *</Label>
               <Input
                 id="storeName"
                 value={settings.storeName}
@@ -199,12 +215,35 @@ export default function SettingsPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="taxNumber">Tax / GRA ID</Label>
+              <Input
+                id="taxNumber"
+                value={settings.taxNumber ?? ''}
+                onChange={(e) => setSettings({ ...settings, taxNumber: e.target.value })}
+                placeholder="TIN-0001234567"
+              />
+              <p className="text-[11px] text-muted-foreground">Printed on every invoice</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="storeDescription">Description</Label>
+            <Textarea
+              id="storeDescription"
+              value={settings.storeDescription ?? ''}
+              onChange={(e) => setSettings({ ...settings, storeDescription: e.target.value })}
+              placeholder="e.g. Trendy women’s fashion & accessories, Est. 2018"
+              rows={2}
+            />
+            <p className="text-[11px] text-muted-foreground">Shown under the store name on receipts</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
               <Label htmlFor="storePhone">Phone</Label>
               <Input
                 id="storePhone"
                 value={settings.storePhone}
                 onChange={(e) => setSettings({ ...settings, storePhone: e.target.value })}
-                placeholder="+233 ..."
+                placeholder="+233 24 555 0101"
               />
             </div>
             <div className="space-y-2">
@@ -217,15 +256,16 @@ export default function SettingsPage() {
                 placeholder="store@example.com"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="storeAddress">Address</Label>
-              <Input
-                id="storeAddress"
-                value={settings.storeAddress}
-                onChange={(e) => setSettings({ ...settings, storeAddress: e.target.value })}
-                placeholder="123 Main St, Accra"
-              />
-            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="storeAddress">Address</Label>
+            <Textarea
+              id="storeAddress"
+              value={settings.storeAddress}
+              onChange={(e) => setSettings({ ...settings, storeAddress: e.target.value })}
+              placeholder="21 Oxford Street, Osu, Accra, Ghana"
+              rows={2}
+            />
           </div>
         </CardContent>
       </Card>
@@ -298,22 +338,52 @@ export default function SettingsPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4 pt-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="taxRate">Tax Rate (%)</Label>
-              <Input
-                id="taxRate"
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                value={settings.taxRate}
-                onChange={(e) =>
-                  setSettings({ ...settings, taxRate: parseFloat(e.target.value) || 0 })
-                }
-              />
-              <p className="text-xs text-muted-foreground">Applied to all sales and invoices</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Tax Lines</Label>
+              <span className="text-xs text-muted-foreground">Toggle to enable per-transaction</span>
             </div>
+            <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+              {(settings.taxes ?? []).map((t, idx) => (
+                <div
+                  key={t.name}
+                  className="flex flex-col gap-2 rounded-md border bg-card p-3 sm:flex-row sm:items-center"
+                >
+                  <Switch
+                    checked={t.enabled}
+                    onCheckedChange={(v) => {
+                      const next = [...(settings.taxes ?? [])]
+                      next[idx] = { ...t, enabled: v }
+                      setSettings({ ...settings, taxes: next })
+                    }}
+                    aria-label={`Toggle ${t.name}`}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{t.name}</p>
+                    <p className="text-[11px] text-muted-foreground">Ghana Revenue Authority levy</p>
+                  </div>
+                  <div className="relative w-28">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      className="h-9 pr-7 text-right text-sm"
+                      value={t.rate}
+                      onChange={(e) => {
+                        const next = [...(settings.taxes ?? [])]
+                        next[idx] = { ...t, rate: parseFloat(e.target.value) || 0 }
+                        setSettings({ ...settings, taxes: next })
+                      }}
+                    />
+                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Defaults: VAT 15%, NHIS 2.5%, GET Fund 2.5%. Add or edit more here.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="receiptFooter">Receipt Footer Message</Label>

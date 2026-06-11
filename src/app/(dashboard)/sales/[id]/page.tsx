@@ -380,19 +380,34 @@ export default function SaleDetailPage() {
             </div>
             {sale.discount > 0 && (
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Discount</span>
+                <span className="text-muted-foreground">
+                  Discount{sale.discountPercent > 0 ? ` (${sale.discountPercent.toFixed(2)}%)` : ''}
+                </span>
                 <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
                   −{formatCurrency(sale.discount)}
                 </span>
               </div>
             )}
-            {sale.tax > 0 && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Tax</span>
-                <span className="font-medium tabular-nums text-foreground">
-                  +{formatCurrency(sale.tax)}
-                </span>
-              </div>
+            {sale.taxItems && sale.taxItems.length > 0 ? (
+              sale.taxItems.map((t) => (
+                <div key={t.name} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
+                  </span>
+                  <span className="font-medium tabular-nums text-foreground">
+                    +{formatCurrency(t.amount)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              sale.tax > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span className="font-medium tabular-nums text-foreground">
+                    +{formatCurrency(sale.tax)}
+                  </span>
+                </div>
+              )
             )}
             <Separator className="my-2" />
             <div className="flex items-baseline justify-between rounded-xl bg-primary/5 p-3 ring-1 ring-inset ring-primary/10">

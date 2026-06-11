@@ -92,6 +92,11 @@ export default async function PublicInvoicePage({
                   <Store className="h-6 w-6 text-primary" />
                 </div>
                 <h1 className="text-xl font-bold tracking-tight text-foreground">{tenant.name}</h1>
+                {tenant.description && (
+                  <p className="mt-1 text-xs italic text-muted-foreground">
+                    {tenant.description}
+                  </p>
+                )}
                 <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                   {tenant.address && (
                     <div className="flex items-center gap-1.5">
@@ -109,6 +114,11 @@ export default async function PublicInvoicePage({
                     <div className="flex items-center gap-1.5">
                       <Mail className="h-3 w-3 shrink-0" />
                       <span>{tenant.email}</span>
+                    </div>
+                  )}
+                  {tenant.taxNumber && (
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium">
+                      <span>Tax ID: {tenant.taxNumber}</span>
                     </div>
                   )}
                 </div>
@@ -218,17 +228,30 @@ export default async function PublicInvoicePage({
               </div>
               {invoice.discount > 0 && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Discount</span>
+                  <span>
+                    Discount{invoice.discountPercent > 0 ? ` (${invoice.discountPercent.toFixed(2)}%)` : ''}
+                  </span>
                   <span className="tabular-nums text-emerald-600 dark:text-emerald-400">
                     −{formatCurrency(invoice.discount, currency)}
                   </span>
                 </div>
               )}
-              {invoice.tax > 0 && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Tax</span>
-                  <span className="tabular-nums">{formatCurrency(invoice.tax, currency)}</span>
-                </div>
+              {invoice.taxItems && invoice.taxItems.length > 0 ? (
+                invoice.taxItems.map((t) => (
+                  <div key={t.name} className="flex justify-between text-muted-foreground">
+                    <span>
+                      {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
+                    </span>
+                    <span className="tabular-nums">{formatCurrency(t.amount, currency)}</span>
+                  </div>
+                ))
+              ) : (
+                invoice.tax > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Tax</span>
+                    <span className="tabular-nums">{formatCurrency(invoice.tax, currency)}</span>
+                  </div>
+                )
               )}
               <div className="flex items-baseline justify-between border-t border-border/60 pt-2.5">
                 <span className="text-sm font-semibold text-foreground">Total Due</span>

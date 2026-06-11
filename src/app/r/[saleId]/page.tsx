@@ -24,7 +24,9 @@ export default async function PublicReceiptPage({
     notes?: string | null
     createdAt: string
     currency?: string
-    tenant?: { name: string; slug: string; phone?: string; email?: string; address?: string }
+    discountPercent?: number
+    taxItems?: Array<{ name: string; rate: number; amount: number }>
+    tenant?: { name: string; slug: string; phone?: string; email?: string; address?: string; description?: string; taxNumber?: string }
   }) | null
 
   if (!sale) {
@@ -81,23 +83,31 @@ export default async function PublicReceiptPage({
                 <Store className="h-6 w-6 text-primary" />
               </div>
               <h1 className="text-lg font-bold tracking-tight text-foreground">{tenant.name}</h1>
+              {tenant.description && (
+                <p className="mt-0.5 text-[11px] italic text-muted-foreground">
+                  {tenant.description}
+                </p>
+              )}
               <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 Official Receipt
               </p>
-              {(tenant.address || tenant.phone) && (
-                <div className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
-                  {tenant.address && (
-                    <p className="flex items-center justify-center gap-1">
-                      <MapPin className="h-3 w-3" /> {tenant.address}
-                    </p>
-                  )}
-                  {tenant.phone && (
-                    <p className="flex items-center justify-center gap-1">
-                      <Phone className="h-3 w-3" /> {tenant.phone}
-                    </p>
-                  )}
-                </div>
-              )}
+              <div className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
+                {tenant.address && (
+                  <p className="flex items-center justify-center gap-1">
+                    <MapPin className="h-3 w-3" /> {tenant.address}
+                  </p>
+                )}
+                {tenant.phone && (
+                  <p className="flex items-center justify-center gap-1">
+                    <Phone className="h-3 w-3" /> {tenant.phone}
+                  </p>
+                )}
+                {tenant.taxNumber && (
+                  <p className="flex items-center justify-center gap-1 text-[10px] font-medium">
+                    Tax ID: {tenant.taxNumber}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -163,19 +173,32 @@ export default async function PublicReceiptPage({
               <span>Subtotal</span>
               <span className="tabular-nums">{formatCurrency(sale.subtotal, currency)}</span>
             </div>
-            {sale.discount > 0 && (
-              <div className="flex justify-between text-muted-foreground">
-                <span>Discount</span>
-                <span className="tabular-nums text-emerald-600 dark:text-emerald-400">
-                  −{formatCurrency(sale.discount, currency)}
-                </span>
-              </div>
-            )}
-            {sale.tax > 0 && (
-              <div className="flex justify-between text-muted-foreground">
-                <span>Tax</span>
-                <span className="tabular-nums">{formatCurrency(sale.tax, currency)}</span>
-              </div>
+              {sale.discount > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>
+                    Discount{(sale.discountPercent ?? 0) > 0 ? ` (${(sale.discountPercent ?? 0).toFixed(2)}%)` : ''}
+                  </span>
+                  <span className="tabular-nums text-emerald-600 dark:text-emerald-400">
+                    −{formatCurrency(sale.discount, currency)}
+                  </span>
+                </div>
+              )}
+            {sale.taxItems && sale.taxItems.length > 0 ? (
+              sale.taxItems.map((t) => (
+                <div key={t.name} className="flex justify-between text-muted-foreground">
+                  <span>
+                    {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
+                  </span>
+                  <span className="tabular-nums">{formatCurrency(t.amount, currency)}</span>
+                </div>
+              ))
+            ) : (
+              sale.tax > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Tax</span>
+                  <span className="tabular-nums">{formatCurrency(sale.tax, currency)}</span>
+                </div>
+              )
             )}
             <div className="flex items-baseline justify-between border-t border-border/60 pt-2.5">
               <span className="text-sm font-semibold text-foreground">Total</span>
