@@ -160,7 +160,7 @@ export default function CustomerDetailPage({
       const { deleteCustomer } = await import('@/lib/actions/customer-actions')
       await deleteCustomer(id)
       toast.success('Customer deleted')
-      router.push('/dashboard/customers')
+      router.push('/customers')
     } catch {
       toast.error('Failed to delete customer')
     }
@@ -184,7 +184,7 @@ export default function CustomerDetailPage({
         <AlertCircle className="mb-4 h-12 w-12 text-destructive" />
         <h2 className="mb-2 text-xl font-semibold">Customer not found</h2>
         <p className="mb-4 text-muted-foreground">{error ?? 'The customer does not exist'}</p>
-        <Button onClick={() => router.push('/dashboard/customers')}>Go Back</Button>
+        <Button onClick={() => router.push('/customers')}>Go Back</Button>
       </div>
     )
   }
@@ -367,7 +367,7 @@ export default function CustomerDetailPage({
                       <TableRow
                         key={sale.id}
                         className="cursor-pointer"
-                        onClick={() => router.push(`/dashboard/sales/${sale.id}`)}
+                        onClick={() => router.push(`/sales/${sale.id}`)}
                       >
                         <TableCell className="font-medium">{sale.saleNumber}</TableCell>
                         <TableCell>{formatDate(sale.createdAt)}</TableCell>
@@ -416,7 +416,7 @@ export default function CustomerDetailPage({
                       <TableRow
                         key={inv.id}
                         className="cursor-pointer"
-                        onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}
+                        onClick={() => router.push(`/invoices/${inv.id}`)}
                       >
                         <TableCell className="font-medium">{inv.invoiceNumber}</TableCell>
                         <TableCell>{formatDate(inv.createdAt)}</TableCell>

@@ -29,7 +29,7 @@ export async function createCustomer(data: CreateCustomerInput) {
   })
   const [customer] = await db.select().from(customers).where(eq(customers.id, result[0].insertId))
 
-  revalidatePath('/dashboard/customers')
+  revalidatePath('/customers')
   return { success: true, customer: serializeRow(customer) }
 }
 
@@ -130,7 +130,7 @@ export async function updateCustomer(id: string, data: Partial<CreateCustomerInp
 
   if (!customer) return { error: 'Customer not found' }
 
-  revalidatePath('/dashboard/customers')
+  revalidatePath('/customers')
   return { success: true, customer: serializeRow(customer) }
 }
 
@@ -148,6 +148,6 @@ export async function deleteCustomer(id: string) {
 
   if (!customer) return { error: 'Customer not found' }
 
-  revalidatePath('/dashboard/customers')
+  revalidatePath('/customers')
   return { success: true }
 }

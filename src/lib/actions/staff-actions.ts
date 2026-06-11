@@ -58,7 +58,7 @@ export async function inviteStaff(data: InviteStaffInput) {
     details: { staffName: data.name, staffEmail: data.email, role: data.role },
   })
 
-  revalidatePath('/dashboard/staff')
+  revalidatePath('/staff')
   return { success: true, tempPassword }
 }
 
@@ -130,7 +130,7 @@ export async function updateStaff(id: string, data: any) {
 
   if (!staff) return { error: 'Staff member not found' }
 
-  revalidatePath('/dashboard/staff')
+  revalidatePath('/staff')
   return { success: true, staff: serializeRow(staff) }
 }
 
@@ -168,6 +168,6 @@ export async function deleteStaff(id: string) {
     details: { staffName: staff.name },
   })
 
-  revalidatePath('/dashboard/staff')
+  revalidatePath('/staff')
   return { success: true }
 }

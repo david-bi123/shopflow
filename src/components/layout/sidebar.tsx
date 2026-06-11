@@ -45,19 +45,19 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Sales", href: "/dashboard/sales", icon: Receipt },
-  { label: "Invoices", href: "/dashboard/invoices", icon: FileText },
-  { label: "Customers", href: "/dashboard/customers", icon: Users },
+  { label: "Sales", href: "/sales", icon: Receipt },
+  { label: "Invoices", href: "/invoices", icon: FileText },
+  { label: "Customers", href: "/customers", icon: Users },
   {
     label: "Staff",
-    href: "/dashboard/staff",
+    href: "/staff",
     icon: UserCog,
     permission: PERMISSIONS.staff.read,
   },
-  { label: "Reports", href: "/dashboard/reports", icon: BarChart3 },
-  { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
-  { label: "Activity", href: "/dashboard/activity", icon: Activity },
+  { label: "Reports", href: "/reports", icon: BarChart3 },
+  { label: "Notifications", href: "/notifications", icon: Bell },
+  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Activity", href: "/activity", icon: Activity },
 ]
 
 function SidebarContent() {

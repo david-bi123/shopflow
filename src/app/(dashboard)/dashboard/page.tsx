@@ -304,7 +304,7 @@ export default function DashboardPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Recent Activity</CardTitle>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/activity">
+            <Link href="/activity">
               <Activity className="mr-1 h-4 w-4" />
               View All
             </Link>

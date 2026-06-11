@@ -98,7 +98,7 @@ export async function updateSettings(data: UpdateSettingsInput) {
     performedByName: session.user.name || 'Unknown',
   })
 
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/settings')
   return { success: true, settings: serializeRow(settings) }
 }
 

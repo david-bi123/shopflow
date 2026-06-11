@@ -86,7 +86,7 @@ export async function createSale(data: CreateSaleInput) {
     link: `/sales/${sale.id}`,
   })
 
-  revalidatePath('/dashboard/sales')
+  revalidatePath('/sales')
   return { success: true, sale: serializeRow(sale) }
 }
 
@@ -181,7 +181,7 @@ export async function deleteSale(id: string) {
     details: { saleNumber: sale.saleNumber },
   })
 
-  revalidatePath('/dashboard/sales')
+  revalidatePath('/sales')
   return { success: true }
 }
 

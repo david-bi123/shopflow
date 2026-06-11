@@ -287,7 +287,7 @@ export default function CustomersPage() {
                   <TableRow
                     key={customer.id}
                     className="cursor-pointer"
-                    onClick={() => router.push(`/dashboard/customers/${customer.id}`)}
+                    onClick={() => router.push(`/customers/${customer.id}`)}
                   >
                     <TableCell className="font-medium">{customer.name}</TableCell>
                     <TableCell>{customer.phone ?? '—'}</TableCell>
@@ -301,7 +301,7 @@ export default function CustomersPage() {
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation()
-                            router.push(`/dashboard/customers/${customer.id}`)
+                            router.push(`/customers/${customer.id}`)
                           }}
                         >
                           <FileText className="h-4 w-4" />

@@ -76,7 +76,7 @@ export async function createInvoice(data: CreateInvoiceInput) {
     link: `/invoices/${invoice.id}`,
   })
 
-  revalidatePath('/dashboard/invoices')
+  revalidatePath('/invoices')
   return { success: true, invoice: serializeRow(invoice as unknown as Record<string, unknown>) as any }
 }
 
@@ -270,7 +270,7 @@ export async function updateInvoiceStatus(id: string, status: string) {
     details: { invoiceNumber: invoice.invoiceNumber, newStatus: validated.data.status },
   })
 
-  revalidatePath('/dashboard/invoices')
+  revalidatePath('/invoices')
   return { success: true, invoice: serializeRow(invoice as unknown as Record<string, unknown>) as any }
 }
 
@@ -292,7 +292,7 @@ export async function deleteInvoice(id: string) {
 
   if (!invoice) return { error: 'Invoice not found' }
 
-  revalidatePath('/dashboard/invoices')
+  revalidatePath('/invoices')
   return { success: true }
 }
 

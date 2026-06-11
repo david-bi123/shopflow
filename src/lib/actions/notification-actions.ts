@@ -61,7 +61,7 @@ export async function markNotificationRead(id: string) {
       eq(notifications.userId, toNum(session.user.id)),
     ))
 
-  revalidatePath('/dashboard/notifications')
+  revalidatePath('/notifications')
   return { success: true }
 }
 
@@ -78,6 +78,6 @@ export async function markAllNotificationsRead() {
       eq(notifications.read, 0),
     ))
 
-  revalidatePath('/dashboard/notifications')
+  revalidatePath('/notifications')
   return { success: true }
 }

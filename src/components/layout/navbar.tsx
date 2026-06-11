@@ -73,10 +73,8 @@ export function Navbar({ title }: NavbarProps) {
       {/* Right actions */}
       <div className="flex items-center gap-1">
         {/* Global Search */}
-        <Button variant="ghost" size="icon" asChild className="hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring">
-          <Link href="/dashboard/search">
-            <Search className="h-5 w-5" />
-          </Link>
+        <Button variant="ghost" size="icon" className="hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring">
+          <Search className="h-5 w-5" />
         </Button>
 
         {/* Theme Toggle */}
@@ -98,7 +96,7 @@ export function Navbar({ title }: NavbarProps) {
           className="relative hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring"
           asChild
         >
-          <Link href="/dashboard/notifications">
+          <Link href="/notifications">
             <Bell className="h-5 w-5" />
             <Badge
               variant="destructive"
@@ -147,13 +145,7 @@ export function Navbar({ title }: NavbarProps) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/dashboard/profile" className="flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard/settings" className="flex items-center gap-2">
+              <Link href="/settings" className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
                 Settings
               </Link>
