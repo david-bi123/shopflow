@@ -90,7 +90,7 @@ function SidebarContent() {
           isCollapsed && !isMobile && "justify-center px-2"
         )}
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/20">
           <Store className="h-4 w-4 text-primary" />
         </div>
         <AnimatePresence mode="wait" initial={false}>
@@ -101,7 +101,7 @@ function SidebarContent() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.15, ease: "easeInOut" }}
-              className="text-lg font-semibold tracking-tight"
+              className="text-lg font-semibold tracking-tight bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text"
             >
               IndFlow
             </motion.span>
@@ -111,7 +111,7 @@ function SidebarContent() {
 
       {/* Nav Items */}
       <ScrollArea className="flex-1 px-2 py-3">
-        <nav className="flex flex-col gap-1">
+        <nav className="flex flex-col gap-0.5">
           {filteredItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
@@ -121,11 +121,10 @@ function SidebarContent() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150",
-                  "hover:bg-accent/60 hover:text-accent-foreground",
-                  !isActive && "text-muted-foreground",
+                  "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                  !isActive && "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground",
                   isActive &&
-                    "bg-accent/70 text-accent-foreground shadow-sm",
+                    "bg-gradient-to-r from-primary/15 via-primary/10 to-transparent text-primary shadow-sm ring-1 ring-inset ring-primary/20",
                   isCollapsed && !isMobile && "justify-center px-2"
                 )}
                 title={isCollapsed && !isMobile ? item.label : undefined}
@@ -135,8 +134,8 @@ function SidebarContent() {
                   <motion.div
                     layoutId="active-nav"
                     className={cn(
-                      "absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-primary",
-                      isCollapsed && !isMobile ? "h-4 w-[2px]" : "h-5 w-[3px]"
+                      "absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-b from-primary to-primary/70 shadow-sm shadow-primary/30",
+                      isCollapsed && !isMobile ? "h-5 w-[3px]" : "h-6 w-1"
                     )}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   />
@@ -144,8 +143,10 @@ function SidebarContent() {
 
                 <Icon
                   className={cn(
-                    "h-5 w-5 shrink-0 transition-colors duration-150",
-                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                    "h-5 w-5 shrink-0 transition-all duration-150",
+                    isActive
+                      ? "text-primary drop-sm"
+                      : "text-muted-foreground group-hover:text-foreground group-hover:scale-110"
                   )}
                 />
                 <AnimatePresence mode="wait" initial={false}>
@@ -162,6 +163,14 @@ function SidebarContent() {
                     </motion.span>
                   )}
                 </AnimatePresence>
+
+                {isActive && (
+                  <motion.div
+                    layoutId="active-glow"
+                    className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-primary/5 via-transparent to-transparent opacity-50"
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  />
+                )}
               </Link>
             )
           })}
@@ -176,7 +185,7 @@ function SidebarContent() {
             size="icon"
             onClick={toggleCollapse}
             className={cn(
-              "transition-all",
+              "hover:bg-accent/50 transition-all",
               isCollapsed ? "mx-auto" : "w-full"
             )}
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -199,9 +208,9 @@ function SidebarContent() {
           isCollapsed && !isMobile && "flex-col"
         )}
       >
-        <Avatar className="h-8 w-8 shrink-0 ring-2 ring-border">
+        <Avatar className="h-8 w-8 shrink-0 ring-2 ring-border/50 ring-offset-1">
           <AvatarImage src={user?.image ?? undefined} />
-          <AvatarFallback className="text-xs font-medium">
+          <AvatarFallback className="text-xs font-medium bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
             {user?.name?.charAt(0)?.toUpperCase() ?? "U"}
           </AvatarFallback>
         </Avatar>
@@ -227,7 +236,7 @@ function SidebarContent() {
           size="icon"
           onClick={() => signOut()}
           title="Sign out"
-          className="shrink-0"
+          className="shrink-0 hover:bg-destructive/10 hover:text-destructive"
         >
           <LogOut className="h-4 w-4" />
         </Button>
@@ -266,7 +275,7 @@ export function Sidebar() {
     <motion.aside
       animate={{ width: isCollapsed ? 64 : 256 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="fixed left-0 top-0 z-30 h-full overflow-hidden border-r bg-background"
+      className="fixed left-0 top-0 z-30 h-full overflow-hidden border-r bg-background shadow-sm"
     >
       <SidebarContent />
     </motion.aside>

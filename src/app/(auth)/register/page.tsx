@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Store, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, User, Building2, Phone, Check, Sparkles, Sun, Moon } from 'lucide-react'
+import { Store, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, User, Building2, Phone, Check, Sparkles, Sun, Moon, UserPlus } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -197,6 +197,11 @@ export default function RegisterPage() {
         >
           <div className="p-6 sm:p-8 lg:p-10">
             <div className="mb-6 text-center lg:text-left">
+              <div className="flex items-center gap-2 mb-2 lg:hidden justify-center">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <Store className="h-4 w-4 text-primary" />
+                </div>
+              </div>
               <h1 className="text-2xl font-bold tracking-tight">Create your Shop</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 Fill in the details below to get started
@@ -209,7 +214,7 @@ export default function RegisterPage() {
                   <Label htmlFor="shopName">Shop Name</Label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="shopName" name="shopName" placeholder="My Store" className={cn('pl-10', errors.shopName && 'border-destructive')} required disabled={isLoading} />
+                    <Input id="shopName" name="shopName" placeholder="My Store" className={cn('pl-10 transition-all', errors.shopName && 'border-destructive')} required disabled={isLoading} />
                   </div>
                   {errors.shopName && <p className="text-xs text-destructive">{errors.shopName}</p>}
                 </div>
@@ -217,7 +222,7 @@ export default function RegisterPage() {
                   <Label htmlFor="name">Your Name</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="name" name="name" placeholder="John Doe" className={cn('pl-10', errors.name && 'border-destructive')} required disabled={isLoading} />
+                    <Input id="name" name="name" placeholder="John Doe" className={cn('pl-10 transition-all', errors.name && 'border-destructive')} required disabled={isLoading} />
                   </div>
                   {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                 </div>
@@ -228,7 +233,7 @@ export default function RegisterPage() {
                   <Label htmlFor="email">Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="email" name="email" type="email" placeholder="name@example.com" className={cn('pl-10', errors.email && 'border-destructive')} required disabled={isLoading} />
+                    <Input id="email" name="email" type="email" placeholder="name@example.com" className={cn('pl-10 transition-all', errors.email && 'border-destructive')} required disabled={isLoading} />
                   </div>
                   {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                 </div>
@@ -236,7 +241,7 @@ export default function RegisterPage() {
                   <Label htmlFor="phone">Phone <span className="text-muted-foreground">(optional)</span></Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="phone" name="phone" type="tel" placeholder="+1 (555) 123-4567" className="pl-10" disabled={isLoading} />
+                    <Input id="phone" name="phone" type="tel" placeholder="+1 (555) 123-4567" className="pl-10 transition-all" disabled={isLoading} />
                   </div>
                 </div>
               </div>
@@ -251,14 +256,14 @@ export default function RegisterPage() {
                       name="password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Min. 8 characters"
-                      className={cn('pl-10 pr-10', errors.password && 'border-destructive')}
+                      className={cn('pl-10 pr-10 transition-all', errors.password && 'border-destructive')}
                       required
                       disabled={isLoading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -279,14 +284,14 @@ export default function RegisterPage() {
                       name="confirmPassword"
                       type={showConfirmPassword ? 'text' : 'password'}
                       placeholder="Re-enter your password"
-                      className={cn('pl-10 pr-10', errors.confirmPassword && 'border-destructive')}
+                      className={cn('pl-10 pr-10 transition-all', errors.confirmPassword && 'border-destructive')}
                       required
                       disabled={isLoading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       tabIndex={-1}
                     >
                       {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -296,7 +301,12 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="relative w-full overflow-hidden bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
+                size="lg"
+                disabled={isLoading}
+              >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -304,8 +314,9 @@ export default function RegisterPage() {
                   </>
                 ) : (
                   <>
+                    <UserPlus className="mr-2 h-4 w-4" />
                     Create Account
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    <ArrowRight className="ml-1 h-4 w-4" />
                   </>
                 )}
               </Button>

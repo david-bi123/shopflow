@@ -1,12 +1,5 @@
+import { cn } from '@/lib/utils/cn'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 
 interface LoadingSkeletonProps {
   rows?: number
@@ -15,40 +8,48 @@ interface LoadingSkeletonProps {
 
 export function LoadingSkeleton({ rows = 5, columns = 6 }: LoadingSkeletonProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
-        <Skeleton className="h-8 w-48 rounded-xl" />
-        <Skeleton className="h-10 w-32 rounded-xl" />
+        <Skeleton className="h-9 w-52 rounded-2xl" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-24 rounded-2xl" />
+          <Skeleton className="h-9 w-28 rounded-2xl" />
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-10 w-64 rounded-xl" />
-        <Skeleton className="h-10 w-40 rounded-xl" />
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-10 w-72 rounded-2xl" />
+        <Skeleton className="h-10 w-36 rounded-2xl" />
+        <Skeleton className="h-10 w-28 rounded-2xl" />
       </div>
 
-      <div className="rounded-xl border bg-card/40 p-4">
-        <Table>
-          <TableHeader className="[&_tr]:border-b">
-            <TableRow>
+      <div className="overflow-hidden rounded-2xl border bg-card/40">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b">
               {Array.from({ length: columns }).map((_, i) => (
-                <TableHead key={i}>
-                  <Skeleton className="h-4 w-20 rounded-lg" />
-                </TableHead>
+                <th key={i} className="p-4">
+                  <Skeleton className="h-4 w-24 rounded-xl" />
+                </th>
               ))}
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
+            </tr>
+          </thead>
+          <tbody>
             {Array.from({ length: rows }).map((_, row) => (
-              <TableRow key={row}>
+              <tr key={row} className="border-b last:border-0">
                 {Array.from({ length: columns }).map((_, col) => (
-                  <TableCell key={col}>
-                    <Skeleton className="h-4 w-full rounded-lg" />
-                  </TableCell>
+                  <td key={col} className="p-4">
+                    <Skeleton
+                      className={cn(
+                        "h-4 rounded-xl",
+                        col === columns - 1 ? "w-16" : "w-full"
+                      )}
+                    />
+                  </td>
                 ))}
-              </TableRow>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
     </div>
   )

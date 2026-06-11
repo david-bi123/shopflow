@@ -19,10 +19,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
 import { formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
 
@@ -45,6 +43,17 @@ const typeIcons: Record<string, React.ElementType> = {
   info: Info,
   receipt: Receipt,
   store: Store,
+}
+
+const typeColors: Record<string, string> = {
+  sale: 'text-emerald-600 bg-emerald-100',
+  invoice: 'text-blue-600 bg-blue-100',
+  staff: 'text-amber-600 bg-amber-100',
+  settings: 'text-gray-600 bg-gray-100',
+  warning: 'text-rose-600 bg-rose-100',
+  info: 'text-sky-600 bg-sky-100',
+  receipt: 'text-cyan-600 bg-cyan-100',
+  store: 'text-violet-600 bg-violet-100',
 }
 
 const ITEMS_PER_PAGE = 20
@@ -147,11 +156,21 @@ export default function NotificationsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
+      <div className="space-y-6">
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 via-card to-chart-2/5 p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+              <Bell className="h-6 w-6 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-40 rounded-lg" />
+              <Skeleton className="h-4 w-56 rounded-lg" />
+            </div>
+          </div>
+        </div>
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-lg" />
+            <Skeleton key={i} className="h-24 w-full rounded-2xl" />
           ))}
         </div>
       </div>
@@ -160,89 +179,122 @@ export default function NotificationsPage() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <AlertCircle className="mb-4 h-12 w-12 text-destructive" />
-        <h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
-        <p className="mb-4 text-muted-foreground">{error}</p>
-        <Button onClick={() => window.location.reload()}>Try Again</Button>
+      <div className="space-y-6">
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 via-card to-chart-2/5 p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+              <Bell className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold sm:text-2xl">Notifications</h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Stay updated with shop activity and alerts.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-border/60 bg-card py-20 shadow-sm">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+            <AlertCircle className="h-7 w-7 text-destructive" />
+          </div>
+          <h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
+          <p className="mb-4 text-muted-foreground">{error}</p>
+          <Button onClick={() => window.location.reload()} className="rounded-xl shadow-sm">Try Again</Button>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
+      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 via-card to-chart-2/5 p-6 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+            <Bell className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold sm:text-2xl">Notifications</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Stay updated with shop activity and alerts.
+            </p>
+          </div>
+        </div>
+        <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-primary/5 blur-3xl" />
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
           {unreadCount > 0 && (
-            <Badge variant="default">{unreadCount} unread</Badge>
+            <Badge variant="default" className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/20">
+              {unreadCount} unread
+            </Badge>
           )}
         </div>
         {unreadCount > 0 && (
-          <Button variant="outline" size="sm" onClick={handleMarkAllRead}>
-            <CheckCheck className="mr-1 h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={handleMarkAllRead} className="h-9 rounded-full border-border/60 shadow-sm">
+            <CheckCheck className="mr-1.5 size-4" />
             Mark all as read
           </Button>
         )}
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-2">
         {notifications.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center py-16">
-              <BellOff className="mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="mb-1 text-lg font-semibold">No notifications</h3>
-              <p className="text-sm text-muted-foreground">
-                You&apos;re all caught up
-              </p>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-border/60 bg-card py-20 shadow-sm">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+              <BellOff className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <h3 className="mb-1 text-lg font-semibold">No notifications</h3>
+            <p className="text-sm text-muted-foreground">
+              You&apos;re all caught up
+            </p>
+          </div>
         ) : (
           <>
-            {notifications.map((notification, idx) => {
+            {notifications.map((notification) => {
               const Icon = typeIcons[notification.type] ?? Bell
+              const colorClass = typeColors[notification.type] ?? 'text-muted-foreground bg-muted'
               return (
                 <div
                   key={notification.id}
                   onClick={() => handleClick(notification)}
                   className={cn(
-                    'flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-accent',
-                    !notification.read && 'border-l-2 border-l-primary bg-accent/50'
+                    'group relative cursor-pointer rounded-2xl border p-4 shadow-sm transition-all hover:shadow-md',
+                    !notification.read
+                      ? 'border-primary/20 bg-gradient-to-r from-primary/[0.03] to-transparent'
+                      : 'border-border/60 bg-card'
                   )}
                 >
-                  <div
-                    className={cn(
-                      'rounded-full p-2',
-                      notification.read ? 'bg-muted' : 'bg-primary/10'
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        'h-4 w-4',
-                        notification.read ? 'text-muted-foreground' : 'text-primary'
-                      )}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p
-                        className={cn(
-                          'text-sm truncate',
-                          !notification.read && 'font-semibold'
-                        )}
-                      >
-                        {notification.title}
-                      </p>
-                      {!notification.read && (
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-                      )}
+                  {!notification.read && (
+                    <div className="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-primary" />
+                  )}
+                  <div className="flex items-start gap-4 pl-1">
+                    <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ring-black/5', colorClass)}>
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">
-                      {notification.message}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(notification.createdAt)}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p
+                            className={cn(
+                              'text-sm truncate',
+                              !notification.read && 'font-semibold'
+                            )}
+                          >
+                            {notification.title}
+                          </p>
+                          {!notification.read && (
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {formatDate(notification.createdAt)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">
+                        {notification.message}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )
@@ -253,8 +305,9 @@ export default function NotificationsPage() {
                   variant="outline"
                   onClick={loadMore}
                   disabled={loadingMore}
+                  className="h-10 rounded-full border-border/60 px-8 shadow-sm"
                 >
-                  {loadingMore && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                  {loadingMore && <Loader2 className="mr-1.5 size-4 animate-spin" />}
                   Load more
                 </Button>
               </div>

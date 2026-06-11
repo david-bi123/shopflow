@@ -18,6 +18,7 @@ import {
   Zap,
   Sun,
   Moon,
+  LogIn,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -168,7 +169,7 @@ export default function LoginPage() {
                 initial={{ opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.15, type: 'spring', stiffness: 200, damping: 14 }}
-                className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 lg:hidden"
+                className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/5 lg:hidden"
               >
                 <Store className="h-6 w-6 text-primary" />
               </motion.div>
@@ -192,7 +193,7 @@ export default function LoginPage() {
                       name="email"
                       type="email"
                       placeholder="name@example.com"
-                      className={cn('pl-10', isLoading && 'pointer-events-none opacity-70')}
+                      className={cn('pl-10 transition-all', isLoading && 'pointer-events-none opacity-70')}
                       required
                       disabled={isLoading}
                       autoComplete="email"
@@ -218,7 +219,7 @@ export default function LoginPage() {
                       name="password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Enter your password"
-                      className={cn('pl-10 pr-10', isLoading && 'pointer-events-none opacity-70')}
+                      className={cn('pl-10 pr-10 transition-all', isLoading && 'pointer-events-none opacity-70')}
                       required
                       disabled={isLoading}
                       autoComplete="current-password"
@@ -226,7 +227,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -235,16 +236,22 @@ export default function LoginPage() {
                 </motion.div>
 
                 <motion.div variants={itemVariants}>
-                  <Button type="submit" className="w-full shadow-lg shadow-primary/25" disabled={isLoading}>
+                  <Button
+                    type="submit"
+                    className="relative w-full overflow-hidden bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
+                    disabled={isLoading}
+                    size="lg"
+                  >
                     {isLoading ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Signing in...
                       </>
                     ) : (
                       <>
+                        <LogIn className="mr-2 h-4 w-4" />
                         Sign In
-                        <ArrowRight className="h-4 w-4" />
+                        <ArrowRight className="ml-1 h-4 w-4" />
                       </>
                     )}
                   </Button>

@@ -12,12 +12,13 @@ import {
   AlertCircle,
   TrendingUp,
   Users,
+  BarChart3,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/shared/page-header'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 interface PlatformStats {
   totalTenants: number
@@ -135,6 +136,9 @@ export default function AdminStatsPage() {
     },
   ]
 
+  const growthValues = growth.map((d) => d.count)
+  const maxCount = Math.max(...growthValues, 1)
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -167,11 +171,13 @@ export default function AdminStatsPage() {
       <Card className="overflow-hidden border-0 bg-gradient-to-br from-primary/5 to-primary/0 shadow-md">
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Tenant Growth
-            </CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+              <CardTitle>Tenant Growth</CardTitle>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground ml-10">
               Monthly new tenant registrations
             </p>
           </div>
@@ -211,13 +217,20 @@ export default function AdminStatsPage() {
                       boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                     }}
                     cursor={{ fill: 'hsl(var(--accent))', opacity: 0.5 }}
+                    formatter={(value) => [value, 'New Tenants']}
                   />
                   <Bar
                     dataKey="count"
-                    fill="hsl(var(--primary))"
-                    radius={[4, 4, 0, 0]}
+                    radius={[6, 6, 0, 0]}
                     maxBarSize={48}
-                  />
+                  >
+                    {growth.map((_, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={`hsl(var(--primary) / ${0.4 + (growth[index].count / maxCount) * 0.6})`}
+                      />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>

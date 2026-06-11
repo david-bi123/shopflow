@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Plus, Trash2, ArrowLeft } from 'lucide-react'
+import { Plus, Trash2, ArrowLeft, User, Package, FileText, Receipt, Calendar } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { PageHeader } from '@/components/shared/page-header'
 import { createInvoiceSchema, type CreateInvoiceInput } from '@/lib/validations/invoice'
 import { createInvoice } from '@/lib/actions/invoice-actions'
@@ -84,11 +83,16 @@ export default function NewInvoicePage() {
       </PageHeader>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Customer Information</CardTitle>
+        <Card className="overflow-hidden border-0 shadow-md">
+          <CardHeader className="border-b bg-gradient-to-r from-blue-500/5 to-transparent pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
+                <User className="h-4 w-4 text-blue-600" />
+              </div>
+              <CardTitle className="text-base">Customer Information</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-5">
             <div className="space-y-2">
               <Label htmlFor="customerName">Customer Name *</Label>
               <Input
@@ -134,28 +138,35 @@ export default function NewInvoicePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Invoice Items</CardTitle>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => append({ ...defaultItem })}
-            >
-              <Plus className="mr-2 size-4" />
-              Add Item
-            </Button>
+        <Card className="overflow-hidden border-0 shadow-md">
+          <CardHeader className="border-b bg-gradient-to-r from-violet-500/5 to-transparent pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10">
+                  <Package className="h-4 w-4 text-violet-600" />
+                </div>
+                <CardTitle className="text-base">Invoice Items</CardTitle>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => append({ ...defaultItem })}
+              >
+                <Plus className="mr-2 size-4" />
+                Add Item
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-5">
             {fields.map((field, index) => {
               const qty = Number(items[index]?.quantity) || 0
               const price = Number(items[index]?.price) || 0
               const lineTotal = qty * price
 
               return (
-                <div key={field.id} className="flex flex-col gap-3 rounded-lg border p-4">
-                  <div className="flex items-start justify-between gap-4">
+                <div key={field.id} className="group relative rounded-lg border bg-card p-4 transition-shadow hover:shadow-sm">
+                  <div className="mb-3 flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
                       <Label htmlFor={`items.${index}.name`}>Item Name *</Label>
                       <Input
@@ -172,9 +183,9 @@ export default function NewInvoicePage() {
                     {fields.length > 1 && (
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="outline"
                         size="icon"
-                        className="mt-6 shrink-0 text-destructive"
+                        className="mt-6 shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => remove(index)}
                       >
                         <Trash2 className="size-4" />
@@ -221,7 +232,7 @@ export default function NewInvoicePage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Total</Label>
-                      <div className="flex h-9 items-center rounded-md border bg-muted px-3 text-sm">
+                      <div className="flex h-9 items-center rounded-md border bg-muted px-3 text-sm font-medium">
                         {formatCurrency(lineTotal)}
                       </div>
                     </div>
@@ -235,18 +246,27 @@ export default function NewInvoicePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Invoice Details</CardTitle>
+        <Card className="overflow-hidden border-0 shadow-md">
+          <CardHeader className="border-b bg-gradient-to-r from-amber-500/5 to-transparent pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10">
+                <FileText className="h-4 w-4 text-amber-600" />
+              </div>
+              <CardTitle className="text-base">Invoice Details</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-5">
             <div className="space-y-2">
               <Label htmlFor="dueDate">Due Date *</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                {...register('dueDate')}
-              />
+              <div className="relative">
+                <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="dueDate"
+                  type="date"
+                  className="pl-10"
+                  {...register('dueDate')}
+                />
+              </div>
               {errors.dueDate && (
                 <p className="text-sm text-destructive">{errors.dueDate.message}</p>
               )}
@@ -275,25 +295,30 @@ export default function NewInvoicePage() {
               </div>
             </div>
 
-            <Separator />
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal</span>
-                <span>{formatCurrency(subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Discount</span>
-                <span>-{formatCurrency(Number(discount))}</span>
-              </div>
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Tax</span>
-                <span>+{formatCurrency(Number(tax))}</span>
-              </div>
-              <Separator />
-              <div className="flex justify-between text-lg font-semibold">
-                <span>Grand Total</span>
-                <span>{formatCurrency(grandTotal)}</span>
+            <div className="rounded-xl bg-gradient-to-br from-primary/5 via-primary/[0.03] to-transparent p-5">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 border-b border-primary/10 pb-2">
+                  <Receipt className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-primary">Summary</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal</span>
+                  <span className="font-medium">{formatCurrency(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Discount</span>
+                  <span className="text-destructive">-{formatCurrency(Number(discount))}</span>
+                </div>
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Tax</span>
+                  <span className="text-emerald-600">+{formatCurrency(Number(tax))}</span>
+                </div>
+                <div className="border-t border-primary/10 pt-2">
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Grand Total</span>
+                    <span className="text-primary">{formatCurrency(grandTotal)}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -313,8 +338,26 @@ export default function NewInvoicePage() {
           <Button type="button" variant="outline" asChild>
             <Link href="/invoices">Cancel</Link>
           </Button>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? 'Creating...' : 'Create Invoice'}
+          <Button
+            type="submit"
+            disabled={submitting}
+            size="lg"
+            className="min-w-[180px] bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
+          >
+            {submitting ? (
+              <>
+                <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Creating...
+              </>
+            ) : (
+              <>
+                <FileText className="mr-2 h-4 w-4" />
+                Create Invoice
+              </>
+            )}
           </Button>
         </div>
       </form>

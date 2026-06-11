@@ -8,6 +8,9 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
+  Info,
+  MessageSquare,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -49,6 +52,12 @@ const priorityColors: Record<string, 'default' | 'secondary' | 'destructive'> = 
   high: 'destructive',
   medium: 'default',
   low: 'secondary',
+}
+
+const priorityIcons: Record<string, typeof AlertTriangle> = {
+  high: AlertTriangle,
+  medium: Info,
+  low: MessageSquare,
 }
 
 export default function AdminAnnouncementsPage() {
@@ -132,14 +141,19 @@ export default function AdminAnnouncementsPage() {
       >
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25">
               <Plus className="mr-1 h-4 w-4" />
               Create Announcement
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>New Announcement</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+                  <Megaphone className="h-4 w-4 text-primary" />
+                </div>
+                New Announcement
+              </DialogTitle>
               <DialogDescription>
                 Create an announcement that will be shown to all shops.
               </DialogDescription>
@@ -183,7 +197,7 @@ export default function AdminAnnouncementsPage() {
                 Cancel
               </Button>
               <Button onClick={handleCreate} disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
                 Create
               </Button>
             </DialogFooter>
@@ -200,57 +214,78 @@ export default function AdminAnnouncementsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {announcements.map((a) => (
-            <Card key={a.id} className="overflow-hidden border-0 bg-card shadow-sm transition-shadow hover:shadow-md">
-              <CardHeader className="flex flex-row items-start justify-between gap-4 py-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                    <Megaphone className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="space-y-1">
-                    <CardTitle className="text-base">{a.title}</CardTitle>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{formatDate(a.createdAt, 'datetime')}</span>
-                      <span>·</span>
-                      <span className="capitalize">{a.priority} priority</span>
+          {announcements.map((a) => {
+            const PriorityIcon = priorityIcons[a.priority]
+            return (
+              <Card key={a.id} className="overflow-hidden border-0 bg-card shadow-sm transition-all hover:shadow-md">
+                <CardHeader className="flex flex-row items-start justify-between gap-4 py-4">
+                  <div className="flex items-start gap-3">
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                      a.priority === 'high'
+                        ? 'bg-destructive/10'
+                        : a.priority === 'medium'
+                          ? 'bg-primary/10'
+                          : 'bg-muted'
+                    }`}>
+                      <PriorityIcon className={`h-4 w-4 ${
+                        a.priority === 'high'
+                          ? 'text-destructive'
+                          : a.priority === 'medium'
+                            ? 'text-primary'
+                            : 'text-muted-foreground'
+                      }`} />
+                    </div>
+                    <div className="space-y-1">
+                      <CardTitle className="text-base">{a.title}</CardTitle>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{formatDate(a.createdAt, 'datetime')}</span>
+                        <span>·</span>
+                        <span className="capitalize">{a.priority} priority</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Badge
-                    variant={a.active ? 'default' : 'secondary'}
-                    className="text-xs"
-                  >
-                    {a.active ? 'Active' : 'Inactive'}
-                  </Badge>
-                  <Badge variant={priorityColors[a.priority]} className="text-xs capitalize">
-                    {a.priority}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setExpanded(expanded === a.id ? null : a.id)}
-                  >
-                    {expanded === a.id ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
-              {expanded === a.id && (
-                <CardContent className="pb-4 pt-0">
-                  <div className="ml-12 rounded-lg bg-muted/50 p-3">
-                    <p className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">
-                      {a.message}
-                    </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge
+                      variant={a.active ? 'default' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {a.active ? 'Active' : 'Inactive'}
+                    </Badge>
+                    <Badge variant={priorityColors[a.priority]} className="text-xs capitalize">
+                      {a.priority}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setExpanded(expanded === a.id ? null : a.id)}
+                    >
+                      {expanded === a.id ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
                   </div>
-                </CardContent>
-              )}
-            </Card>
-          ))}
+                </CardHeader>
+                {expanded === a.id && (
+                  <CardContent className="pb-4 pt-0">
+                    <div className={`ml-12 rounded-lg p-4 ${
+                      a.priority === 'high'
+                        ? 'bg-destructive/5 border border-destructive/10'
+                        : a.priority === 'medium'
+                          ? 'bg-primary/5 border border-primary/10'
+                          : 'bg-muted/50 border border-muted'
+                    }`}>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {a.message}
+                      </p>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

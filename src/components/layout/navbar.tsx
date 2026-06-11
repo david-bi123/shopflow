@@ -5,11 +5,15 @@ import { useSession, signOut } from "next-auth/react"
 import { useTheme } from "next-themes"
 import {
   Bell,
+  ChevronDown,
+  LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Menu,
   Moon,
   Search,
   Settings,
+  Shield,
   Sun,
   Store,
   User,
@@ -45,7 +49,7 @@ export function Navbar({ title }: NavbarProps) {
   const user = session?.user
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-lg supports-[backdrop-filter]:bg-background/50">
       {/* Mobile: hamburger + brand */}
       <div className="flex items-center gap-2 md:hidden">
         <Button
@@ -55,25 +59,27 @@ export function Navbar({ title }: NavbarProps) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/20">
           <Store className="h-3.5 w-3.5 text-primary" />
         </div>
-        <span className="text-sm font-semibold">IndFlow</span>
+        <span className="bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-sm font-bold tracking-tight">
+          IndFlow
+        </span>
       </div>
 
       {/* Page title / breadcrumb */}
       <div className="flex-1">
         {title && (
-          <h1 className="text-sm font-medium text-foreground md:text-base">
+          <h1 className="text-sm font-semibold text-foreground md:text-base">
             {title}
           </h1>
         )}
       </div>
 
       {/* Right actions */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
         {/* Global Search */}
-        <Button variant="ghost" size="icon" className="hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring">
+        <Button variant="ghost" size="icon" className="hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring rounded-xl">
           <Search className="h-5 w-5" />
         </Button>
 
@@ -82,7 +88,7 @@ export function Navbar({ title }: NavbarProps) {
           variant="ghost"
           size="icon"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring"
+          className="hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring rounded-xl"
         >
           <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -93,32 +99,32 @@ export function Navbar({ title }: NavbarProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="relative hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring"
+          className="relative hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring rounded-xl"
           asChild
         >
           <Link href="/notifications">
             <Bell className="h-5 w-5" />
             <Badge
               variant="destructive"
-              className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] shadow-sm"
+              className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full p-0 text-[10px] font-bold shadow-sm"
             >
               3
             </Badge>
           </Link>
         </Button>
 
-        <Separator orientation="vertical" className="mx-1 h-6" />
+        <Separator orientation="vertical" className="mx-1.5 h-6" />
 
         {/* User Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="relative flex items-center gap-2 px-2"
+              className="relative flex items-center gap-2 rounded-xl px-2 hover:bg-accent/50"
             >
-              <Avatar className="h-7 w-7">
+              <Avatar className="h-7 w-7 ring-1 ring-border/50">
                 <AvatarImage src={user?.image ?? undefined} />
-                <AvatarFallback className="text-xs">
+                <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold">
                   {user?.name?.charAt(0)?.toUpperCase() ?? "U"}
                 </AvatarFallback>
               </Avatar>
@@ -132,18 +138,33 @@ export function Navbar({ title }: NavbarProps) {
                   </span>
                 </div>
               )}
+              <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 rounded-xl">
-            <DropdownMenuLabel>
-              <div className="flex flex-col">
-                <span>{user?.name ?? "User"}</span>
-                <span className="text-xs font-normal text-muted-foreground">
-                  {user?.email ?? ""}
-                </span>
+          <DropdownMenuContent align="end" className="w-56 rounded-xl border shadow-lg">
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-9 w-9 ring-1 ring-border/50">
+                  <AvatarImage src={user?.image ?? undefined} />
+                  <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold">
+                    {user?.name?.charAt(0)?.toUpperCase() ?? "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="font-medium">{user?.name ?? "User"}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {user?.email ?? ""}
+                  </span>
+                </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard" className="flex items-center gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/settings" className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
@@ -151,7 +172,20 @@ export function Navbar({ title }: NavbarProps) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOut()} className="flex items-center gap-2">
+            <DropdownMenuItem asChild>
+              <Link href="/activity" className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Privacy
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/support" className="flex items-center gap-2">
+                <LifeBuoy className="h-4 w-4" />
+                Help & Support
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => signOut()} className="flex items-center gap-2 text-destructive focus:text-destructive">
               <LogOut className="h-4 w-4" />
               Sign out
             </DropdownMenuItem>

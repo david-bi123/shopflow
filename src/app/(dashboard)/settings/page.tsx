@@ -10,6 +10,9 @@ import {
   Receipt,
   CreditCard,
   Upload,
+  Settings2,
+  Building2,
+  Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -108,9 +111,12 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
+        <div className="flex h-9 w-48 items-center gap-2">
+          <Skeleton className="h-8 w-8 rounded-lg" />
+          <Skeleton className="h-7 w-32" />
+        </div>
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-48 w-full rounded-xl" />
+          <Skeleton key={i} className="h-56 w-full rounded-xl" />
         ))}
       </div>
     )
@@ -129,24 +135,28 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-          <Save className="mr-1 h-4 w-4" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+          <p className="text-sm text-muted-foreground">Manage your store configuration</p>
+        </div>
+        <Button onClick={handleSave} disabled={saving} size="lg" className="bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25">
+          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Save className="mr-2 h-4 w-4" />
           Save Changes
         </Button>
       </div>
 
-      {/* Store Information */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Store className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Store Information</CardTitle>
+      <Card className="overflow-hidden border-0 shadow-md">
+        <CardHeader className="border-b bg-gradient-to-r from-blue-500/5 to-transparent pb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
+              <Building2 className="h-4 w-4 text-blue-600" />
+            </div>
+            <CardTitle className="text-base">Store Information</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="storeName">Store Name</Label>
@@ -197,15 +207,16 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Currency & Timezone */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Globe className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Currency &amp; Timezone</CardTitle>
+      <Card className="overflow-hidden border-0 shadow-md">
+        <CardHeader className="border-b bg-gradient-to-r from-violet-500/5 to-transparent pb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10">
+              <Globe className="h-4 w-4 text-violet-600" />
+            </div>
+            <CardTitle className="text-base">Currency &amp; Timezone</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="currency">Currency</Label>
             <Select
@@ -245,15 +256,16 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Tax & Receipt */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Tax &amp; Receipt</CardTitle>
+      <Card className="overflow-hidden border-0 shadow-md">
+        <CardHeader className="border-b bg-gradient-to-r from-amber-500/5 to-transparent pb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10">
+              <Receipt className="h-4 w-4 text-amber-600" />
+            </div>
+            <CardTitle className="text-base">Tax &amp; Receipt</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="taxRate">Tax Rate (%)</Label>
@@ -280,9 +292,9 @@ export default function SettingsPage() {
               rows={3}
             />
           </div>
-          <Separator />
+          <Separator className="bg-primary/5" />
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
               <div>
                 <Label htmlFor="showLogo">Show logo on receipt</Label>
                 <p className="text-xs text-muted-foreground">
@@ -295,7 +307,7 @@ export default function SettingsPage() {
                 onCheckedChange={(v) => setSettings({ ...settings, showLogoOnReceipt: v })}
               />
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
               <div>
                 <Label htmlFor="showQR">Show QR code on receipt</Label>
                 <p className="text-xs text-muted-foreground">
@@ -312,24 +324,25 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Payment Methods */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Payment Methods</CardTitle>
+      <Card className="overflow-hidden border-0 shadow-md">
+        <CardHeader className="border-b bg-gradient-to-r from-emerald-500/5 to-transparent pb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
+              <CreditCard className="h-4 w-4 text-emerald-600" />
+            </div>
+            <CardTitle className="text-base">Payment Methods</CardTitle>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {PAYMENT_METHODS.map((pm) => (
-              <div key={pm.value} className="flex items-center gap-2">
+              <div key={pm.value} className="flex items-center gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30">
                 <Checkbox
                   id={`pm-${pm.value}`}
                   checked={settings.defaultPaymentMethods.includes(pm.value)}
                   onCheckedChange={() => togglePaymentMethod(pm.value)}
                 />
-                <Label htmlFor={`pm-${pm.value}`} className="cursor-pointer">
+                <Label htmlFor={`pm-${pm.value}`} className="cursor-pointer text-sm font-medium">
                   {pm.label}
                 </Label>
               </div>

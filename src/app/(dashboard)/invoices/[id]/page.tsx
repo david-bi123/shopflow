@@ -2,7 +2,30 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Download, Share2, Send, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Download,
+  Share2,
+  Send,
+  Trash2,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  CreditCard,
+  Calendar,
+  Hash,
+  FileText,
+  Receipt,
+  ReceiptText,
+  CircleCheck,
+  CircleAlert,
+  CircleDashed,
+  CircleX,
+  Printer,
+  Copy,
+  Check,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,14 +35,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   Select,
   SelectContent,
@@ -39,12 +54,45 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import type { Invoice, InvoiceStatus } from '@/lib/validations/invoice'
 
-const STATUS_BADGES: Record<InvoiceStatus, 'default' | 'secondary' | 'outline' | 'destructive'> = {
-  draft: 'outline',
-  sent: 'default',
-  paid: 'secondary',
-  overdue: 'destructive',
-  cancelled: 'outline',
+const STATUS_META: Record<
+  InvoiceStatus,
+  { label: string; icon: any; className: string; bgClass: string; borderClass: string }
+> = {
+  paid: {
+    label: 'Paid',
+    icon: CircleCheck,
+    className: 'text-emerald-700 dark:text-emerald-300',
+    bgClass: 'bg-emerald-50 dark:bg-emerald-950/60',
+    borderClass: 'ring-emerald-200/60 dark:ring-emerald-800/40',
+  },
+  sent: {
+    label: 'Sent',
+    icon: CircleAlert,
+    className: 'text-blue-700 dark:text-blue-300',
+    bgClass: 'bg-blue-50 dark:bg-blue-950/60',
+    borderClass: 'ring-blue-200/60 dark:ring-blue-800/40',
+  },
+  draft: {
+    label: 'Draft',
+    icon: CircleDashed,
+    className: 'text-slate-700 dark:text-slate-300',
+    bgClass: 'bg-slate-100 dark:bg-slate-900/60',
+    borderClass: 'ring-slate-200/60 dark:ring-slate-800/40',
+  },
+  overdue: {
+    label: 'Overdue',
+    icon: CircleAlert,
+    className: 'text-red-700 dark:text-red-300',
+    bgClass: 'bg-red-50 dark:bg-red-950/60',
+    borderClass: 'ring-red-200/60 dark:ring-red-800/40',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    icon: CircleX,
+    className: 'text-slate-700 dark:text-slate-300',
+    bgClass: 'bg-slate-100 dark:bg-slate-900/60',
+    borderClass: 'ring-slate-200/60 dark:ring-slate-800/40',
+  },
 }
 
 const NEXT_STATUSES: Record<InvoiceStatus, { label: string; status: InvoiceStatus }[]> = {
@@ -68,6 +116,7 @@ export default function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -108,216 +157,415 @@ export default function InvoiceDetailPage() {
     }
   }
 
+  const handleCopyLink = async () => {
+    if (!invoice) return
+    const url = `${window.location.origin}/i/${invoice.invoiceNumber}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      toast.success('Invoice link copied')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('Failed to copy link')
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-24 w-full rounded-2xl" />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-40 rounded-2xl" />
+          <Skeleton className="h-40 rounded-2xl" />
+        </div>
+        <Skeleton className="h-64 rounded-2xl" />
       </div>
     )
   }
 
   if (error || !invoice) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-16">
-        <p className="text-lg text-destructive">{error ?? 'Invoice not found'}</p>
-        <Button asChild>
-          <Link href="/invoices">Back to Invoices</Link>
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 ring-1 ring-destructive/20">
+          <ReceiptText className="h-6 w-6 text-destructive" />
+        </div>
+        <h2 className="text-lg font-semibold">{error ?? 'Invoice not found'}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          The invoice you&apos;re looking for doesn&apos;t exist or was removed.
+        </p>
+        <Button asChild className="mt-5">
+          <Link href="/invoices">
+            <ArrowLeft className="mr-2 size-4" />
+            Back to Invoices
+          </Link>
         </Button>
       </div>
     )
   }
 
   const nextStatuses = NEXT_STATUSES[invoice.status]
+  const status = STATUS_META[invoice.status]
+  const StatusIcon = status.icon
+
+  // Days until due / overdue
+  const dueDate = new Date(invoice.dueDate)
+  const now = new Date()
+  const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  const isOverdue = diffDays < 0 && invoice.status !== 'paid' && invoice.status !== 'cancelled'
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" asChild>
+      {/* Hero header */}
+      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 via-card to-chart-2/5 p-6 shadow-sm">
+        <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-chart-2/10 blur-3xl" />
+
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-4">
+            <Button variant="outline" size="icon" asChild className="shrink-0 bg-white/80 dark:bg-zinc-900/60">
               <Link href="/invoices">
                 <ArrowLeft className="size-4" />
               </Link>
             </Button>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {invoice.invoiceNumber}
-            </h1>
-            <Badge variant={STATUS_BADGES[invoice.status]}>
-              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-            </Badge>
+            <div>
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  Invoice
+                </p>
+                <div
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${status.bgClass} ${status.className} ${status.borderClass}`}
+                >
+                  <StatusIcon className="size-3" />
+                  {status.label}
+                </div>
+                {isOverdue && (
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700 ring-1 ring-red-200/60 dark:bg-red-950/60 dark:text-red-300 dark:ring-red-800/40">
+                    <CircleAlert className="size-3" />
+                    {Math.abs(diffDays)} {Math.abs(diffDays) === 1 ? 'day' : 'days'} overdue
+                  </div>
+                )}
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                {invoice.invoiceNumber}
+              </h1>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="size-3" />
+                  Issued {formatDate(invoice.createdAt)}
+                </span>
+                <span className="text-border">•</span>
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="size-3" />
+                  Due {formatDate(invoice.dueDate)}
+                </span>
+                <span className="text-border">•</span>
+                <span className="inline-flex items-center gap-1">
+                  <Hash className="size-3" />
+                  {invoice.items.length} {invoice.items.length === 1 ? 'item' : 'items'}
+                </span>
+              </div>
+            </div>
           </div>
-          <p className="ml-10 text-sm text-muted-foreground">
-            Created on {formatDate(invoice.createdAt)}
-            {' | '}Due on {formatDate(invoice.dueDate)}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {nextStatuses.length > 0 && (
-            <Select onValueChange={(v) => handleStatusChange(v as InvoiceStatus)}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Change Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {nextStatuses.map((ns) => (
-                  <SelectItem key={ns.status} value={ns.status}>
-                    {ns.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toast.info('Email sending coming soon')}
-          >
-            <Send className="mr-2 size-4" />
-            Send Email
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              window.open(
-                `https://wa.me/?text=${encodeURIComponent(
-                  `Invoice ${invoice.invoiceNumber} - Customer: ${invoice.customerName} - Total: ${formatCurrency(invoice.total)} - Due: ${formatDate(invoice.dueDate)}`
-                )}`,
-                '_blank'
-              )
-            }
-          >
-            <Share2 className="mr-2 size-4" />
-            Share WhatsApp
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toast.info('PDF download coming soon')}
-          >
-            <Download className="mr-2 size-4" />
-            Download PDF
-          </Button>
-          <Button variant="destructive" size="sm" onClick={handleDelete}>
-            <Trash2 className="mr-2 size-4" />
-            Delete
-          </Button>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {nextStatuses.length > 0 && (
+              <Select onValueChange={(v) => handleStatusChange(v as InvoiceStatus)}>
+                <SelectTrigger className="w-44 bg-white/80 dark:bg-zinc-900/60">
+                  <SelectValue placeholder="Update Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {nextStatuses.map((ns) => (
+                    <SelectItem key={ns.status} value={ns.status}>
+                      {ns.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyLink}
+              className="bg-white/80 dark:bg-zinc-900/60"
+            >
+              {copied ? <Check className="mr-2 size-4 text-emerald-500" /> : <Copy className="mr-2 size-4" />}
+              {copied ? 'Copied' : 'Copy Link'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toast.info('Email sending coming soon')}
+              className="bg-white/80 dark:bg-zinc-900/60"
+            >
+              <Send className="mr-2 size-4" />
+              Email
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                window.open(
+                  `https://wa.me/?text=${encodeURIComponent(
+                    `Invoice ${invoice.invoiceNumber} - Customer: ${invoice.customerName} - Total: ${formatCurrency(invoice.total)} - Due: ${formatDate(invoice.dueDate)}`
+                  )}`,
+                  '_blank'
+                )
+              }
+              className="bg-white/80 dark:bg-zinc-900/60"
+            >
+              <Share2 className="mr-2 size-4" />
+              WhatsApp
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(`/api/i/${invoice.invoiceNumber}/pdf`, '_blank')}
+              className="bg-white/80 dark:bg-zinc-900/60"
+            >
+              <Download className="mr-2 size-4" />
+              PDF
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              className="bg-white/80 dark:bg-zinc-900/60"
+            >
+              <Printer className="mr-2 size-4" />
+              Print
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleDelete}>
+              <Trash2 className="mr-2 size-4" />
+              Delete
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Customer Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Name</span>
-              <span className="font-medium">{invoice.customerName}</span>
+      {/* Quick info grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/20">
+                <User className="size-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Customer
+                </p>
+                <p className="truncate text-sm font-semibold text-foreground">{invoice.customerName}</p>
+              </div>
             </div>
-            {invoice.customerEmail && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Email</span>
-                <span>{invoice.customerEmail}</span>
-              </div>
-            )}
-            {invoice.customerPhone && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Phone</span>
-                <span>{invoice.customerPhone}</span>
-              </div>
-            )}
-            {invoice.customerAddress && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Address</span>
-                <span className="text-right">{invoice.customerAddress}</span>
-              </div>
-            )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Invoice Summary</CardTitle>
+        <Card className="overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-chart-2/10 ring-1 ring-inset ring-chart-2/20">
+                <Mail className="size-4 text-chart-2" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Email
+                </p>
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {invoice.customerEmail || '—'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-chart-3/10 ring-1 ring-inset ring-chart-3/20">
+                <Phone className="size-4 text-chart-3" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Phone
+                </p>
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {invoice.customerPhone || '—'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`overflow-hidden ${
+            isOverdue
+              ? 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/40 dark:to-red-900/20'
+              : 'bg-gradient-to-br from-primary/5 to-chart-2/5'
+          }`}
+        >
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-inset ${
+                  isOverdue
+                    ? 'bg-red-100/80 text-red-700 ring-red-200/60 dark:bg-red-900/40 dark:text-red-300'
+                    : 'bg-primary/10 text-primary ring-primary/20'
+                }`}
+              >
+                <Receipt className="size-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Total Due
+                </p>
+                <p className="truncate text-base font-bold tabular-nums text-foreground">
+                  {formatCurrency(invoice.total)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Items */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="border-b border-border/60">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="size-4 text-primary" />
+                Line Items
+              </CardTitle>
+              <span className="text-xs text-muted-foreground">
+                {invoice.items.length} {invoice.items.length === 1 ? 'item' : 'items'}
+              </span>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
+          <CardContent className="p-0">
+            <div className="divide-y divide-border/60">
+              {invoice.items.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-start gap-4 px-5 py-4 transition-colors hover:bg-slate-50/40 dark:hover:bg-zinc-900/30"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-xs font-semibold text-muted-foreground ring-1 ring-border/60">
+                    {String(index + 1).padStart(2, '0')}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">{item.name}</p>
+                    {item.description && (
+                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                        {item.description}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatCurrency(item.price)} × {item.quantity}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold tabular-nums text-foreground">
+                      {formatCurrency(item.total)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Summary */}
+        <Card>
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ReceiptText className="size-4 text-primary" />
+              Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-5">
+            <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Status</span>
-              <Badge variant={STATUS_BADGES[invoice.status]}>
-                {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-              </Badge>
+              <div
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${status.bgClass} ${status.className} ${status.borderClass}`}
+              >
+                <StatusIcon className="size-3" />
+                {status.label}
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Due Date</span>
-              <span>{formatDate(invoice.dueDate)}</span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Issued</span>
+              <span className="font-medium tabular-nums text-foreground">
+                {formatDate(invoice.createdAt)}
+              </span>
             </div>
-            <Separator />
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Due</span>
+              <span className="font-medium tabular-nums text-foreground">
+                {formatDate(invoice.dueDate)}
+              </span>
+            </div>
+            <Separator className="my-2" />
+            <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatCurrency(invoice.subtotal)}</span>
+              <span className="font-medium tabular-nums text-foreground">
+                {formatCurrency(invoice.subtotal)}
+              </span>
             </div>
             {invoice.discount > 0 && (
-              <div className="flex justify-between text-muted-foreground">
-                <span>Discount</span>
-                <span>-{formatCurrency(invoice.discount)}</span>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Discount</span>
+                <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
+                  −{formatCurrency(invoice.discount)}
+                </span>
               </div>
             )}
             {invoice.tax > 0 && (
-              <div className="flex justify-between text-muted-foreground">
-                <span>Tax</span>
-                <span>+{formatCurrency(invoice.tax)}</span>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Tax</span>
+                <span className="font-medium tabular-nums text-foreground">
+                  +{formatCurrency(invoice.tax)}
+                </span>
               </div>
             )}
-            <Separator />
-            <div className="flex justify-between text-lg font-semibold">
-              <span>Total</span>
-              <span>{formatCurrency(invoice.total)}</span>
+            <Separator className="my-2" />
+            <div className="flex items-baseline justify-between rounded-xl bg-primary/5 p-3 ring-1 ring-inset ring-primary/10">
+              <span className="text-sm font-semibold text-foreground">Total Due</span>
+              <span className="text-2xl font-bold tabular-nums text-foreground">
+                {formatCurrency(invoice.total)}
+              </span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Items</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>#</TableHead>
-                <TableHead>Item</TableHead>
-                <TableHead className="hidden sm:table-cell">Description</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invoice.items.map((item, index) => (
-                <TableRow key={index}>
-                  <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell className="hidden text-muted-foreground sm:table-cell">
-                    {item.description || '-'}
-                  </TableCell>
-                  <TableCell className="text-right">{item.quantity}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(item.price)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {invoice.notes && (
+      {/* Customer Notes */}
+      {(invoice.notes || invoice.customerAddress) && (
         <Card>
-          <CardHeader>
-            <CardTitle>Notes</CardTitle>
+          <CardHeader className="border-b border-border/60">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="size-4 text-primary" />
+              Additional Information
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">{invoice.notes}</p>
+          <CardContent className="grid gap-4 p-5 sm:grid-cols-2">
+            {invoice.customerAddress && (
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Billing Address
+                </p>
+                <p className="flex items-start gap-2 text-sm text-foreground">
+                  <MapPin className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                  {invoice.customerAddress}
+                </p>
+              </div>
+            )}
+            {invoice.notes && (
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Notes
+                </p>
+                <p className="text-sm italic text-foreground">{invoice.notes}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

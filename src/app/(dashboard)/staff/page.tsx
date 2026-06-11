@@ -14,12 +14,11 @@ import {
   ChevronRight,
   Copy,
   Check,
+  Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -46,7 +45,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { EmptyState } from '@/components/shared/empty-state'
 import { formatDate } from '@/lib/utils/format'
+import { cn } from '@/lib/utils/cn'
 
 interface StaffMember {
   id: string
@@ -59,6 +60,17 @@ interface StaffMember {
 }
 
 const PAGE_SIZE = 10
+
+const ROLE_STYLES: Record<string, { bg: string; label: string; dot: string }> = {
+  admin: { bg: 'bg-violet-100', label: 'text-violet-700', dot: 'bg-violet-500' },
+  staff: { bg: 'bg-blue-100', label: 'text-blue-700', dot: 'bg-blue-500' },
+}
+
+const STATUS_STYLES: Record<string, { bg: string; label: string; dot: string }> = {
+  active: { bg: 'bg-emerald-100', label: 'text-emerald-700', dot: 'bg-emerald-500' },
+  suspended: { bg: 'bg-amber-100', label: 'text-amber-700', dot: 'bg-amber-500' },
+  pending: { bg: 'bg-slate-100', label: 'text-slate-700', dot: 'bg-slate-400' },
+}
 
 export default function StaffPage() {
   const [staff, setStaff] = useState<StaffMember[]>([])
@@ -176,12 +188,21 @@ export default function StaffPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-10 w-72" />
-        <div className="space-y-2">
+      <div className="space-y-6">
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-amber-500/10 via-card to-orange-500/10 p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
+              <Users className="h-6 w-6 text-amber-600" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-32 rounded-lg" />
+              <Skeleton className="h-4 w-56 rounded-lg" />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} className="h-14 w-full rounded-2xl" />
           ))}
         </div>
       </div>
@@ -190,19 +211,62 @@ export default function StaffPage() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <AlertCircle className="mb-4 h-12 w-12 text-destructive" />
-        <h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
-        <p className="mb-4 text-muted-foreground">{error}</p>
-        <Button onClick={() => window.location.reload()}>Try Again</Button>
+      <div className="space-y-6">
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-amber-500/10 via-card to-orange-500/10 p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
+              <Users className="h-6 w-6 text-amber-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold sm:text-2xl">Staff</h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Manage your staff team and their permissions.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-border/60 bg-card py-20 shadow-sm">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+            <AlertCircle className="h-7 w-7 text-destructive" />
+          </div>
+          <h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
+          <p className="mb-4 text-muted-foreground">{error}</p>
+          <Button onClick={() => window.location.reload()} className="rounded-xl shadow-sm">Try Again</Button>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Staff</h1>
+      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-amber-500/10 via-card to-orange-500/10 p-6 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
+            <UserCog className="h-6 w-6 text-amber-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold sm:text-2xl">Staff</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Manage your staff team and their permissions.
+            </p>
+          </div>
+        </div>
+        <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-amber-500/5 blur-3xl" />
+      </div>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search staff..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            className="h-10 rounded-full border border-input/60 bg-card pl-10 pr-4 shadow-sm transition-all placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-amber-500/20"
+          />
+        </div>
         <Dialog
           open={inviteOpen}
           onOpenChange={(open) => {
@@ -211,77 +275,80 @@ export default function StaffPage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-1 h-4 w-4" />
+            <Button className="h-10 shrink-0 rounded-full bg-amber-600 text-white shadow-md hover:bg-amber-700">
+              <Plus className="mr-1.5 size-4" />
               Invite Staff
             </Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite Staff Member</DialogTitle>
-              <DialogDescription>
-                Send an invitation to join your shop
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent className="sm:max-w-md rounded-2xl border-border/60 shadow-2xl">
+            <div className="absolute inset-x-0 top-0 h-1 rounded-t-2xl bg-gradient-to-r from-amber-500 to-orange-500" />
             {tempPassword ? (
-              <div className="space-y-4">
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950">
-                  <p className="mb-2 text-sm font-medium text-emerald-800 dark:text-emerald-200">
-                    Staff member created successfully!
+              <div className="space-y-4 pt-2">
+                <DialogHeader>
+                  <DialogTitle className="text-xl">Staff Invited</DialogTitle>
+                  <DialogDescription>Staff member created successfully</DialogDescription>
+                </DialogHeader>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-800 dark:bg-emerald-950/50">
+                  <p className="mb-1 text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                    Temporary password
                   </p>
-                  <p className="mb-1 text-sm text-emerald-700 dark:text-emerald-300">
-                    Temporary password:
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 rounded border bg-background px-2 py-1 text-sm font-mono">
+                  <div className="mt-2 flex items-center gap-2">
+                    <code className="flex-1 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-mono dark:border-emerald-700 dark:bg-background">
                       {tempPassword}
                     </code>
-                    <Button variant="outline" size="icon" onClick={handleCopyPassword}>
+                    <Button variant="outline" size="icon" onClick={handleCopyPassword} className="shrink-0 rounded-lg border-emerald-200 dark:border-emerald-700">
                       {copied ? (
-                        <Check className="h-4 w-4 text-emerald-500" />
+                        <Check className="size-4 text-emerald-500" />
                       ) : (
-                        <Copy className="h-4 w-4" />
+                        <Copy className="size-4" />
                       )}
                     </Button>
                   </div>
                   <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
-                    Share this password securely with the new staff member. They will be asked to
-                    change it on first login.
+                    Share this password securely with the new staff member. They will be asked to change it on first login.
                   </p>
                 </div>
                 <DialogFooter>
-                  <Button onClick={() => setInviteOpen(false)}>Done</Button>
+                  <Button onClick={() => setInviteOpen(false)} className="rounded-xl bg-amber-600 text-white shadow-md hover:bg-amber-700">
+                    Done
+                  </Button>
                 </DialogFooter>
               </div>
             ) : (
               <>
+                <DialogHeader className="pt-2">
+                  <DialogTitle className="text-xl">Invite Staff Member</DialogTitle>
+                  <DialogDescription>Send an invitation to join your shop</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="invite-name">Name *</Label>
+                    <Label htmlFor="invite-name" className="text-sm font-medium">Name *</Label>
                     <Input
                       id="invite-name"
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       placeholder="Full name"
+                      className="rounded-xl border-border/60 focus-visible:ring-2 focus-visible:ring-amber-500/20"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="invite-email">Email *</Label>
+                    <Label htmlFor="invite-email" className="text-sm font-medium">Email *</Label>
                     <Input
                       id="invite-email"
                       type="email"
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
                       placeholder="staff@example.com"
+                      className="rounded-xl border-border/60 focus-visible:ring-2 focus-visible:ring-amber-500/20"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="invite-role">Role</Label>
+                    <Label htmlFor="invite-role" className="text-sm font-medium">Role</Label>
                     <Select
                       value={form.role}
                       onValueChange={(v) => setForm({ ...form, role: v })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="rounded-xl border-border/60 focus:ring-2 focus:ring-amber-500/20">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -291,12 +358,12 @@ export default function StaffPage() {
                     </Select>
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setInviteOpen(false)}>
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button variant="outline" onClick={() => setInviteOpen(false)} className="rounded-xl border-border/60 shadow-sm">
                     Cancel
                   </Button>
-                  <Button onClick={handleInvite} disabled={inviting}>
-                    {inviting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                  <Button onClick={handleInvite} disabled={inviting} className="rounded-xl bg-amber-600 text-white shadow-md hover:bg-amber-700">
+                    {inviting && <Loader2 className="mr-1.5 size-4 animate-spin" />}
                     Invite
                   </Button>
                 </DialogFooter>
@@ -306,116 +373,102 @@ export default function StaffPage() {
         </Dialog>
       </div>
 
-      <div className="relative w-full max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search staff..."
-          className="pl-9"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(1)
-          }}
-        />
-      </div>
-
       {filtered.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center py-16">
-            <UserCog className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-1 text-lg font-semibold">No staff found</h3>
-            <p className="mb-4 text-sm text-muted-foreground">
-              {search ? 'Try a different search term' : 'Invite your first staff member'}
-            </p>
-            {!search && (
-              <Button onClick={() => setInviteOpen(true)}>
-                <Plus className="mr-1 h-4 w-4" />
-                Invite Staff
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-border/60 bg-card shadow-sm">
+          <EmptyState
+            icon={Users}
+            title={search ? 'No staff found' : 'No staff yet'}
+            description={search ? 'Try a different search term' : 'Invite your first staff member'}
+            action={!search ? { label: 'Invite Staff', onClick: () => setInviteOpen(true) } : undefined}
+          />
+        </div>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
-                  <TableHead className="w-32 shrink-0">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginated.map((member) => (
-                  <TableRow key={member.id}>
-                    <TableCell className="font-medium">{member.name}</TableCell>
-                    <TableCell>{member.email}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={member.role === 'admin' ? 'default' : 'secondary'}
-                      >
-                        {member.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          member.status === 'active'
-                            ? 'default'
-                            : member.status === 'suspended'
-                              ? 'destructive'
-                              : 'outline'
-                        }
-                      >
-                        {member.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {member.lastLogin ? formatDate(member.lastLogin) : 'Never'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Select
-                          value={member.role}
-                          onValueChange={(v) => handleUpdateRole(member, v)}
-                        >
-                          <SelectTrigger className="h-8 w-24">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="staff">Staff</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleToggleStatus(member)}
-                          title={member.status === 'active' ? 'Suspend' : 'Activate'}
-                        >
-                          {member.status === 'active' ? (
-                            <ShieldOff className="h-4 w-4 text-amber-500" />
-                          ) : (
-                            <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(member.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+          <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow className="border-b transition-colors">
+                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</TableHead>
+                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</TableHead>
+                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Role</TableHead>
+                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Last Login</TableHead>
+                    <TableHead className="w-36 shrink-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginated.map((member, index) => {
+                    const roleStyle = ROLE_STYLES[member.role] ?? ROLE_STYLES.staff
+                    const statusStyle = STATUS_STYLES[member.status] ?? STATUS_STYLES.pending
+                    return (
+                      <TableRow
+                        key={member.id}
+                        className={cn(
+                          'border-b transition-colors duration-200 last:border-b-0',
+                          index % 2 === 0 ? 'bg-card' : 'bg-muted/20'
+                        )}
+                      >
+                        <TableCell className="font-medium">{member.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{member.email}</TableCell>
+                        <TableCell>
+                          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', roleStyle.bg, roleStyle.label)}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', roleStyle.dot)} />
+                            {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', statusStyle.bg, statusStyle.label)}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', statusStyle.dot)} />
+                            {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {member.lastLogin ? formatDate(member.lastLogin) : 'Never'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Select
+                              value={member.role}
+                              onValueChange={(v) => handleUpdateRole(member, v)}
+                            >
+                              <SelectTrigger className="h-8 w-24 rounded-lg border-border/60 text-xs focus:ring-2 focus:ring-amber-500/20">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="staff">Staff</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleToggleStatus(member)}
+                              title={member.status === 'active' ? 'Suspend' : 'Activate'}
+                              className="rounded-full"
+                            >
+                              {member.status === 'active' ? (
+                                <ShieldOff className="size-4 text-amber-500" />
+                              ) : (
+                                <ShieldCheck className="size-4 text-emerald-500" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(member.id)}
+                              className="rounded-full"
+                            >
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           {totalPages > 1 && (
@@ -426,19 +479,41 @@ export default function StaffPage() {
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
-                  size="icon"
+                  size="sm"
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
+                  className="h-9 rounded-full border-border/60 shadow-sm"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="mr-1 size-4" />
+                  Previous
                 </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                    <Button
+                      key={p}
+                      variant={p === page ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPage(p)}
+                      className={cn(
+                        'h-9 min-w-[2.25rem] rounded-full px-3',
+                        p === page
+                          ? 'bg-amber-600 text-white shadow-sm hover:bg-amber-700'
+                          : 'border-border/60 shadow-sm'
+                      )}
+                    >
+                      {p}
+                    </Button>
+                  ))}
+                </div>
                 <Button
                   variant="outline"
-                  size="icon"
+                  size="sm"
                   disabled={page >= totalPages}
                   onClick={() => setPage(page + 1)}
+                  className="h-9 rounded-full border-border/60 shadow-sm"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  Next
+                  <ChevronRight className="ml-1 size-4" />
                 </Button>
               </div>
             </div>

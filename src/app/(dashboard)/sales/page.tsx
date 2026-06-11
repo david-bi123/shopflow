@@ -3,7 +3,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, MoreHorizontal, Trash2, Eye, Download, Share2 } from 'lucide-react'
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Trash2,
+  Eye,
+  Download,
+  Share2,
+  TrendingUp,
+  Inbox,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,14 +33,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Badge } from '@/components/ui/badge'
-import { PageHeader } from '@/components/shared/page-header'
 import { DataTable } from '@/components/shared/data-table'
 import { EmptyState } from '@/components/shared/empty-state'
 import { LoadingSkeleton } from '@/components/shared/loading-skeleton'
 import { getSales, deleteSale } from '@/lib/actions/sale-actions'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils/cn'
 import type { Sale } from '@/lib/validations/sale'
 
 const PAYMENT_METHODS = [
@@ -40,12 +51,12 @@ const PAYMENT_METHODS = [
   { value: 'other', label: 'Other' },
 ]
 
-const PAYMENT_BADGES: Record<string, 'default' | 'secondary' | 'outline'> = {
-  cash: 'default',
-  card: 'secondary',
-  mobile_money: 'outline',
-  bank_transfer: 'secondary',
-  other: 'outline',
+const PAYMENT_DOT: Record<string, string> = {
+  cash: 'bg-emerald-500',
+  card: 'bg-blue-500',
+  mobile_money: 'bg-amber-500',
+  bank_transfer: 'bg-violet-500',
+  other: 'bg-gray-500',
 }
 
 const ITEMS_PER_PAGE = 10
@@ -101,22 +112,32 @@ export default function SalesPage() {
   }
 
   if (loading) {
-    return <LoadingSkeleton rows={5} columns={7} />
+    return (
+      <div className="space-y-6">
+        <LoadingSkeleton rows={5} columns={7} />
+      </div>
+    )
   }
 
   if (sales.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Sales" description="Manage your sales transactions">
-          <Button asChild>
-            <Link href="/sales/new">
-              <Plus className="mr-2 size-4" />
-              New Sale
-            </Link>
-          </Button>
-        </PageHeader>
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-emerald-500/10 via-card to-chart-2/10 p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20">
+              <TrendingUp className="h-6 w-6 text-emerald-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold sm:text-2xl">Sales</h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Track and manage your sales transactions in one place.
+              </p>
+            </div>
+          </div>
+          <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-emerald-500/5 blur-3xl" />
+        </div>
         <EmptyState
-          icon={Search}
+          icon={Inbox}
           title="No sales yet"
           description="Create your first sale to start tracking transactions."
           action={{ label: 'New Sale', href: '/sales/new' }}
@@ -127,18 +148,24 @@ export default function SalesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Sales" description="Manage your sales transactions">
-        <Button asChild>
-          <Link href="/sales/new">
-            <Plus className="mr-2 size-4" />
-            New Sale
-          </Link>
-        </Button>
-      </PageHeader>
+      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-emerald-500/10 via-card to-chart-2/10 p-6 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20">
+            <TrendingUp className="h-6 w-6 text-emerald-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold sm:text-2xl">Sales</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Track and manage your sales transactions in one place.
+            </p>
+          </div>
+        </div>
+        <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-emerald-500/5 blur-3xl" />
+      </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search by sale number or customer..."
             value={search}
@@ -146,7 +173,7 @@ export default function SalesPage() {
               setSearch(e.target.value)
               setCurrentPage(1)
             }}
-            className="pl-9"
+            className="h-10 rounded-full border border-input/60 bg-card pl-10 pr-4 shadow-sm transition-all placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-emerald-500/20"
           />
         </div>
         <Select
@@ -156,7 +183,7 @@ export default function SalesPage() {
             setCurrentPage(1)
           }}
         >
-          <SelectTrigger className="w-full sm:w-44">
+          <SelectTrigger className="h-10 w-full rounded-full border border-input/60 bg-card shadow-sm sm:w-44 focus:ring-2 focus:ring-emerald-500/20">
             <SelectValue placeholder="Payment method" />
           </SelectTrigger>
           <SelectContent>
@@ -167,117 +194,151 @@ export default function SalesPage() {
             ))}
           </SelectContent>
         </Select>
+        <Button asChild className="h-10 shrink-0 rounded-full bg-emerald-600 text-white shadow-md hover:bg-emerald-700">
+          <Link href="/sales/new">
+            <Plus className="mr-1.5 size-4" />
+            New Sale
+          </Link>
+        </Button>
       </div>
 
-      <DataTable
-        columns={[
-          {
-            key: 'saleNumber',
-            header: 'Sale #',
-            cell: (sale: Sale) => (
-              <span className="font-medium">{sale.saleNumber}</span>
-            ),
-          },
-          {
-            key: 'customer',
-            header: 'Customer',
-            cell: (sale: Sale) => sale.customerName,
-          },
-          {
-            key: 'items',
-            header: 'Items',
-            cell: (sale: Sale) => sale.items.length,
-          },
-          {
-            key: 'total',
-            header: 'Total',
-            cell: (sale: Sale) => formatCurrency(sale.total),
-          },
-          {
-            key: 'paymentMethod',
-            header: 'Payment',
-            cell: (sale: Sale) => (
-              <Badge variant={PAYMENT_BADGES[sale.paymentMethod] ?? 'outline'}>
-                {sale.paymentMethod.replace('_', ' ')}
-              </Badge>
-            ),
-          },
-          {
-            key: 'date',
-            header: 'Date',
-            cell: (sale: Sale) => formatDate(sale.createdAt),
-          },
-          {
-            key: 'actions',
-            header: '',
-            className: 'w-[60px]',
-            cell: (sale: Sale) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon">
-                    <MoreHorizontal className="size-4" />
-                    <span className="sr-only">Actions</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => router.push(`/sales/${sale.id}`)}>
-                    <Eye className="mr-2 size-4" />
-                    View
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      window.open(
-                        `https://wa.me/?text=${encodeURIComponent(`Sale ${sale.saleNumber} - Total: ${formatCurrency(sale.total)}`)}`,
-                        '_blank'
-                      )
-                    }
-                  >
-                    <Share2 className="mr-2 size-4" />
-                    Share WhatsApp
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => toast.info('PDF download coming soon')}>
-                    <Download className="mr-2 size-4" />
-                    Download PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => handleDelete(sale.id)}
-                  >
-                    <Trash2 className="mr-2 size-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ),
-          },
-        ]}
-        data={paginated}
-        keyExtractor={(sale) => sale.id}
-        onRowClick={(sale) => router.push(`/sales/${sale.id}`)}
-      />
+      <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
+        <DataTable
+          columns={[
+            {
+              key: 'saleNumber',
+              header: 'Sale #',
+              cell: (sale: Sale) => (
+                <span className="font-medium">{sale.saleNumber}</span>
+              ),
+            },
+            {
+              key: 'customer',
+              header: 'Customer',
+              cell: (sale: Sale) => sale.customerName,
+            },
+            {
+              key: 'items',
+              header: 'Items',
+              cell: (sale: Sale) => sale.items.length,
+            },
+            {
+              key: 'total',
+              header: 'Total',
+              cell: (sale: Sale) => (
+                <span className="font-semibold text-emerald-600">{formatCurrency(sale.total)}</span>
+              ),
+            },
+            {
+              key: 'paymentMethod',
+              header: 'Payment',
+              cell: (sale: Sale) => (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground">
+                  <span className={cn('h-1.5 w-1.5 rounded-full', PAYMENT_DOT[sale.paymentMethod] ?? 'bg-gray-400')} />
+                  {sale.paymentMethod.replace('_', ' ')}
+                </span>
+              ),
+            },
+            {
+              key: 'date',
+              header: 'Date',
+              cell: (sale: Sale) => formatDate(sale.createdAt),
+            },
+            {
+              key: 'actions',
+              header: '',
+              className: 'w-[60px]',
+              cell: (sale: Sale) => (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="rounded-full">
+                      <MoreHorizontal className="size-4" />
+                      <span className="sr-only">Actions</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="rounded-2xl shadow-xl">
+                    <DropdownMenuItem className="gap-2" onClick={() => router.push(`/sales/${sale.id}`)}>
+                      <Eye className="size-4 text-muted-foreground" />
+                      View
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="gap-2"
+                      onClick={() =>
+                        window.open(
+                          `https://wa.me/?text=${encodeURIComponent(`Sale ${sale.saleNumber} - Total: ${formatCurrency(sale.total)}`)}`,
+                          '_blank'
+                        )
+                      }
+                    >
+                      <Share2 className="size-4 text-muted-foreground" />
+                      Share WhatsApp
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/r/${sale.saleNumber}/pdf`, '_blank')}>
+                      <Download className="size-4 text-muted-foreground" />
+                      Download PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="gap-2 text-destructive focus:text-destructive"
+                      onClick={() => handleDelete(sale.id)}
+                    >
+                      <Trash2 className="size-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ),
+            },
+          ]}
+          data={paginated}
+          keyExtractor={(sale) => sale.id}
+          onRowClick={(sale) => router.push(`/sales/${sale.id}`)}
+        />
+      </div>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
             Page {currentPage} of {totalPages}
           </p>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => p - 1)}
+              className="h-9 rounded-full border-border/60 shadow-sm"
             >
+              <ChevronLeft className="mr-1 size-4" />
               Previous
             </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <Button
+                  key={page}
+                  variant={page === currentPage ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                  className={cn(
+                    'h-9 min-w-[2.25rem] rounded-full px-3',
+                    page === currentPage
+                      ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
+                      : 'border-border/60 shadow-sm'
+                  )}
+                >
+                  {page}
+                </Button>
+              ))}
+            </div>
             <Button
               variant="outline"
               size="sm"
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => p + 1)}
+              className="h-9 rounded-full border-border/60 shadow-sm"
             >
               Next
+              <ChevronRight className="ml-1 size-4" />
             </Button>
           </div>
         </div>

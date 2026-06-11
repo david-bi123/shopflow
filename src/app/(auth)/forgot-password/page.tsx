@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Mail, ArrowRight, Loader2, ArrowLeft, Sparkles, Lock, CheckCircle, Sun, Moon } from 'lucide-react'
+import { Mail, ArrowRight, Loader2, ArrowLeft, Sparkles, Lock, CheckCircle, Sun, Moon, ShieldCheck } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,16 +76,16 @@ export default function ForgotPasswordPage() {
           transition={{ duration: 0.5 }}
           className="relative w-full max-w-sm"
         >
-          <Card className="border-none shadow-xl backdrop-blur-sm">
+          <Card className="border-border/60 shadow-xl shadow-black/5 backdrop-blur-sm">
             <CardHeader className="space-y-1 text-center">
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-                className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"
+                className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/5"
               >
                 {sent ? (
-                  <CheckCircle className="h-6 w-6 text-success" />
+                  <CheckCircle className="h-6 w-6 text-emerald-600" />
                 ) : (
                   <Lock className="h-6 w-6 text-primary" />
                 )}
@@ -110,19 +110,25 @@ export default function ForgotPasswordPage() {
                     <Label htmlFor="email">Email</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="email" name="email" type="email" placeholder="name@example.com" className="pl-10" required disabled={isLoading} />
+                      <Input id="email" name="email" type="email" placeholder="name@example.com" className="pl-10 transition-all" required disabled={isLoading} />
                     </div>
                   </div>
-                  <Button type="submit" className="w-full shadow-lg shadow-primary/25" disabled={isLoading}>
+                  <Button
+                    type="submit"
+                    className="relative w-full overflow-hidden bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
+                    disabled={isLoading}
+                    size="lg"
+                  >
                     {isLoading ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Sending...
                       </>
                     ) : (
                       <>
+                        <ShieldCheck className="mr-2 h-4 w-4" />
                         Send Reset Link
-                        <ArrowRight className="h-4 w-4" />
+                        <ArrowRight className="ml-1 h-4 w-4" />
                       </>
                     )}
                   </Button>
@@ -133,8 +139,10 @@ export default function ForgotPasswordPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   className="space-y-4"
                 >
-                  <div className="rounded-lg bg-success/10 p-4 text-center text-sm text-success">
-                    Reset link sent! Check your email inbox.
+                  <div className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-5 text-center">
+                    <CheckCircle className="mx-auto mb-2 h-8 w-8 text-emerald-600" />
+                    <p className="text-sm font-medium text-emerald-700">Reset link sent!</p>
+                    <p className="text-xs text-emerald-600/70 mt-1">Check your email inbox.</p>
                   </div>
                   <Button variant="outline" className="w-full" onClick={() => setSent(false)}>
                     Send another link

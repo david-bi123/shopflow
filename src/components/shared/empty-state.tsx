@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import type { LucideIcon } from 'lucide-react'
 
@@ -14,17 +15,19 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+    <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
       <div className="relative">
         {Icon && (
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-inset ring-primary/20">
-            <Icon className="size-6 text-primary" />
+          <div className="relative flex size-14 items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/25 via-primary/15 to-transparent ring-1 ring-inset ring-primary/20" />
+            <div className="absolute inset-1 rounded-full bg-gradient-to-br from-primary/10 to-transparent" />
+            <Icon className="relative size-6 text-primary drop-sm" />
           </div>
         )}
       </div>
 
-      <div className="space-y-1">
-        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+      <div className="space-y-1.5">
+        <h3 className="text-xl font-bold tracking-tight">{title}</h3>
         {description && (
           <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
             {description}
@@ -33,13 +36,13 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
       </div>
 
       {action && (
-        <div className="mt-2">
+        <div className="mt-1">
           <Button
             asChild={!!action.href}
             onClick={action.onClick}
-            className="h-10 rounded-xl bg-primary px-4 font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+            className="h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 px-5 font-medium text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 active:scale-95 transition-all duration-150"
           >
-            {action.href ? <a href={action.href}>{action.label}</a> : action.label}
+            {action.href ? <Link href={action.href}>{action.label}</Link> : action.label}
           </Button>
         </div>
       )}
