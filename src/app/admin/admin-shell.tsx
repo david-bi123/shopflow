@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   Store,
   BarChart3,
@@ -35,7 +35,6 @@ interface AdminShellProps {
 
 export function AdminShell({ user, children }: AdminShellProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
@@ -43,8 +42,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
     setSigningOut(true)
     try {
       await logoutAction()
-      router.push('/login')
-      router.refresh()
+      window.location.href = '/'
     } catch {
       setSigningOut(false)
     }

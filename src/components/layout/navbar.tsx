@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { useState } from 'react'
 import {
@@ -55,15 +54,13 @@ export function Navbar({ user, title }: NavbarProps) {
   const { theme, setTheme } = useTheme()
   const isMobile = useMediaQuery('(max-width: 768px)')
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
-  const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
 
   async function handleSignOut() {
     setSigningOut(true)
     try {
       await logoutAction()
-      router.push('/login')
-      router.refresh()
+      window.location.href = '/'
     } catch {
       setSigningOut(false)
     }

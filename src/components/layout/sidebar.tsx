@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
   Activity,
@@ -73,7 +73,6 @@ const navItems: NavItem[] = [
 
 function SidebarContent({ user }: { user: SidebarUser }) {
   const pathname = usePathname()
-  const router = useRouter()
   const isCollapsed = useUIStore((state) => state.isCollapsed)
   const toggleCollapse = useUIStore((state) => state.toggleCollapse)
   const isMobile = useMediaQuery('(max-width: 768px)')
@@ -83,8 +82,7 @@ function SidebarContent({ user }: { user: SidebarUser }) {
     setSigningOut(true)
     try {
       await logoutAction()
-      router.push('/login')
-      router.refresh()
+      window.location.href = '/'
     } catch {
       setSigningOut(false)
     }
