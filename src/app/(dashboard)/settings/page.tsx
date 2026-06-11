@@ -8,8 +8,9 @@ import {
   Globe,
   Receipt,
   CreditCard,
-  Upload,
-  Building2,
+  Store as StoreIcon,
+  Settings as SettingsIcon,
+  Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CURRENCIES, TIMEZONES, PAYMENT_METHODS } from '@/lib/utils/constants'
+import { formatCurrency } from '@/lib/utils/format'
 
 interface Settings {
   storeName: string
@@ -54,40 +56,59 @@ const defaultSettings: Settings = {
   currency: 'GHS',
   timezone: 'UTC',
   taxRate: 0,
-  receiptFooter: '',
+  receiptFooter: 'Thank you for your business!',
   showLogoOnReceipt: true,
   showQrOnReceipt: true,
-  defaultPaymentMethods: [],
+  defaultPaymentMethods: ['cash', 'mobile_money'],
 }
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>(defaultSettings)
+  const [loadedSettings, setLoadedSettings] = useState<Settings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const dirty = loadedSettings !== null && JSON.stringify(settings) !== JSON.stringify(loadedSettings)
+
   useEffect(() => {
+    let cancelled = false
     async function fetchSettings() {
       try {
         const { getSettings } = await import('@/lib/actions/settings-actions')
         const result = await getSettings()
-        if ('error' in result) return
-        const data = result.settings
-        setSettings({ ...defaultSettings, ...(data as unknown as Partial<Settings>) })
+        if (cancelled) return
+        if ('error' in result) {
+          setError(result.error as string)
+          return
+        }
+        const data = result.settings as unknown as Partial<Settings>
+        const next = { ...defaultSettings, ...data }
+        setSettings(next)
+        setLoadedSettings(next)
       } catch {
-        setError('Failed to load settings')
+        if (!cancelled) setError('Failed to load settings')
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     fetchSettings()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   async function handleSave() {
+    if (!dirty || saving) return
     setSaving(true)
     try {
       const { updateSettings } = await import('@/lib/actions/settings-actions')
-      await updateSettings(settings as unknown as Parameters<typeof updateSettings>[0])
+      const res = await updateSettings(settings as unknown as Parameters<typeof updateSettings>[0])
+      if ('error' in res && res.error) {
+        toast.error(res.error as string)
+        return
+      }
+      setLoadedSettings(settings)
       toast.success('Settings saved successfully')
     } catch {
       toast.error('Failed to save settings')
@@ -122,7 +143,9 @@ export default function SettingsPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <AlertCircle className="mb-4 h-12 w-12 text-destructive" />
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 ring-1 ring-destructive/20">
+          <AlertCircle className="h-6 w-6 text-destructive" />
+        </div>
         <h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
         <p className="mb-4 text-muted-foreground">{error}</p>
         <Button onClick={() => window.location.reload()}>Try Again</Button>
@@ -131,26 +154,37 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-5 pb-24 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            <SettingsIcon className="h-6 w-6 text-primary" />
+            Settings
+          </h1>
           <p className="text-sm text-muted-foreground">Manage your store configuration</p>
         </div>
-        <Button onClick={handleSave} disabled={saving} size="lg" className="bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25">
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          <Save className="mr-2 h-4 w-4" />
-          Save Changes
+        <Button
+          onClick={handleSave}
+          disabled={!dirty || saving}
+          size="lg"
+          className="w-full bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25 sm:w-auto"
+        >
+          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          {saving ? 'Saving...' : dirty ? 'Save Changes' : 'Saved'}
+          {dirty && !saving && <Check className="ml-1 h-4 w-4" />}
         </Button>
       </div>
 
-      <Card className="overflow-hidden border-0 shadow-md">
+      <Card className="overflow-hidden border-0 shadow-sm">
         <CardHeader className="border-b bg-gradient-to-r from-blue-500/5 to-transparent pb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
-              <Building2 className="h-4 w-4 text-blue-600" />
+              <StoreIcon className="h-4 w-4 text-blue-600" />
             </div>
-            <CardTitle className="text-base">Store Information</CardTitle>
+            <div>
+              <CardTitle className="text-base">Store Information</CardTitle>
+              <p className="text-xs text-muted-foreground">Public details shown on receipts and invoices</p>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4 pt-5">
@@ -161,6 +195,7 @@ export default function SettingsPage() {
                 id="storeName"
                 value={settings.storeName}
                 onChange={(e) => setSettings({ ...settings, storeName: e.target.value })}
+                placeholder="My Store"
               />
             </div>
             <div className="space-y-2">
@@ -169,6 +204,7 @@ export default function SettingsPage() {
                 id="storePhone"
                 value={settings.storePhone}
                 onChange={(e) => setSettings({ ...settings, storePhone: e.target.value })}
+                placeholder="+233 ..."
               />
             </div>
             <div className="space-y-2">
@@ -178,6 +214,7 @@ export default function SettingsPage() {
                 type="email"
                 value={settings.storeEmail}
                 onChange={(e) => setSettings({ ...settings, storeEmail: e.target.value })}
+                placeholder="store@example.com"
               />
             </div>
             <div className="space-y-2">
@@ -186,31 +223,23 @@ export default function SettingsPage() {
                 id="storeAddress"
                 value={settings.storeAddress}
                 onChange={(e) => setSettings({ ...settings, storeAddress: e.target.value })}
+                placeholder="123 Main St, Accra"
               />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Logo</Label>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" disabled>
-                <Upload className="mr-1 h-4 w-4" />
-                Upload Logo
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Logo upload coming soon
-              </span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden border-0 shadow-md">
+      <Card className="overflow-hidden border-0 shadow-sm">
         <CardHeader className="border-b bg-gradient-to-r from-violet-500/5 to-transparent pb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10">
               <Globe className="h-4 w-4 text-violet-600" />
             </div>
-            <CardTitle className="text-base">Currency &amp; Timezone</CardTitle>
+            <div>
+              <CardTitle className="text-base">Currency &amp; Timezone</CardTitle>
+              <p className="text-xs text-muted-foreground">GHS is the default. Switch anytime.</p>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
@@ -224,13 +253,16 @@ export default function SettingsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CURRENCIES.map((c: { code: string; name: string; symbol: string }) => (
+                {CURRENCIES.map((c) => (
                   <SelectItem key={c.code} value={c.code}>
                     {c.code} - {c.symbol} ({c.name})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Sample: {formatCurrency(1234.56, settings.currency)}
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="timezone">Timezone</Label>
@@ -242,7 +274,7 @@ export default function SettingsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TIMEZONES.map((tz: string) => (
+                {TIMEZONES.map((tz) => (
                   <SelectItem key={tz} value={tz}>
                     {tz}
                   </SelectItem>
@@ -253,13 +285,16 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden border-0 shadow-md">
+      <Card className="overflow-hidden border-0 shadow-sm">
         <CardHeader className="border-b bg-gradient-to-r from-amber-500/5 to-transparent pb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10">
               <Receipt className="h-4 w-4 text-amber-600" />
             </div>
-            <CardTitle className="text-base">Tax &amp; Receipt</CardTitle>
+            <div>
+              <CardTitle className="text-base">Tax &amp; Receipt</CardTitle>
+              <p className="text-xs text-muted-foreground">Tax rate and what customers see on receipts</p>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4 pt-5">
@@ -277,10 +312,11 @@ export default function SettingsPage() {
                   setSettings({ ...settings, taxRate: parseFloat(e.target.value) || 0 })
                 }
               />
+              <p className="text-xs text-muted-foreground">Applied to all sales and invoices</p>
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="receiptFooter">Receipt Footer</Label>
+            <Label htmlFor="receiptFooter">Receipt Footer Message</Label>
             <Textarea
               id="receiptFooter"
               value={settings.receiptFooter}
@@ -321,32 +357,51 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden border-0 shadow-md">
+      <Card className="overflow-hidden border-0 shadow-sm">
         <CardHeader className="border-b bg-gradient-to-r from-emerald-500/5 to-transparent pb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
               <CreditCard className="h-4 w-4 text-emerald-600" />
             </div>
-            <CardTitle className="text-base">Payment Methods</CardTitle>
+            <div>
+              <CardTitle className="text-base">Payment Methods</CardTitle>
+              <p className="text-xs text-muted-foreground">Default options shown when recording sales</p>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-5">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
             {PAYMENT_METHODS.map((pm) => (
-              <div key={pm.value} className="flex items-center gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30">
+              <label
+                key={pm.value}
+                htmlFor={`pm-${pm.value}`}
+                className="flex cursor-pointer items-center gap-2.5 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30 hover:border-primary/30"
+              >
                 <Checkbox
                   id={`pm-${pm.value}`}
                   checked={settings.defaultPaymentMethods.includes(pm.value)}
                   onCheckedChange={() => togglePaymentMethod(pm.value)}
                 />
-                <Label htmlFor={`pm-${pm.value}`} className="cursor-pointer text-sm font-medium">
-                  {pm.label}
-                </Label>
-              </div>
+                <span className="text-sm font-medium">{pm.label}</span>
+              </label>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {dirty && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/90 px-4 py-3 backdrop-blur lg:hidden">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25"
+            size="lg"
+          >
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

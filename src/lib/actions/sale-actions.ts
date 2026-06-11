@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
-import { sales, customers } from '@/lib/db/schema'
+import { sales, customers, tenants, settings } from '@/lib/db/schema'
 import { eq, and, or, like, sql, desc, count } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
 import { createSaleSchema } from '@/lib/validations/sale'
@@ -196,11 +196,48 @@ export async function deleteSale(id: string) {
 export async function getSaleByNumber(saleNumber: string) {
   const db = await dbConnect()
 
-  const [sale] = await db.select().from(sales).where(
-    eq(sales.saleNumber, saleNumber)
-  ).limit(1)
+  const [row] = await db
+    .select({
+      id: sales.id,
+      tenantId: sales.tenantId,
+      saleNumber: sales.saleNumber,
+      customerName: sales.customerName,
+      customerPhone: sales.customerPhone,
+      customerId: sales.customerId,
+      items: sales.items,
+      subtotal: sales.subtotal,
+      discount: sales.discount,
+      tax: sales.tax,
+      total: sales.total,
+      paymentMethod: sales.paymentMethod,
+      notes: sales.notes,
+      createdBy: sales.createdBy,
+      createdAt: sales.createdAt,
+      updatedAt: sales.updatedAt,
+      currency: settings.currency,
+      tenantName: tenants.name,
+      tenantSlug: tenants.slug,
+      tenantPhone: settings.storePhone,
+      tenantEmail: settings.storeEmail,
+      tenantAddress: settings.storeAddress,
+    })
+    .from(sales)
+    .leftJoin(tenants, eq(sales.tenantId, tenants.id))
+    .leftJoin(settings, eq(sales.tenantId, settings.tenantId))
+    .where(eq(sales.saleNumber, saleNumber))
+    .limit(1)
 
-  if (!sale) return null
+  if (!row) return null
 
-  return serializeRow(sale)
+  return {
+    ...(serializeRow(row as unknown as Record<string, unknown>) as Record<string, unknown>),
+    currency: row.currency || 'GHS',
+    tenant: {
+      name: row.tenantName || 'Store',
+      slug: row.tenantSlug || '',
+      phone: row.tenantPhone || '',
+      email: row.tenantEmail || '',
+      address: row.tenantAddress || '',
+    },
+  }
 }

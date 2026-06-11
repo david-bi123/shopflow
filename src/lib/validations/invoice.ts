@@ -25,6 +25,9 @@ export interface Invoice {
   notes?: string
   createdAt: string
   createdBy: { name: string }
+  currency?: string
+  receiptFooter?: string
+  tenant?: { id: string; name: string; slug: string; phone?: string; email?: string; address?: string }
   tenantId?: { id: string; name: string; slug: string }
 }
 

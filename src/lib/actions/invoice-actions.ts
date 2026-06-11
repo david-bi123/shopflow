@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
-import { invoices, customers, users, tenants } from '@/lib/db/schema'
+import { invoices, customers, users, tenants, settings } from '@/lib/db/schema'
 import { eq, and, or, like, sql, desc } from 'drizzle-orm'
 import { toNum, serializeRow } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
@@ -328,12 +328,19 @@ export async function getInvoiceByNumber(invoiceNumber: string) {
       createdBy: invoices.createdBy,
       createdAt: invoices.createdAt,
       updatedAt: invoices.updatedAt,
+      currency: settings.currency,
       tenantName: tenants.name,
       tenantSlug: tenants.slug,
+      tenantPhone: settings.storePhone,
+      tenantEmail: settings.storeEmail,
+      tenantAddress: settings.storeAddress,
+      receiptFooter: settings.receiptFooter,
     })
     .from(invoices)
     .leftJoin(tenants, eq(invoices.tenantId, tenants.id))
+    .leftJoin(settings, eq(invoices.tenantId, settings.tenantId))
     .where(eq(invoices.invoiceNumber, invoiceNumber))
+    .limit(1)
 
   if (!row) return null
 
@@ -354,10 +361,15 @@ export async function getInvoiceByNumber(invoiceNumber: string) {
     notes: row.notes || undefined,
     createdAt: row.createdAt,
     createdBy: { name: String(row.createdBy) },
-    tenantId: {
+    currency: row.currency || 'GHS',
+    receiptFooter: row.receiptFooter || '',
+    tenant: {
       id: String(row.tenantId),
       name: row.tenantName || 'Store',
       slug: row.tenantSlug || '',
+      phone: row.tenantPhone || '',
+      email: row.tenantEmail || '',
+      address: row.tenantAddress || '',
     },
   }
 
