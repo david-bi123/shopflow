@@ -51,7 +51,7 @@ const defaultSettings: Settings = {
   storeEmail: '',
   storeAddress: '',
   logo: null,
-  currency: 'USD',
+  currency: 'GHS',
   timezone: 'UTC',
   taxRate: 0,
   receiptFooter: '',

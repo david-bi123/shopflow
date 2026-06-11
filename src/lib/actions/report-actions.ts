@@ -1,8 +1,8 @@
 'use server'
 
 import { dbConnect } from '@/lib/db/connect'
-import { sales, invoices, users, customers, auditLogs } from '@/lib/db/schema'
-import { eq, and, inArray, desc, asc, gte, lte, count } from 'drizzle-orm'
+import { sales, invoices, users, customers, auditLogs, settings } from '@/lib/db/schema'
+import { eq, and, inArray, desc, asc, gte, lte, count, sql } from 'drizzle-orm'
 import { toNum, serializeList } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
 import { hasPermission, PERMISSIONS } from '@/lib/auth/roles'
@@ -50,6 +50,10 @@ export async function getDashboardStats() {
       inArray(users.role, ['admin', 'staff']),
     ))
 
+  const [shopSettings] = await db.select({ storeName: settings.storeName }).from(settings)
+    .where(eq(settings.tenantId, tenantId))
+    .limit(1)
+
   const productMap: Record<string, { name: string; total: number; revenue: number }> = {}
   for (const sale of allSales) {
     const items = sale.items as Array<{ name: string; quantity: number; subtotal: number }>
@@ -78,6 +82,7 @@ export async function getDashboardStats() {
     totalCustomers: totalCustomers?.total ?? 0,
     totalStaff: totalStaff?.total ?? 0,
     topProducts,
+    shopName: shopSettings?.storeName ?? 'IndFlow',
   }
 }
 
@@ -110,7 +115,7 @@ export async function getSalesChartData(days = 30) {
 
   return Object.entries(grouped)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, vals]) => ({ date, total: vals.total, count: vals.count }))
+    .map(([date, vals]) => ({ date, sales: vals.total, orders: vals.count }))
 }
 
 export async function getSalesReport(startDate: string, endDate: string) {
@@ -118,10 +123,11 @@ export async function getSalesReport(startDate: string, endDate: string) {
   if (!session?.user) return { error: 'Unauthorized' }
 
   const db = await dbConnect()
+  const tenantId = toNum(session.user.tenantId!)
 
   const result = await db.select().from(sales)
     .where(and(
-      eq(sales.tenantId, toNum(session.user.tenantId!)),
+      eq(sales.tenantId, tenantId),
       gte(sales.createdAt, new Date(startDate).toISOString()),
       lte(sales.createdAt, new Date(endDate).toISOString()),
     ))
@@ -131,9 +137,49 @@ export async function getSalesReport(startDate: string, endDate: string) {
   const totalSales = result.length
   const avgSale = totalSales > 0 ? totalRevenue / totalSales : 0
 
+  const chartGrouped: Record<string, { revenue: number; sales: number }> = {}
+  for (const record of result) {
+    const date = record.createdAt.slice(0, 10)
+    if (!chartGrouped[date]) chartGrouped[date] = { revenue: 0, sales: 0 }
+    chartGrouped[date].revenue += record.total
+    chartGrouped[date].sales += 1
+  }
+  const chartData = Object.entries(chartGrouped)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([label, vals]) => ({ label, ...vals }))
+
+  const productMap: Record<string, { name: string; quantity: number; revenue: number }> = {}
+  for (const sale of result) {
+    const items = sale.items as Array<{ name: string; quantity: number; subtotal: number }>
+    for (const item of items) {
+      if (!productMap[item.name]) {
+        productMap[item.name] = { name: item.name, quantity: 0, revenue: 0 }
+      }
+      productMap[item.name].quantity += item.quantity
+      productMap[item.name].revenue += item.subtotal
+    }
+  }
+  const topProducts = Object.values(productMap)
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 5)
+
+  const paymentGrouped: Record<string, { method: string; count: number; total: number }> = {}
+  for (const sale of result) {
+    const method = sale.paymentMethod
+    if (!paymentGrouped[method]) paymentGrouped[method] = { method, count: 0, total: 0 }
+    paymentGrouped[method].count += 1
+    paymentGrouped[method].total += sale.total
+  }
+  const paymentMethods = Object.values(paymentGrouped)
+
   return {
+    totalRevenue,
+    totalSales,
+    averageSale: avgSale,
+    chartData,
+    topProducts,
+    paymentMethods,
     sales: serializeList(result),
-    summary: { totalRevenue, totalSales, avgSale },
   }
 }
 

@@ -90,6 +90,10 @@ export default function ReportsPage() {
         }
         const { getSalesReport } = await import('@/lib/actions/report-actions')
         const data = await getSalesReport(startDate.toISOString(), endDate.toISOString())
+        if ('error' in data) {
+          setError(data.error as string)
+          return
+        }
         setReport(data as unknown as SalesReportData)
       } catch {
         setError('Failed to load report')

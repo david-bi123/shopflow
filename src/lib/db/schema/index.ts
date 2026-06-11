@@ -151,7 +151,7 @@ export const settings = mysqlTable('settings', {
   storeEmail: varchar('store_email', { length: 255 }),
   storeAddress: text('store_address'),
   logo: varchar('logo', { length: 500 }),
-  currency: varchar('currency', { length: 10 }).notNull().default('USD'),
+  currency: varchar('currency', { length: 10 }).notNull().default('GHS'),
   timezone: varchar('timezone', { length: 50 }).notNull().default('UTC'),
   taxRate: double('tax_rate').notNull().default(0),
   receiptFooter: text('receipt_footer').notNull(),

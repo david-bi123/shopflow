@@ -40,22 +40,16 @@ import { EmptyState } from '@/components/shared/empty-state'
 
 interface DashboardStats {
   todaySales: number
+  todaySalesCount: number
   weeklySales: number
+  weeklySalesCount: number
   monthlySales: number
-  totalProducts: number
-  totalSales: number
+  monthlySalesCount: number
+  totalSalesCount: number
   totalInvoices: number
   totalCustomers: number
   totalStaff: number
-  recentActivity: Array<{
-    id: string
-    action: string
-    entityType: string
-    entityId: string
-    description: string
-    user: { name: string }
-    createdAt: string
-  }>
+  topProducts: Array<{ name: string; total: number; revenue: number }>
   shopName: string
 }
 
@@ -65,23 +59,38 @@ interface SalesChartData {
   orders: number
 }
 
+interface ActivityItem {
+  id: string
+  action: string
+  entity: string
+  entityId: string
+  performedByName: string
+  details: { description?: string } | null
+  createdAt: string
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [chartData, setChartData] = useState<SalesChartData[]>([])
+  const [activities, setActivities] = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const { getDashboardStats, getSalesChartData } = await import('@/lib/actions/report-actions')
-        const [statsData, chart] = await Promise.all([
+        const { getDashboardStats, getSalesChartData, getActivities } = await import('@/lib/actions/report-actions')
+        const [statsData, chart, activityData] = await Promise.all([
           getDashboardStats(),
           getSalesChartData(),
+          getActivities(5),
         ])
         setStats(statsData as unknown as DashboardStats)
         setChartData(chart as unknown as SalesChartData[])
+        if (!('error' in activityData)) {
+          setActivities(activityData.activities as unknown as ActivityItem[])
+        }
       } catch {
         setError('Failed to load dashboard data')
       } finally {
@@ -127,25 +136,20 @@ export default function DashboardPage() {
       trend: 'up' as const,
     },
     {
-      title: 'Weekly Sales',
+      title: 'This Week',
       value: formatCurrency(stats?.weeklySales ?? 0),
       icon: TrendingUp,
       trend: 'up' as const,
     },
     {
-      title: 'Monthly Sales',
+      title: 'This Month',
       value: formatCurrency(stats?.monthlySales ?? 0),
       icon: TrendingUp,
       trend: 'up' as const,
     },
     {
-      title: 'Total Products',
-      value: stats?.totalProducts ?? 0,
-      icon: Package,
-    },
-    {
       title: 'Total Sales',
-      value: stats?.totalSales ?? 0,
+      value: stats?.totalSalesCount ?? 0,
       icon: ShoppingCart,
     },
     {
@@ -157,6 +161,11 @@ export default function DashboardPage() {
       title: 'Customers',
       value: stats?.totalCustomers ?? 0,
       icon: Users,
+    },
+    {
+      title: 'Staff',
+      value: stats?.totalStaff ?? 0,
+      icon: Package,
     },
   ]
 
@@ -264,38 +273,28 @@ export default function DashboardPage() {
             <CardTitle>Top Selling Items</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={[
-                    { name: 'Item A', sales: 120 },
-                    { name: 'Item B', sales: 98 },
-                    { name: 'Item C', sales: 86 },
-                    { name: 'Item D', sales: 65 },
-                    { name: 'Item E', sales: 42 },
-                  ]}
-                  layout="vertical"
-                >
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    tick={{ fontSize: 11 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: 'var(--background)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius)',
-                    }}
-                  />
-                  <Bar dataKey="sales" fill="var(--chart-2)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {stats?.topProducts && stats.topProducts.length > 0 ? (
+              <div className="space-y-4">
+                {stats.topProducts.map((product, i) => (
+                  <div key={product.name} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                        {i + 1}
+                      </span>
+                      <span className="text-sm font-medium">{product.name}</span>
+                    </div>
+                    <div className="text-right text-sm">
+                      <span className="text-muted-foreground">{product.total} sold</span>
+                      <span className="ml-3 font-medium">{formatCurrency(product.revenue)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">
+                No sales data available
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -311,9 +310,9 @@ export default function DashboardPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          {stats?.recentActivity && stats.recentActivity.length > 0 ? (
+          {activities.length > 0 ? (
             <div className="space-y-4">
-              {stats.recentActivity.slice(0, 5).map((activity) => (
+              {activities.map((activity) => (
                 <div
                   key={activity.id}
                   className="flex items-start gap-3 border-b pb-3 last:border-0 last:pb-0"
@@ -323,8 +322,8 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm">
-                      <span className="font-medium">{activity.user.name}</span>{' '}
-                      {activity.description}
+                      <span className="font-medium">{activity.performedByName}</span>{' '}
+                      {activity.details?.description ?? activity.action}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {formatDate(activity.createdAt)}

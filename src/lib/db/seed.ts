@@ -48,9 +48,9 @@ async function seed() {
   const [superAdmin] = await db.select().from(users).where(eq(users.email, 'super@indflow.com')).limit(1)
 
   const shopData = [
-    { name: "Alice's Boutique", slug: 'alices-boutique', currency: 'USD', timezone: 'America/New_York' },
-    { name: "Bob's Pharmacy", slug: 'bobs-pharmacy', currency: 'NGN', timezone: 'Africa/Lagos' },
-    { name: "Charlie's Electronics", slug: 'charlies-electronics', currency: 'KES', timezone: 'Africa/Nairobi' },
+    { name: "Alice's Boutique", slug: 'alices-boutique', currency: 'GHS', timezone: 'Africa/Accra' },
+    { name: "Bob's Pharmacy", slug: 'bobs-pharmacy', currency: 'GHS', timezone: 'Africa/Accra' },
+    { name: "Charlie's Electronics", slug: 'charlies-electronics', currency: 'GHS', timezone: 'Africa/Accra' },
   ]
 
   const ownerEmails = [

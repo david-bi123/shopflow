@@ -18,6 +18,7 @@ export const CURRENCIES = [
   { code: 'TZS', symbol: 'TSh', name: 'Tanzanian Shilling' },
   { code: 'UGX', symbol: 'USh', name: 'Ugandan Shilling' },
   { code: 'RWF', symbol: 'FRw', name: 'Rwandan Franc' },
+  { code: 'XOF', symbol: 'CFA', name: 'West African CFA Franc' },
 ] as const
 
 export const TIMEZONES = [

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -38,6 +38,22 @@ const defaultItem = { name: '', quantity: 1, price: 0, subtotal: 0 }
 export default function NewSalePage() {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
+  const [currency, setCurrency] = useState('GHS')
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const { getSettings } = await import('@/lib/actions/settings-actions')
+        const result = await getSettings()
+        if (!('error' in result)) {
+          setCurrency((result.settings as { currency: string }).currency)
+        }
+      } catch {
+        // use default
+      }
+    }
+    loadSettings()
+  }, [])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(createSaleSchema) as any,
@@ -196,7 +212,7 @@ export default function NewSalePage() {
                     <div className="space-y-2">
                       <Label>Subtotal</Label>
                       <div className="flex h-9 items-center rounded-md border bg-muted px-3 text-sm">
-                        {formatCurrency(lineTotal)}
+                        {formatCurrency(lineTotal, currency)}
                       </div>
                     </div>
                   </div>
@@ -261,20 +277,20 @@ export default function NewSalePage() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Subtotal</span>
-                <span>{formatCurrency(subtotal)}</span>
+                <span>{formatCurrency(subtotal, currency)}</span>
               </div>
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Discount</span>
-                <span>-{formatCurrency(Number(discount))}</span>
+                <span>-{formatCurrency(Number(discount), currency)}</span>
               </div>
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Tax</span>
-                <span>+{formatCurrency(Number(tax))}</span>
+                <span>+{formatCurrency(Number(tax), currency)}</span>
               </div>
               <Separator />
               <div className="flex justify-between text-lg font-semibold">
                 <span>Grand Total</span>
-                <span>{formatCurrency(grandTotal)}</span>
+                <span>{formatCurrency(grandTotal, currency)}</span>
               </div>
             </div>
 
