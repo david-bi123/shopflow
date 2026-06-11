@@ -9,7 +9,6 @@ import { signIn } from '@/lib/auth/auth'
 import { slugify } from '@/lib/utils/format'
 import { AuthError } from 'next-auth'
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { encode } from 'next-auth/jwt'
 
 export async function registerShop(formData: FormData) {
@@ -137,7 +136,7 @@ export async function loginAction(data: { email: string; password: string }) {
       maxAge: 30 * 24 * 60 * 60,
     })
 
-    redirect(redirectTo)
+    return { redirectTo }
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: 'Invalid email or password' }
