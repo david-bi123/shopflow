@@ -50,7 +50,7 @@ function EmptyState({ colSpan }: { colSpan: number }) {
           <div className="space-y-1">
             <p className="text-sm font-medium text-slate-900">No results found</p>
             <p className="text-sm text-slate-500">
-              Try adjusting your search or filters to find what you're looking for.
+              Try adjusting your search or filters to find what you&apos;re looking for.
             </p>
           </div>
         </div>

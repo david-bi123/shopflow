@@ -111,6 +111,7 @@ function KPICard({
   )
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null
   return (
@@ -119,7 +120,7 @@ function ChartTooltip({ active, payload, label }: any) {
         {label}
       </p>
       <div className="mt-1.5 space-y-1">
-        {payload.map((entry: any, idx: number) => (
+        {payload.map((entry: { name?: string; value?: number; color?: string; payload?: { revenue?: number } }, idx: number) => (
           <div key={idx} className="flex items-center gap-2 text-sm">
             <span
               className="h-2 w-2 rounded-full"
@@ -138,6 +139,7 @@ function ChartTooltip({ active, payload, label }: any) {
   )
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BarTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null
   const entry = payload[0]
@@ -202,7 +204,7 @@ export default function ReportsPage() {
       try {
         const now = new Date()
         let startDate: Date
-        let endDate = now
+        const endDate = now
         switch (datePreset) {
           case 'today':
             startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -483,7 +485,7 @@ export default function ReportsPage() {
                             cx="50%"
                             cy="50%"
                             outerRadius={80}
-                            label={({ name, percent }: any) =>
+                            label={({ name, percent }: { name?: string; percent?: number }) =>
                               `${name ?? ''} ${((Number(percent) || 0) * 100).toFixed(0)}%`
                             }
                           >

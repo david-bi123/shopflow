@@ -101,7 +101,7 @@ export async function getStaff(page = 1, limit = 20) {
   }
 }
 
-export async function updateStaff(id: string, data: any) {
+export async function updateStaff(id: string, data: Record<string, unknown>) {
   const session = await auth()
   if (!session?.user) return { error: 'Unauthorized' }
   if (!hasPermission(session.user.role, PERMISSIONS.staff.update)) return { error: 'Forbidden' }

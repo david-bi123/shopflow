@@ -1,5 +1,5 @@
 import { mysqlTable, text, varchar, int, double, json, tinyint, uniqueIndex, index } from 'drizzle-orm/mysql-core'
-import { sql } from 'drizzle-orm'
+
 
 export const tenants = mysqlTable('tenants', {
   id: int('id').primaryKey().autoincrement(),

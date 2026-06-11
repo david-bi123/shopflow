@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   Store,
   Search,
   Loader2,
   CheckCircle2,
-  XCircle,
   AlertTriangle,
   Clock,
   Trash2,
@@ -20,7 +19,6 @@ import {
   Tag,
   Building2,
   ShieldCheck,
-  ShoppingBag,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -90,37 +88,46 @@ export default function AdminShopsPage() {
   const [stats, setStats] = useState({ total: 0, active: 0, pending: 0 })
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1)
+    }, 300)
     return () => clearTimeout(timer)
   }, [search])
 
+  const prevStatusFilter = useRef(statusFilter)
   useEffect(() => {
-    setPage(1)
-  }, [statusFilter, debouncedSearch])
-
-  const fetchTenants = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { getTenants } = await import('@/lib/actions/admin-actions')
-      const result = await getTenants(page, 20, statusFilter || undefined)
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      setTenants(result.tenants as unknown as Tenant[])
-      setTotalPages(result.pagination!.totalPages)
-      setTotal(result.pagination!.total)
-      setStats((prev) => ({ ...prev, total: result.pagination!.total }))
-    } catch {
-      toast.error('Failed to load shops')
-    } finally {
-      setLoading(false)
+    if (prevStatusFilter.current !== statusFilter) {
+      prevStatusFilter.current = statusFilter
+      setPage(1)
     }
-  }, [page, statusFilter])
+  }, [statusFilter])
 
   useEffect(() => {
+    let cancelled = false
+    async function fetchTenants() {
+      setLoading(true)
+      try {
+        const { getTenants } = await import('@/lib/actions/admin-actions')
+        const result = await getTenants(page, 20, statusFilter || undefined)
+        if (cancelled) return
+        if (result.error) {
+          toast.error(result.error)
+          return
+        }
+        setTenants(result.tenants as unknown as Tenant[])
+        setTotalPages(result.pagination!.totalPages)
+        setTotal(result.pagination!.total)
+        setStats((prev) => ({ ...prev, total: result.pagination!.total }))
+      } catch {
+        if (!cancelled) toast.error('Failed to load shops')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
     fetchTenants()
-  }, [fetchTenants])
+    return () => { cancelled = true }
+  }, [page, statusFilter])
 
   useEffect(() => {
     async function fetchStats() {

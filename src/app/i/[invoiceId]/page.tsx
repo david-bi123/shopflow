@@ -1,13 +1,13 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Store, ArrowLeft, MapPin, Phone, Mail, Calendar, Hash, FileText, User, CreditCard, CircleCheck, CircleAlert, CircleDashed, CircleX } from 'lucide-react'
+import { Store, ArrowLeft, MapPin, Phone, Mail, Calendar, FileText, User, CircleCheck, CircleAlert, CircleDashed, CircleX } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { getInvoiceByNumber } from '@/lib/actions/invoice-actions'
 import { PublicActions } from '@/components/shared/public-actions'
 
 const statusConfig: Record<
   string,
-  { label: string; icon: any; className: string; bgClass: string }
+  { label: string; icon: React.ElementType; className: string; bgClass: string }
 > = {
   paid: {
     label: 'Paid',
@@ -199,7 +199,7 @@ export default async function PublicInvoicePage({
 
               {/* Rows */}
               <div className="divide-y divide-border/60">
-                {invoice.items.map((item: any, idx: number) => (
+                {invoice.items.map((item: { name: string; description?: string; quantity: number; price: number; total: number }, idx: number) => (
                   <div
                     key={idx}
                     className="grid grid-cols-12 gap-2 px-4 py-3.5 text-sm transition-colors hover:bg-slate-50/40 dark:hover:bg-zinc-900/30"

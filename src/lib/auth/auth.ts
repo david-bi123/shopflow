@@ -16,8 +16,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize(
-        credentials: Partial<Record<'email' | 'password', unknown>>,
-        _request: Request
+        credentials: Partial<Record<'email' | 'password', unknown>>
       ): Promise<User | null> {
         if (!credentials?.email || !credentials?.password) {
           return null
@@ -54,8 +53,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id as string
-        token.role = (user as any).role as Role
-        token.tenantId = (user as any).tenantId as string | undefined
+        token.role = (user as { role: Role }).role
+        token.tenantId = (user as { tenantId?: string }).tenantId
       }
       return token
     },

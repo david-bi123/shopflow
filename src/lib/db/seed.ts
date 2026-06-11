@@ -17,7 +17,7 @@ if (fs.existsSync(envPath)) {
 }
 
 import { dbConnect } from './connect'
-import { tenants, users, settings as settingsTable, customers, sales, invoices, auditLogs, announcements, subscriptions } from './schema'
+import { tenants, users, settings as settingsTable, customers, sales, invoices, auditLogs, subscriptions } from './schema'
 import bcrypt from 'bcryptjs'
 import { faker } from '@faker-js/faker'
 import { eq, sql } from 'drizzle-orm'
@@ -45,8 +45,6 @@ async function seed() {
     createdAt: now,
     updatedAt: now,
   })
-  const [superAdmin] = await db.select().from(users).where(eq(users.email, 'super@indflow.com')).limit(1)
-
   const shopData = [
     { name: "Alice's Boutique", slug: 'alices-boutique', currency: 'GHS', timezone: 'Africa/Accra' },
     { name: "Bob's Pharmacy", slug: 'bobs-pharmacy', currency: 'GHS', timezone: 'Africa/Accra' },

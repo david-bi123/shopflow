@@ -16,12 +16,11 @@ import {
   Shield,
   Sun,
   Store,
-  User,
 } from "lucide-react"
 
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
 import { useUIStore } from "@/lib/store/ui-store"
-import { cn } from "@/lib/utils/cn"
+
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"

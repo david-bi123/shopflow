@@ -85,7 +85,22 @@ export default function AdminAnnouncementsPage() {
   }
 
   useEffect(() => {
-    fetchAnnouncements()
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      try {
+        const { getAnnouncements } = await import('@/lib/actions/admin-actions')
+        const result = await getAnnouncements()
+        if (cancelled) return
+        setAnnouncements(result as unknown as Announcement[])
+      } catch {
+        if (!cancelled) setError('Failed to load announcements')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
   }, [])
 
   async function handleCreate() {

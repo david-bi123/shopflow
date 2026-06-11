@@ -9,7 +9,6 @@ import {
   Users,
   FileText,
   TrendingUp,
-  TrendingDown,
   AlertCircle,
   Store,
   Receipt,
@@ -70,7 +69,7 @@ function formatShortDate(d: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-const ACTIVITY_ICON: Record<string, any> = {
+const ACTIVITY_ICON: Record<string, React.ElementType> = {
   sale: ShoppingCart,
   invoice: FileText,
   customer: Users,
@@ -86,6 +85,7 @@ const ACTIVITY_COLOR: Record<string, string> = {
   default: 'bg-slate-100 text-slate-700 ring-slate-200/60 dark:bg-slate-900/60 dark:text-slate-300 dark:ring-slate-800/40',
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null
   return (

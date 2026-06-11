@@ -4,8 +4,7 @@ import bcrypt from 'bcryptjs'
 import { dbConnect } from '@/lib/db/connect'
 import { tenants, users, settings as settingsTable, subscriptions } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { registerSchema, loginSchema } from '@/lib/validations/auth'
-import { signIn } from '@/lib/auth/auth'
+import { registerSchema } from '@/lib/validations/auth'
 import { slugify } from '@/lib/utils/format'
 import { AuthError } from 'next-auth'
 import { cookies } from 'next/headers'
@@ -110,7 +109,6 @@ export async function loginAction(data: { email: string; password: string }) {
 
     const redirectTo = user.role === 'super_admin' ? '/admin' : '/dashboard'
 
-    // Create JWT session token manually
     const token = {
       sub: String(user.id),
       id: String(user.id),
@@ -141,71 +139,11 @@ export async function loginAction(data: { email: string; password: string }) {
     if (error instanceof AuthError) {
       return { error: 'Invalid email or password' }
     }
-    // Let redirect() errors propagate — Next.js handles them
     if (error instanceof Error && error.message?.includes('NEXT_REDIRECT')) {
       throw error
     }
     return { error: 'Something went wrong' }
   }
-}
-
-export async function login(formData: FormData) {
-  const raw = {
-    email: formData.get('email') as string,
-    password: formData.get('password') as string,
-  }
-
-  const validated = loginSchema.safeParse(raw)
-  if (!validated.success) {
-    return { error: validated.error.issues[0].message }
-  }
-
-  try {
-    await signIn('credentials', {
-      email: raw.email,
-      password: raw.password,
-      redirect: false,
-    })
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: 'Invalid email or password' }
-    }
-    return { error: 'Something went wrong' }
-  }
-
-  const db = await dbConnect()
-
-  const [user] = await db.select().from(users).where(eq(users.email, raw.email)).limit(1)
-  if (!user) {
-    return { error: 'Invalid email or password' }
-  }
-
-  if (user.role === 'super_admin') {
-    return { redirectTo: '/admin' }
-  }
-
-  if (!user.tenantId) {
-    return { error: 'Invalid email or password' }
-  }
-
-  const [tenant] = await db.select().from(tenants).where(eq(tenants.id, user.tenantId)).limit(1)
-  if (!tenant) {
-    return { error: 'Invalid email or password' }
-  }
-
-  if (tenant.status === 'pending') {
-    return { redirectTo: '/pending-approval' }
-  }
-
-  if (tenant.status === 'suspended') {
-    return { error: 'Your shop has been suspended' }
-  }
-
-  if (tenant.status === 'rejected') {
-    return { error: 'Your registration was not approved' }
-  }
-
-  return { redirectTo: '/dashboard' }
 }
 
 export async function getCurrentUser() {

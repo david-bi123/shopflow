@@ -7,7 +7,6 @@ import {
   Mail,
   Phone,
   MapPin,
-  FileText,
   ShoppingCart,
   DollarSign,
   Edit,

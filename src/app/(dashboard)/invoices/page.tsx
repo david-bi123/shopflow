@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -71,23 +71,25 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await getInvoices()
-      if (!('error' in data)) {
-        setInvoices(data.invoices as unknown as Invoice[])
-      }
-    } catch {
-      toast.error('Failed to load invoices')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
+    let cancelled = false
+    async function fetchInvoices() {
+      setLoading(true)
+      try {
+        const data = await getInvoices()
+        if (cancelled) return
+        if (!('error' in data)) {
+          setInvoices(data.invoices as unknown as Invoice[])
+        }
+      } catch {
+        if (!cancelled) toast.error('Failed to load invoices')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
     fetchInvoices()
-  }, [fetchInvoices])
+    return () => { cancelled = true }
+  }, [])
 
   const filtered = invoices.filter((inv) => {
     const matchesSearch =

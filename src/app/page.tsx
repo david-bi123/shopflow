@@ -1,31 +1,28 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { motion, useInView } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Receipt,
   FileText,
   Users,
   BarChart3,
   Shield,
-  MessageCircle,
   Menu,
   X,
-  Check,
   ChevronDown,
   ArrowRight,
   Sparkles,
   Store,
   TrendingUp,
   QrCode,
-  Clock,
   Sun,
   Moon,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils/cn'
 

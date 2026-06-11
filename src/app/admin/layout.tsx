@@ -34,6 +34,7 @@ export default function AdminLayout({
   const { data: session, status } = useSession()
   const pathname = usePathname()
   const router = useRouter()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -54,8 +55,6 @@ export default function AdminLayout({
   }
 
   if (session?.user?.role !== 'super_admin') return null
-
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <div className="flex min-h-screen bg-background">

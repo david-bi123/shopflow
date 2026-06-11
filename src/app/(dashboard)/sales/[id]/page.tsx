@@ -30,14 +30,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getSaleById, deleteSale } from '@/lib/actions/sale-actions'
@@ -46,7 +38,7 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import type { Sale } from '@/lib/validations/sale'
 
-const PAYMENT_META: Record<string, { label: string; icon: any; className: string; bgClass: string }> = {
+const PAYMENT_META: Record<string, { label: string; icon: React.ElementType; className: string; bgClass: string }> = {
   cash: {
     label: 'Cash',
     icon: Banknote,

@@ -12,7 +12,6 @@ import {
   Phone,
   Mail,
   MapPin,
-  CreditCard,
   Calendar,
   Hash,
   FileText,
@@ -28,7 +27,6 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
@@ -56,7 +54,7 @@ import type { Invoice, InvoiceStatus } from '@/lib/validations/invoice'
 
 const STATUS_META: Record<
   InvoiceStatus,
-  { label: string; icon: any; className: string; bgClass: string; borderClass: string }
+  { label: string; icon: React.ElementType; className: string; bgClass: string; borderClass: string }
 > = {
   paid: {
     label: 'Paid',
@@ -139,7 +137,7 @@ export default function InvoiceDetailPage() {
   const handleStatusChange = async (newStatus: InvoiceStatus) => {
     if (!invoice) return
     try {
-      await updateInvoiceStatus((invoice as any).id, newStatus)
+      await updateInvoiceStatus((invoice as unknown as { id: string }).id, newStatus)
       setInvoice({ ...invoice, status: newStatus })
       toast.success(`Invoice status updated to ${newStatus}`)
     } catch {

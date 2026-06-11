@@ -2,7 +2,7 @@
 
 import { dbConnect } from '@/lib/db/connect'
 import { sales, invoices, users, customers, auditLogs, settings } from '@/lib/db/schema'
-import { eq, and, inArray, desc, asc, gte, lte, count, sql } from 'drizzle-orm'
+import { eq, and, inArray, desc, asc, gte, lte, count } from 'drizzle-orm'
 import { toNum, serializeList } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
 

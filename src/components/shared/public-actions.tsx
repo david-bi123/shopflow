@@ -7,10 +7,9 @@ interface PublicActionsProps {
   pdfUrl: string
   pageUrl: string
   whatsappUrl: string
-  label: string
 }
 
-export function PublicActions({ pdfUrl, pageUrl, whatsappUrl, label }: PublicActionsProps) {
+export function PublicActions({ pdfUrl, pageUrl, whatsappUrl }: PublicActionsProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopyLink = async () => {

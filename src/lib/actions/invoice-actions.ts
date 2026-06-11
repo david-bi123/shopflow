@@ -85,7 +85,7 @@ export async function createInvoice(data: CreateInvoiceInput) {
   })
 
   revalidatePath('/invoices')
-  return { success: true, invoice: serializeRow(invoice as unknown as Record<string, unknown>) as any }
+  return { success: true, invoice: serializeRow(invoice as unknown as Record<string, unknown>) as unknown as Invoice }
 }
 
 export async function getInvoices(page = 1, limit = 20, filters?: Record<string, string>) {
@@ -240,7 +240,7 @@ export async function getInvoiceById(id: string) {
     updatedAt: row.updatedAt,
   }
 
-  return { invoice: invoice as any }
+  return { invoice: invoice as unknown as Invoice }
 }
 
 export async function updateInvoiceStatus(id: string, status: string) {
@@ -279,7 +279,7 @@ export async function updateInvoiceStatus(id: string, status: string) {
   })
 
   revalidatePath('/invoices')
-  return { success: true, invoice: serializeRow(invoice as unknown as Record<string, unknown>) as any }
+  return { success: true, invoice: serializeRow(invoice as unknown as Record<string, unknown>) as unknown as Invoice }
 }
 
 export async function deleteInvoice(id: string) {

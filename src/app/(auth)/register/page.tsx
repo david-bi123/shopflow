@@ -7,7 +7,6 @@ import { useTheme } from 'next-themes'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Store, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, User, Building2, Phone, Check, Sparkles, Sun, Moon, UserPlus } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -91,7 +90,11 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      await registerShop(formData)
+      const result = await registerShop(formData)
+      if (result?.error) {
+        toast.error(result.error)
+        return
+      }
       toast.success('Registration submitted! Awaiting approval.')
       router.push('/pending-approval')
     } catch (error) {

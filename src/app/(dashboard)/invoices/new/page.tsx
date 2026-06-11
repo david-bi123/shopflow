@@ -32,7 +32,7 @@ export default function NewInvoicePage() {
   const [submitting, setSubmitting] = useState(false)
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(createInvoiceSchema) as any,
+    resolver: zodResolver(createInvoiceSchema) as unknown as Parameters<typeof useForm<FormValues>>[0]['resolver'],
     defaultValues: {
       customerName: '',
       customerEmail: '',

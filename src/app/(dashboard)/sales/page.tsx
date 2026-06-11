@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -69,22 +69,24 @@ export default function SalesPage() {
   const [paymentFilter, setPaymentFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const fetchSales = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await getSales()
-      if ('error' in data) { toast.error(data.error); setSales([]); return }
-      setSales((data.sales ?? []) as unknown as Sale[])
-    } catch {
-      toast.error('Failed to load sales')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
+    let cancelled = false
+    async function fetchSales() {
+      setLoading(true)
+      try {
+        const data = await getSales()
+        if (cancelled) return
+        if ('error' in data) { toast.error(data.error); setSales([]); return }
+        setSales((data.sales ?? []) as unknown as Sale[])
+      } catch {
+        if (!cancelled) toast.error('Failed to load sales')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
     fetchSales()
-  }, [fetchSales])
+    return () => { cancelled = true }
+  }, [])
 
   const filtered = sales.filter((sale) => {
     const matchesSearch =

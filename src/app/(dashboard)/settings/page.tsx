@@ -5,14 +5,11 @@ import {
   Save,
   Loader2,
   AlertCircle,
-  Store,
   Globe,
   Receipt,
   CreditCard,
   Upload,
-  Settings2,
   Building2,
-  Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -90,7 +87,7 @@ export default function SettingsPage() {
     setSaving(true)
     try {
       const { updateSettings } = await import('@/lib/actions/settings-actions')
-      await updateSettings(settings as any)
+      await updateSettings(settings as unknown as Parameters<typeof updateSettings>[0])
       toast.success('Settings saved successfully')
     } catch {
       toast.error('Failed to save settings')

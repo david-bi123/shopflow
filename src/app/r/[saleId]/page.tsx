@@ -17,7 +17,7 @@ export default async function PublicReceiptPage({
     notFound()
   }
 
-  const store = (sale.tenantId as any) || { name: 'Store', slug: '' }
+  const store = (sale.tenantId as { name: string; slug: string }) || { name: 'Store', slug: '' }
   const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/r/${sale.saleNumber}`
   const pdfUrl = `/api/r/${sale.saleNumber}/pdf`
   const whatsappMessage = `Sale ${sale.saleNumber} - ${sale.customerName || 'Customer'} - Total: ${formatCurrency(sale.total)}`
@@ -122,7 +122,7 @@ export default async function PublicReceiptPage({
               Items
             </div>
             <div className="space-y-2.5">
-              {sale.items.map((item: any, idx: number) => (
+              {sale.items.map((item: { name: string; quantity: number; price: number; subtotal: number }, idx: number) => (
                 <div
                   key={idx}
                   className="flex items-start justify-between gap-3 rounded-lg bg-slate-50/60 px-3 py-2.5 dark:bg-zinc-900/50"

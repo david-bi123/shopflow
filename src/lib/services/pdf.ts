@@ -48,6 +48,8 @@ const BORDER_COLOR = '#e2e8f0'
 const TEXT_PRIMARY = '#1e293b'
 const TEXT_MUTED = '#64748b'
 
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function drawTableRow(
   doc: PDFKit.PDFDocument,
   y: number,
@@ -57,8 +59,7 @@ function drawTableRow(
   isHeader = false,
   rowIndex?: number
 ) {
-  let x = isHeader ? 50 : 50
-
+  let x = 50
   if (!isHeader && rowIndex !== undefined) {
     const rowColor = rowIndex % 2 === 0 ? ROW_EVEN : ROW_ODD
     doc.rect(x, y - 3, widths.reduce((a, b) => a + b, 0), 18).fill(rowColor)
