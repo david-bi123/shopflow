@@ -7,8 +7,7 @@ import { eq } from 'drizzle-orm'
 import { registerSchema } from '@/lib/validations/auth'
 import { slugify } from '@/lib/utils/format'
 import { AuthError } from 'next-auth'
-import { cookies } from 'next/headers'
-import { encode } from 'next-auth/jwt'
+import { signIn } from '@/lib/auth/auth'
 
 export async function registerShop(formData: FormData) {
   const raw = {
@@ -92,8 +91,6 @@ export async function loginAction(data: { email: string; password: string }) {
     const [user] = await db.select().from(users).where(eq(users.email, data.email)).limit(1)
     if (!user) return { error: 'Invalid email or password' }
 
-    const isValid = await bcrypt.compare(data.password, user.password)
-    if (!isValid) return { error: 'Invalid email or password' }
     if (user.status === 'suspended') return { error: 'Account has been suspended' }
 
     if (user.role !== 'super_admin') {
@@ -107,39 +104,19 @@ export async function loginAction(data: { email: string; password: string }) {
       if (tenant.status === 'rejected') return { error: 'Your registration was not approved' }
     }
 
+    await signIn('credentials', {
+      email: data.email,
+      password: data.password,
+      redirect: false,
+    })
+
     const redirectTo = user.role === 'super_admin' ? '/admin' : '/dashboard'
-
-    const token = {
-      sub: String(user.id),
-      id: String(user.id),
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      tenantId: user.tenantId ? String(user.tenantId) : undefined,
-    }
-
-    const sessionToken = await encode({
-      token,
-      secret: process.env.NEXTAUTH_SECRET!,
-      salt: 'next-auth.session-token',
-      maxAge: 30 * 24 * 60 * 60,
-    })
-
-    const cookieStore = await cookies()
-    cookieStore.set('next-auth.session-token', sessionToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 30 * 24 * 60 * 60,
-    })
-
     return { redirectTo }
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: 'Invalid email or password' }
     }
-    if (error instanceof Error && error.message?.includes('NEXT_REDIRECT')) {
+    if (error instanceof Error && (error.message?.includes('NEXT_REDIRECT') || error.message?.includes('redirect'))) {
       throw error
     }
     return { error: 'Something went wrong' }

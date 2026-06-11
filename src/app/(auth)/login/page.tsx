@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
@@ -25,7 +25,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils/cn'
-import { loginAction } from '@/lib/actions/auth-actions'
+import { signIn } from 'next-auth/react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -47,9 +48,20 @@ const features = [
 ]
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
+  )
+}
+
+function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const { theme, setTheme } = useTheme()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -65,17 +77,32 @@ export default function LoginPage() {
       return
     }
 
-    const result = await loginAction({ email, password })
+    try {
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      })
 
-    if (result?.error) {
-      toast.error(result.error)
+      if (!result || result.error) {
+        toast.error('Invalid email or password')
+        setIsLoading(false)
+        return
+      }
+
+      const sessionRes = await fetch('/api/auth/session')
+      const session = await sessionRes.json()
+      const role = session?.user?.role
+
+      let target = callbackUrl
+      if (role === 'super_admin') target = '/admin'
+      else target = '/dashboard'
+
+      router.push(target)
+      router.refresh()
+    } catch {
+      toast.error('Something went wrong')
       setIsLoading(false)
-      return
-    }
-
-    if (result?.redirectTo) {
-      window.location.href = result.redirectTo
-      return
     }
   }
 
