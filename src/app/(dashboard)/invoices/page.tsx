@@ -73,7 +73,7 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     let cancelled = false
-    async function fetchInvoices() {
+    ;(async () => {
       setLoading(true)
       try {
         const data = await getInvoices()
@@ -86,10 +86,23 @@ export default function InvoicesPage() {
       } finally {
         if (!cancelled) setLoading(false)
       }
-    }
-    fetchInvoices()
+    })()
     return () => { cancelled = true }
   }, [])
+
+  async function fetchInvoices() {
+    setLoading(true)
+    try {
+      const data = await getInvoices()
+      if (!('error' in data)) {
+        setInvoices(data.invoices as unknown as Invoice[])
+      }
+    } catch {
+      toast.error('Failed to load invoices')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filtered = invoices.filter((inv) => {
     const matchesSearch =

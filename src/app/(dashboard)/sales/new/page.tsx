@@ -55,7 +55,7 @@ export default function NewSalePage() {
   }, [])
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(createSaleSchema) as unknown as Parameters<typeof useForm<FormValues>>[0]['resolver'],
+    resolver: zodResolver(createSaleSchema) as never,
     defaultValues: {
       customerName: '',
       customerPhone: '',

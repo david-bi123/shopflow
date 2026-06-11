@@ -86,7 +86,6 @@ export default async function PublicInvoicePage({
             pdfUrl={pdfUrl}
             pageUrl={invoiceUrl}
             whatsappUrl={whatsappUrl}
-            label="Invoice"
           />
         </div>
 

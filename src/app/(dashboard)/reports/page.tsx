@@ -129,8 +129,8 @@ function ChartTooltip({ active, payload, label }: any) {
             <span className="text-muted-foreground">{entry.name}:</span>
             <span className="font-semibold tabular-nums">
               {entry.name === 'revenue' || entry.name === 'total'
-                ? formatCurrency(entry.value)
-                : entry.value}
+                ? formatCurrency(entry.value ?? 0)
+                : entry.value ?? ''}
             </span>
           </div>
         ))}

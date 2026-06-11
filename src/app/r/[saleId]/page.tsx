@@ -17,7 +17,7 @@ export default async function PublicReceiptPage({
     notFound()
   }
 
-  const store = (sale.tenantId as { name: string; slug: string }) || { name: 'Store', slug: '' }
+  const store = (sale.tenantId as unknown as { name: string; slug: string }) || { name: 'Store', slug: '' }
   const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/r/${sale.saleNumber}`
   const pdfUrl = `/api/r/${sale.saleNumber}/pdf`
   const whatsappMessage = `Sale ${sale.saleNumber} - ${sale.customerName || 'Customer'} - Total: ${formatCurrency(sale.total)}`
@@ -44,7 +44,6 @@ export default async function PublicReceiptPage({
             pdfUrl={pdfUrl}
             pageUrl={receiptUrl}
             whatsappUrl={whatsappUrl}
-            label="Receipt"
           />
         </div>
 

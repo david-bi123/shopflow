@@ -20,7 +20,8 @@ async function dbConnect(): Promise<ReturnType<typeof drizzle<typeof schema>>> {
       ...(isLocal ? {} : { ssl: { rejectUnauthorized: true } }),
     })
 
-    db = drizzle(pool as unknown as mysql.Pool, { schema, mode: 'default' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    db = drizzle(pool as any, { schema, mode: 'default' })
 
     console.log('✅ Connected to TiDB')
   }

@@ -71,7 +71,7 @@ export default function SalesPage() {
 
   useEffect(() => {
     let cancelled = false
-    async function fetchSales() {
+    ;(async () => {
       setLoading(true)
       try {
         const data = await getSales()
@@ -83,10 +83,22 @@ export default function SalesPage() {
       } finally {
         if (!cancelled) setLoading(false)
       }
-    }
-    fetchSales()
+    })()
     return () => { cancelled = true }
   }, [])
+
+  async function fetchSales() {
+    setLoading(true)
+    try {
+      const data = await getSales()
+      if ('error' in data) { toast.error(data.error); setSales([]); return }
+      setSales((data.sales ?? []) as unknown as Sale[])
+    } catch {
+      toast.error('Failed to load sales')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filtered = sales.filter((sale) => {
     const matchesSearch =

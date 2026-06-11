@@ -105,7 +105,7 @@ export default function AdminShopsPage() {
 
   useEffect(() => {
     let cancelled = false
-    async function fetchTenants() {
+    ;(async () => {
       setLoading(true)
       try {
         const { getTenants } = await import('@/lib/actions/admin-actions')
@@ -124,10 +124,29 @@ export default function AdminShopsPage() {
       } finally {
         if (!cancelled) setLoading(false)
       }
-    }
-    fetchTenants()
+    })()
     return () => { cancelled = true }
   }, [page, statusFilter])
+
+  async function fetchTenants() {
+    setLoading(true)
+    try {
+      const { getTenants } = await import('@/lib/actions/admin-actions')
+      const result = await getTenants(page, 20, statusFilter || undefined)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      setTenants(result.tenants as unknown as Tenant[])
+      setTotalPages(result.pagination!.totalPages)
+      setTotal(result.pagination!.total)
+      setStats((prev) => ({ ...prev, total: result.pagination!.total }))
+    } catch {
+      toast.error('Failed to load shops')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     async function fetchStats() {
