@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm'
 import { registerSchema } from '@/lib/validations/auth'
 import { slugify } from '@/lib/utils/format'
 import { AuthError } from 'next-auth'
-import { signIn } from '@/lib/auth/auth'
+import { signIn, signOut } from '@/lib/auth/auth'
 
 export async function registerShop(formData: FormData) {
   const raw = {
@@ -116,10 +116,7 @@ export async function loginAction(data: { email: string; password: string }) {
     if (error instanceof AuthError) {
       return { error: 'Invalid email or password' }
     }
-    if (error instanceof Error && (error.message?.includes('NEXT_REDIRECT') || error.message?.includes('redirect'))) {
-      throw error
-    }
-    return { error: 'Something went wrong' }
+    return { error: 'Something went wrong. Please try again.' }
   }
 }
 
@@ -127,4 +124,8 @@ export async function getCurrentUser() {
   const { auth } = await import('@/lib/auth/auth')
   const session = await auth()
   return session?.user || null
+}
+
+export async function logoutAction() {
+  await signOut({ redirect: false })
 }

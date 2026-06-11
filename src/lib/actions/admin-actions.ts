@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
-import { tenants, users, sales, invoices, announcements } from '@/lib/db/schema'
+import { tenants, users, sales, invoices, announcements, auditLogs } from '@/lib/db/schema'
 import { eq, desc, count } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
@@ -58,13 +58,15 @@ export async function getPlatformStats() {
 
   const db = await dbConnect()
 
-  const [totalTenants, activeTenants, pendingTenants, totalSales, totalInvoices] =
+  const [totalTenants, activeTenants, pendingTenants, suspendedTenants, totalSales, totalInvoices, totalUsers] =
     await Promise.all([
       db.select({ total: count() }).from(tenants).then(r => r[0]?.total ?? 0),
       db.select({ total: count() }).from(tenants).where(eq(tenants.status, 'active')).then(r => r[0]?.total ?? 0),
       db.select({ total: count() }).from(tenants).where(eq(tenants.status, 'pending')).then(r => r[0]?.total ?? 0),
+      db.select({ total: count() }).from(tenants).where(eq(tenants.status, 'suspended')).then(r => r[0]?.total ?? 0),
       db.select({ total: count() }).from(sales).then(r => r[0]?.total ?? 0),
       db.select({ total: count() }).from(invoices).then(r => r[0]?.total ?? 0),
+      db.select({ total: count() }).from(users).then(r => r[0]?.total ?? 0),
     ])
 
   const allSales = await db.select({ total: sales.total }).from(sales)
@@ -74,10 +76,33 @@ export async function getPlatformStats() {
     totalTenants,
     activeTenants,
     pendingTenants,
+    suspendedTenants,
     totalSales,
     totalInvoices,
     totalRevenue,
+    totalUsers,
   }
+}
+
+export async function getRecentPlatformActivity(limit = 10) {
+  const session = await auth()
+  if (session?.user?.role !== 'super_admin') return { error: 'Unauthorized' }
+
+  const db = await dbConnect()
+
+  const logs = await db.select({
+    id: auditLogs.id,
+    action: auditLogs.action,
+    entity: auditLogs.entity,
+    entityId: auditLogs.entityId,
+    performedByName: auditLogs.performedByName,
+    details: auditLogs.details,
+    createdAt: auditLogs.createdAt,
+  }).from(auditLogs)
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(limit)
+
+  return serializeList(logs)
 }
 
 export async function getAnnouncements() {

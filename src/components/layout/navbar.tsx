@@ -1,13 +1,15 @@
-"use client"
+'use client'
 
-import Link from "next/link"
-import { useSession, signOut } from "next-auth/react"
-import { useTheme } from "next-themes"
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
+import { useState } from 'react'
 import {
   Bell,
   ChevronDown,
   LayoutDashboard,
   LifeBuoy,
+  Loader2,
   LogOut,
   Menu,
   Moon,
@@ -16,15 +18,16 @@ import {
   Shield,
   Sun,
   Store,
-} from "lucide-react"
+} from 'lucide-react'
 
-import { useMediaQuery } from "@/lib/hooks/use-media-query"
-import { useUIStore } from "@/lib/store/ui-store"
+import { useMediaQuery } from '@/lib/hooks/use-media-query'
+import { useUIStore } from '@/lib/store/ui-store'
+import { logoutAction } from '@/lib/actions/auth-actions'
+import type { Role } from '@/types'
 
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,30 +35,44 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Separator } from "@/components/ui/separator"
+} from '@/components/ui/dropdown-menu'
+import { Separator } from '@/components/ui/separator'
+
+interface NavbarUser {
+  id: string
+  name: string | null
+  email: string | null
+  role: Role
+  tenantId: string | null
+}
 
 interface NavbarProps {
+  user: NavbarUser
   title?: string
 }
 
-export function Navbar({ title }: NavbarProps) {
-  const { data: session } = useSession()
+export function Navbar({ user, title }: NavbarProps) {
   const { theme, setTheme } = useTheme()
-  const isMobile = useMediaQuery("(max-width: 768px)")
+  const isMobile = useMediaQuery('(max-width: 768px)')
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
+  const router = useRouter()
+  const [signingOut, setSigningOut] = useState(false)
 
-  const user = session?.user
+  async function handleSignOut() {
+    setSigningOut(true)
+    try {
+      await logoutAction()
+      router.push('/login')
+      router.refresh()
+    } catch {
+      setSigningOut(false)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-lg supports-[backdrop-filter]:bg-background/50">
-      {/* Mobile: hamburger + brand */}
       <div className="flex items-center gap-2 md:hidden">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setSidebarOpen(true)}
-        >
+        <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
           <Menu className="h-5 w-5" />
         </Button>
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/20">
@@ -66,35 +83,30 @@ export function Navbar({ title }: NavbarProps) {
         </span>
       </div>
 
-      {/* Page title / breadcrumb */}
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         {title && (
-          <h1 className="text-sm font-semibold text-foreground md:text-base">
+          <h1 className="truncate text-sm font-semibold text-foreground md:text-base">
             {title}
           </h1>
         )}
       </div>
 
-      {/* Right actions */}
       <div className="flex items-center gap-0.5">
-        {/* Global Search */}
         <Button variant="ghost" size="icon" className="hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring rounded-xl">
           <Search className="h-5 w-5" />
         </Button>
 
-        {/* Theme Toggle */}
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           className="hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring rounded-xl"
+          aria-label="Toggle theme"
         >
           <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          <span className="sr-only">Toggle theme</span>
         </Button>
 
-        {/* Notifications */}
         <Button
           variant="ghost"
           size="icon"
@@ -114,26 +126,21 @@ export function Navbar({ title }: NavbarProps) {
 
         <Separator orientation="vertical" className="mx-1.5 h-6" />
 
-        {/* User Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="relative flex items-center gap-2 rounded-xl px-2 hover:bg-accent/50"
-            >
+            <Button variant="ghost" className="relative flex items-center gap-2 rounded-xl px-2 hover:bg-accent/50">
               <Avatar className="h-7 w-7 ring-1 ring-border/50">
-                <AvatarImage src={user?.image ?? undefined} />
                 <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold">
-                  {user?.name?.charAt(0)?.toUpperCase() ?? "U"}
+                  {user.name?.charAt(0)?.toUpperCase() ?? 'U'}
                 </AvatarFallback>
               </Avatar>
               {!isMobile && (
                 <div className="flex flex-col items-start text-left">
                   <span className="text-sm font-medium leading-tight">
-                    {user?.name ?? "User"}
+                    {user.name ?? 'User'}
                   </span>
                   <span className="text-xs text-muted-foreground leading-tight">
-                    {user?.email ?? ""}
+                    {user.email ?? ''}
                   </span>
                 </div>
               )}
@@ -144,16 +151,13 @@ export function Navbar({ title }: NavbarProps) {
             <DropdownMenuLabel className="font-normal">
               <div className="flex items-center gap-3">
                 <Avatar className="h-9 w-9 ring-1 ring-border/50">
-                  <AvatarImage src={user?.image ?? undefined} />
                   <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold">
-                    {user?.name?.charAt(0)?.toUpperCase() ?? "U"}
+                    {user.name?.charAt(0)?.toUpperCase() ?? 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                  <span className="font-medium">{user?.name ?? "User"}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {user?.email ?? ""}
-                  </span>
+                  <span className="font-medium">{user.name ?? 'User'}</span>
+                  <span className="text-xs text-muted-foreground">{user.email ?? ''}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
@@ -178,14 +182,18 @@ export function Navbar({ title }: NavbarProps) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/support" className="flex items-center gap-2">
+              <Link href="#" className="flex items-center gap-2">
                 <LifeBuoy className="h-4 w-4" />
                 Help & Support
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOut()} className="flex items-center gap-2 text-destructive focus:text-destructive">
-              <LogOut className="h-4 w-4" />
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="flex items-center gap-2 text-destructive focus:text-destructive"
+            >
+              {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
               Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
