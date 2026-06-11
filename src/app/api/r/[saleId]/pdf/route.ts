@@ -20,6 +20,8 @@ export async function GET(
         storePhone: settings.storePhone,
         storeEmail: settings.storeEmail,
         storeAddress: settings.storeAddress,
+        storeDescription: settings.storeDescription,
+        taxNumber: settings.taxNumber,
         receiptFooter: settings.receiptFooter,
       })
       .from(sales)
@@ -41,8 +43,10 @@ export async function GET(
         customerPhone: s.customerPhone || undefined,
         items: s.items as Array<{ name: string; quantity: number; price: number; subtotal: number }>,
         subtotal: s.subtotal,
+        discountPercent: s.discountPercent,
         discount: s.discount,
         tax: s.tax,
+        taxItems: (s.taxItems as Array<{ name: string; rate: number; amount: number }>) ?? [],
         total: s.total,
         paymentMethod: s.paymentMethod,
         notes: s.notes || undefined,
@@ -50,9 +54,11 @@ export async function GET(
       },
       {
         name: storeName,
+        description: row.storeDescription || undefined,
         phone: row.storePhone || undefined,
         email: row.storeEmail || undefined,
         address: row.storeAddress || undefined,
+        taxNumber: row.taxNumber || undefined,
         footer: row.receiptFooter || undefined,
       }
     )

@@ -22,6 +22,123 @@ import bcrypt from 'bcryptjs'
 import { faker } from '@faker-js/faker'
 import { eq, sql } from 'drizzle-orm'
 
+interface TaxItem {
+  name: string
+  rate: number
+  amount: number
+}
+
+interface ShopData {
+  name: string
+  slug: string
+  currency: string
+  timezone: string
+  phone: string
+  email: string
+  address: string
+  description: string
+  taxNumber: string
+  taxes: { name: string; rate: number; enabled: boolean }[]
+  /** Probability that any given sale will have a discount applied. */
+  discountProbability: number
+  /** Maximum discount percentage applied to a sale. */
+  maxDiscountPercent: number
+}
+
+const GHANA_LOCATIONS = [
+  '21 Independence Ave, Accra, Ghana',
+  'Ring Road East, Osu, Accra',
+  'Oxford Street, Osu, Accra',
+  'Spintex Road, Tema, Ghana',
+  'Kumasi Road, Tech Junction, Kumasi',
+  'Tamale Road, Tamale, Northern Region',
+  'Cape Coast Road, Cape Coast',
+  'Takoradi Market Road, Sekondi-Takoradi',
+  'Koforidua-Eastern Region',
+  'Ho-Volta Region',
+]
+
+const GHANA_PHONES = [
+  '+233 24 555 0101',
+  '+233 20 555 0202',
+  '+233 27 555 0303',
+  '+233 28 555 0404',
+  '+233 30 555 0505',
+]
+
+const GHANA_TIN = ['TIN-0001234567', 'TIN-C0001234567', 'GRA-P00234567-8', 'GRA-C0009876543']
+
+const DEFAULT_TAXES_GH = [
+  { name: 'VAT', rate: 15, enabled: true },
+  { name: 'NHIS', rate: 2.5, enabled: true },
+  { name: 'GET Fund', rate: 2.5, enabled: true },
+]
+
+const shopData: ShopData[] = [
+  {
+    name: "Alice's Boutique",
+    slug: 'alices-boutique',
+    currency: 'GHS',
+    timezone: 'Africa/Accra',
+    phone: '+233 24 123 4567',
+    email: 'hello@alicesboutique.com',
+    address: '21 Oxford Street, Osu, Accra, Ghana',
+    description: 'Trendy women\u2019s fashion & accessories',
+    taxNumber: GHANA_TIN[0],
+    taxes: DEFAULT_TAXES_GH,
+    discountProbability: 0.35,
+    maxDiscountPercent: 15,
+  },
+  {
+    name: "Bob's Pharmacy",
+    slug: 'bobs-pharmacy',
+    currency: 'GHS',
+    timezone: 'Africa/Accra',
+    phone: '+233 20 234 5678',
+    email: 'contact@bobpharmacy.com',
+    address: 'Spintex Road, near KFC, Accra, Ghana',
+    description: 'Licensed pharmacy \u00b7 Genuine medicines \u00b7 Open 24/7',
+    taxNumber: GHANA_TIN[1],
+    taxes: [
+      { name: 'VAT', rate: 15, enabled: true },
+      { name: 'NHIS', rate: 2.5, enabled: false },
+      { name: 'GET Fund', rate: 2.5, enabled: false },
+    ],
+    discountProbability: 0.2,
+    maxDiscountPercent: 8,
+  },
+  {
+    name: "Charlie's Electronics",
+    slug: 'charlies-electronics',
+    currency: 'GHS',
+    timezone: 'Africa/Accra',
+    phone: '+233 27 345 6789',
+    email: 'sales@charlieselectronics.com',
+    address: 'Ring Road East, near A&C Mall, Accra, Ghana',
+    description: 'Phones \u00b7 Laptops \u00b7 Home Appliances \u00b7 Genuine warranty',
+    taxNumber: GHANA_TIN[2],
+    taxes: DEFAULT_TAXES_GH,
+    discountProbability: 0.5,
+    maxDiscountPercent: 20,
+  },
+]
+
+const ownerEmails = [
+  'owner@alice.com',
+  'owner@bob.com',
+  'owner@charlie.com',
+]
+
+function computeTaxItems(subtotalAfterDiscount: number, taxes: { name: string; rate: number; enabled: boolean }[]): TaxItem[] {
+  return taxes
+    .filter((t) => t.enabled)
+    .map((t) => ({
+      name: t.name,
+      rate: t.rate,
+      amount: Math.round(subtotalAfterDiscount * t.rate) / 100,
+    }))
+}
+
 async function seed() {
   console.log('Connecting to database...')
   const db = await dbConnect()
@@ -45,23 +162,13 @@ async function seed() {
     createdAt: now,
     updatedAt: now,
   })
-  const shopData = [
-    { name: "Alice's Boutique", slug: 'alices-boutique', currency: 'GHS', timezone: 'Africa/Accra' },
-    { name: "Bob's Pharmacy", slug: 'bobs-pharmacy', currency: 'GHS', timezone: 'Africa/Accra' },
-    { name: "Charlie's Electronics", slug: 'charlies-electronics', currency: 'GHS', timezone: 'Africa/Accra' },
-  ]
-
-  const ownerEmails = [
-    'owner@alice.com',
-    'owner@bob.com',
-    'owner@charlie.com',
-  ]
 
   const tenantRecords: Array<{ id: number; slug: string }> = []
   const ownerRecords: Array<{ id: number; tenantId: number; name: string; email: string }> = []
 
   for (let i = 0; i < shopData.length; i++) {
     const shop = shopData[i]
+    console.log(`Seeding tenant: ${shop.name}...`)
 
     const ts = new Date().toISOString()
     await db.insert(tenants).values({
@@ -79,14 +186,17 @@ async function seed() {
     await db.insert(settingsTable).values({
       tenantId: tenant.id,
       storeName: shop.name,
-      storePhone: faker.phone.number(),
-      storeEmail: faker.internet.email(),
-      storeAddress: faker.location.streetAddress(),
+      storePhone: shop.phone,
+      storeEmail: shop.email,
+      storeAddress: shop.address,
+      storeDescription: shop.description,
+      taxNumber: shop.taxNumber,
       currency: shop.currency,
       timezone: shop.timezone,
-      taxRate: faker.number.int({ min: 5, max: 15 }),
-      receiptFooter: 'Thank you for your purchase!',
-      defaultPaymentMethods: ['cash', 'card', 'mobile_money'],
+      taxRate: 0, // legacy; taxes array below is the source of truth
+      taxes: shop.taxes,
+      receiptFooter: 'Thank you for shopping with us!',
+      defaultPaymentMethods: ['cash', 'mobile_money', 'card'],
       createdAt: ts,
       updatedAt: ts,
     })
@@ -148,8 +258,8 @@ async function seed() {
         tenantId: tenant.id,
         name: faker.person.fullName(),
         email: faker.internet.email(),
-        phone: faker.phone.number(),
-        address: faker.location.streetAddress(),
+        phone: faker.helpers.arrayElement(GHANA_PHONES),
+        address: faker.helpers.arrayElement(GHANA_LOCATIONS),
         createdBy: owner.id,
         createdAt: now2,
         updatedAt: now2,
@@ -159,7 +269,7 @@ async function seed() {
     }
   }
 
-  console.log('Seeding sales...')
+  console.log('Seeding sales (with percentage discount + tax items)...')
   const paymentMethods = ['cash', 'card', 'mobile_money', 'bank_transfer'] as const
   const productNames = [
     'Widget A', 'Widget B', 'Widget C', 'Gadget X', 'Gadget Y',
@@ -171,6 +281,7 @@ async function seed() {
   for (let i = 0; i < tenantRecords.length; i++) {
     const tenant = tenantRecords[i]
     const owner = ownerRecords[i]
+    const shop = shopData[i]
 
     const staffResult = await db.select().from(users).where(eq(users.tenantId, tenant.id))
     const tenantStaff = staffResult.filter(s => s.role !== 'owner')
@@ -190,11 +301,15 @@ async function seed() {
       })
 
       const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0)
-      const discount = faker.helpers.maybe(() =>
-        Number(faker.number.float({ min: 0, max: subtotal * 0.2, fractionDigits: 2 }).toFixed(2))
-      , { probability: 0.3 }) ?? 0
-      const tax = Math.round((subtotal - discount) * Number(faker.number.float({ min: 0.05, max: 0.15, fractionDigits: 2 }).toFixed(2)) * 100) / 100
-      const total = Math.round((subtotal - discount + tax) * 100) / 100
+      const discountPercent = faker.helpers.maybe(
+        () => Number(faker.number.float({ min: 1, max: shop.maxDiscountPercent, fractionDigits: 2 }).toFixed(2)),
+        { probability: shop.discountProbability }
+      ) ?? 0
+      const discount = Math.round(subtotal * discountPercent) / 100
+      const afterDiscount = Math.max(0, subtotal - discount)
+      const taxItems = computeTaxItems(afterDiscount, shop.taxes)
+      const tax = Math.round(taxItems.reduce((sum, t) => sum + t.amount, 0) * 100) / 100
+      const total = Math.round((afterDiscount + tax) * 100) / 100
 
       const customer = faker.helpers.arrayElement(tenantCustomers)
       const randomStaff = faker.helpers.arrayElement([...tenantStaff, owner])
@@ -208,8 +323,10 @@ async function seed() {
         customerId: customer.id,
         items,
         subtotal,
+        discountPercent,
         discount,
         tax,
+        taxItems,
         total,
         paymentMethod: faker.helpers.arrayElement([...paymentMethods]),
         notes: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.3 }),
@@ -221,12 +338,13 @@ async function seed() {
     }
   }
 
-  console.log('Seeding invoices...')
+  console.log('Seeding invoices (with percentage discount + tax items)...')
   const invoiceStatuses = ['draft', 'sent', 'paid', 'overdue', 'cancelled'] as const
   let totalInvoices = 0
   for (let i = 0; i < tenantRecords.length; i++) {
     const tenant = tenantRecords[i]
     const owner = ownerRecords[i]
+    const shop = shopData[i]
     const tenantCustomers = allCustomerRecords.filter(c => c.tenantId === tenant.id)
 
     for (let j = 0; j < 10; j++) {
@@ -245,11 +363,15 @@ async function seed() {
       })
 
       const subtotal = items.reduce((sum, item) => sum + item.total, 0)
-      const discount = faker.helpers.maybe(() =>
-        Number(faker.number.float({ min: 0, max: subtotal * 0.15, fractionDigits: 2 }).toFixed(2))
-      , { probability: 0.25 }) ?? 0
-      const tax = Math.round((subtotal - discount) * Number(faker.number.float({ min: 0.05, max: 0.15, fractionDigits: 2 }).toFixed(2)) * 100) / 100
-      const total = Math.round((subtotal - discount + tax) * 100) / 100
+      const discountPercent = faker.helpers.maybe(
+        () => Number(faker.number.float({ min: 1, max: shop.maxDiscountPercent, fractionDigits: 2 }).toFixed(2)),
+        { probability: 0.3 }
+      ) ?? 0
+      const discount = Math.round(subtotal * discountPercent) / 100
+      const afterDiscount = Math.max(0, subtotal - discount)
+      const taxItems = computeTaxItems(afterDiscount, shop.taxes)
+      const tax = Math.round(taxItems.reduce((sum, t) => sum + t.amount, 0) * 100) / 100
+      const total = Math.round((afterDiscount + tax) * 100) / 100
 
       const customer = faker.helpers.arrayElement(tenantCustomers)
 
@@ -260,10 +382,13 @@ async function seed() {
         customerName: customer.name,
         customerEmail: customer.email,
         customerPhone: customer.phone,
+        customerAddress: faker.helpers.arrayElement(GHANA_LOCATIONS),
         items,
         subtotal,
+        discountPercent,
         discount,
         tax,
+        taxItems,
         total,
         status: faker.helpers.arrayElement([...invoiceStatuses]),
         dueDate: faker.date.between({ from: new Date('2025-02-01'), to: new Date('2025-12-31') }).toISOString(),
@@ -302,6 +427,16 @@ async function seed() {
   console.log(`  Invoices: ${totalInvoices}`)
   console.log(`  Audit Logs: ${tenantRecords.length * 5}`)
   console.log('')
+  console.log('--- Login Credentials ---')
+  console.log('  Super Admin:  super@indflow.com / Admin123!')
+  console.log(`  Alice Owner:  ${ownerEmails[0]} / IndFlow123!`)
+  console.log(`  Bob Owner:    ${ownerEmails[1]} / IndFlow123!`)
+  console.log(`  Charlie Owner: ${ownerEmails[2]} / IndFlow123!`)
+  console.log('')
+  console.log('--- Default Taxes (per shop) ---')
+  for (const shop of shopData) {
+    console.log(`  ${shop.name}: ${shop.taxes.map((t) => `${t.name} ${t.rate}%${t.enabled ? '' : ' (off)'}`).join(', ')}`)
+  }
 
   process.exit(0)
 }

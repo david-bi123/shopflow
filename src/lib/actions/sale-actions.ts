@@ -5,7 +5,7 @@ import { dbConnect } from '@/lib/db/connect'
 import { sales, customers, tenants, settings } from '@/lib/db/schema'
 import { eq, and, or, like, sql, desc, count } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
-import { createSaleSchema } from '@/lib/validations/sale'
+import { createSaleSchema, type TaxItem } from '@/lib/validations/sale'
 import { auth } from '@/lib/auth/auth'
 import { hasPermission, PERMISSIONS } from '@/lib/auth/roles'
 import { getNextSaleNumber } from '@/lib/services/counter'
@@ -22,27 +22,46 @@ export async function createSale(data: CreateSaleInput) {
   if (!validated.success) return { error: validated.error.issues[0].message }
 
   const db = await dbConnect()
+  const tenantId = toNum(session.user.tenantId!)
 
-  // Recalculate totals server-side for security
+  // Server-side recalc: trust the line items, derive totals.
   const items = validated.data.items.map(item => ({
     ...item,
     subtotal: Math.round(item.quantity * item.price * 100) / 100,
   }))
   const calculatedSubtotal = items.reduce((sum, i) => sum + i.subtotal, 0)
-  const calculatedTotal = calculatedSubtotal - validated.data.discount + validated.data.tax
 
-  const saleNumber = await getNextSaleNumber(toNum(session.user.tenantId!))
+  // Discount is a percentage of the subtotal.
+  const discountPercent = validated.data.discountPercent ?? 0
+  const calculatedDiscount = Math.round(calculatedSubtotal * discountPercent) / 100
+  const afterDiscount = Math.max(0, calculatedSubtotal - calculatedDiscount)
+
+  // Taxes are an array of {name, rate, amount}. Recompute amounts from
+  // the post-discount base so the rate is applied to the real taxable
+  // amount (matches how Ghana GRA treats discounts).
+  const taxItems: TaxItem[] = (validated.data.taxItems ?? []).map(t => ({
+    name: t.name,
+    rate: t.rate,
+    amount: Math.round(afterDiscount * t.rate) / 100,
+  }))
+  const calculatedTax = Math.round(taxItems.reduce((sum, t) => sum + t.amount, 0) * 100) / 100
+
+  const calculatedTotal = Math.round((afterDiscount + calculatedTax) * 100) / 100
+
+  const saleNumber = await getNextSaleNumber(tenantId)
 
   const result = await db.insert(sales).values({
-    tenantId: toNum(session.user.tenantId!),
+    tenantId,
     saleNumber,
     customerName: data.customerName || undefined,
     customerPhone: data.customerPhone || undefined,
     customerId: data.customerId ? toNum(data.customerId) : undefined,
     items,
     subtotal: calculatedSubtotal,
-    discount: validated.data.discount ?? 0,
-    tax: validated.data.tax ?? 0,
+    discountPercent,
+    discount: calculatedDiscount,
+    tax: calculatedTax,
+    taxItems,
     total: calculatedTotal,
     paymentMethod: validated.data.paymentMethod,
     notes: data.notes || undefined,
@@ -62,7 +81,7 @@ export async function createSale(data: CreateSaleInput) {
   if (data.customerName && !data.customerId) {
     const [existing] = await db.select().from(customers).where(
       and(
-        eq(customers.tenantId, toNum(session.user.tenantId!)),
+        eq(customers.tenantId, tenantId),
         eq(customers.name, data.customerName)
       )
     ).limit(1)
@@ -76,7 +95,7 @@ export async function createSale(data: CreateSaleInput) {
   }
 
   await createAuditLog({
-    tenantId: toNum(session.user.tenantId!),
+    tenantId,
     action: 'sale.created',
     entity: 'Sale',
     entityId: String(sale.id),
@@ -86,7 +105,7 @@ export async function createSale(data: CreateSaleInput) {
   })
 
   await createNotification({
-    tenantId: toNum(session.user.tenantId!),
+    tenantId,
     userId: toNum(session.user.id),
     type: 'sale.created',
     title: 'Sale Created',
@@ -103,7 +122,6 @@ export async function getSales(page = 1, limit = 20, filters?: Record<string, st
   if (!session?.user) return { error: 'Unauthorized' }
 
   const db = await dbConnect()
-
   const conditions = [eq(sales.tenantId, toNum(session.user.tenantId!))]
 
   if (filters?.search) {
@@ -113,21 +131,17 @@ export async function getSales(page = 1, limit = 20, filters?: Record<string, st
     )
     if (searchCondition) conditions.push(searchCondition)
   }
-
   if (filters?.paymentMethod) {
     conditions.push(eq(sales.paymentMethod, filters.paymentMethod as 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other'))
   }
-
   if (filters?.startDate) {
     conditions.push(sql`${sales.createdAt} >= ${filters.startDate}`)
   }
-
   if (filters?.endDate) {
     conditions.push(sql`${sales.createdAt} <= ${filters.endDate}`)
   }
 
   const where = and(...conditions)
-
   const [totalResult] = await db.select({ count: count() }).from(sales).where(where)
   const total = totalResult?.count ?? 0
 
@@ -206,8 +220,10 @@ export async function getSaleByNumber(saleNumber: string) {
       customerId: sales.customerId,
       items: sales.items,
       subtotal: sales.subtotal,
+      discountPercent: sales.discountPercent,
       discount: sales.discount,
       tax: sales.tax,
+      taxItems: sales.taxItems,
       total: sales.total,
       paymentMethod: sales.paymentMethod,
       notes: sales.notes,
@@ -217,9 +233,13 @@ export async function getSaleByNumber(saleNumber: string) {
       currency: settings.currency,
       tenantName: tenants.name,
       tenantSlug: tenants.slug,
-      tenantPhone: settings.storePhone,
-      tenantEmail: settings.storeEmail,
-      tenantAddress: settings.storeAddress,
+      storeName: settings.storeName,
+      storePhone: settings.storePhone,
+      storeEmail: settings.storeEmail,
+      storeAddress: settings.storeAddress,
+      storeDescription: settings.storeDescription,
+      taxNumber: settings.taxNumber,
+      receiptFooter: settings.receiptFooter,
     })
     .from(sales)
     .leftJoin(tenants, eq(sales.tenantId, tenants.id))
@@ -231,13 +251,14 @@ export async function getSaleByNumber(saleNumber: string) {
 
   return {
     ...(serializeRow(row as unknown as Record<string, unknown>) as Record<string, unknown>),
-    currency: row.currency || 'GHS',
     tenant: {
-      name: row.tenantName || 'Store',
+      name: row.storeName || row.tenantName || 'Store',
       slug: row.tenantSlug || '',
-      phone: row.tenantPhone || '',
-      email: row.tenantEmail || '',
-      address: row.tenantAddress || '',
+      phone: row.storePhone || '',
+      email: row.storeEmail || '',
+      address: row.storeAddress || '',
+      description: row.storeDescription || '',
+      taxNumber: row.taxNumber || '',
     },
   }
 }

@@ -11,7 +11,7 @@ import { getNextInvoiceNumber } from '@/lib/services/counter'
 import { createAuditLog } from '@/lib/services/audit'
 import { createNotification } from '@/lib/services/notification'
 import { createInvoiceSchema, updateInvoiceStatusSchema } from '@/lib/validations/invoice'
-import type { CreateInvoiceInput, InvoiceStatus, Invoice } from '@/lib/validations/invoice'
+import type { CreateInvoiceInput, InvoiceStatus, Invoice, TaxItem } from '@/lib/validations/invoice'
 
 export async function createInvoice(data: CreateInvoiceInput) {
   const session = await auth()
@@ -26,13 +26,23 @@ export async function createInvoice(data: CreateInvoiceInput) {
   const createdBy = toNum(session.user.id)
   const invoiceNumber = await getNextInvoiceNumber(tenantId)
 
-  // Recalculate totals server-side for security
   const items = validated.data.items.map(item => ({
     ...item,
     subtotal: Math.round(item.quantity * item.price * 100) / 100,
   }))
   const calculatedSubtotal = items.reduce((sum, i) => sum + i.subtotal, 0)
-  const calculatedTotal = calculatedSubtotal - validated.data.discount + validated.data.tax
+
+  const discountPercent = validated.data.discountPercent ?? 0
+  const calculatedDiscount = Math.round(calculatedSubtotal * discountPercent) / 100
+  const afterDiscount = Math.max(0, calculatedSubtotal - calculatedDiscount)
+
+  const taxItems: TaxItem[] = (validated.data.taxItems ?? []).map(t => ({
+    name: t.name,
+    rate: t.rate,
+    amount: Math.round(afterDiscount * t.rate) / 100,
+  }))
+  const calculatedTax = Math.round(taxItems.reduce((sum, t) => sum + t.amount, 0) * 100) / 100
+  const calculatedTotal = Math.round((afterDiscount + calculatedTax) * 100) / 100
 
   const result = await db.insert(invoices).values({
     tenantId,
@@ -44,8 +54,10 @@ export async function createInvoice(data: CreateInvoiceInput) {
     customerAddress: data.customerAddress || null,
     items,
     subtotal: calculatedSubtotal,
-    discount: validated.data.discount,
-    tax: validated.data.tax,
+    discountPercent,
+    discount: calculatedDiscount,
+    tax: calculatedTax,
+    taxItems,
     total: calculatedTotal,
     dueDate: new Date(data.dueDate).toISOString(),
     notes: data.notes || null,
@@ -94,7 +106,6 @@ export async function getInvoices(page = 1, limit = 20, filters?: Record<string,
 
   const db = await dbConnect()
   const tenantId = toNum(session.user.tenantId!)
-
   const conditions = [eq(invoices.tenantId, tenantId)]
 
   if (filters?.search) {
@@ -116,7 +127,6 @@ export async function getInvoices(page = 1, limit = 20, filters?: Record<string,
   }
 
   const where = and(...conditions)
-
   const [totalRow] = await db
     .select({ count: sql<number>`count(*)` })
     .from(invoices)
@@ -136,8 +146,10 @@ export async function getInvoices(page = 1, limit = 20, filters?: Record<string,
       customerAddress: invoices.customerAddress,
       items: invoices.items,
       subtotal: invoices.subtotal,
+      discountPercent: invoices.discountPercent,
       discount: invoices.discount,
       tax: invoices.tax,
+      taxItems: invoices.taxItems,
       total: invoices.total,
       status: invoices.status,
       dueDate: invoices.dueDate,
@@ -165,8 +177,10 @@ export async function getInvoices(page = 1, limit = 20, filters?: Record<string,
     customerAddress: row.customerAddress,
     items: row.items,
     subtotal: row.subtotal,
+    discountPercent: row.discountPercent,
     discount: row.discount,
     tax: row.tax,
+    taxItems: (row.taxItems as TaxItem[]) ?? [],
     total: row.total,
     status: row.status,
     dueDate: row.dueDate,
@@ -201,8 +215,10 @@ export async function getInvoiceById(id: string) {
       customerAddress: invoices.customerAddress,
       items: invoices.items,
       subtotal: invoices.subtotal,
+      discountPercent: invoices.discountPercent,
       discount: invoices.discount,
       tax: invoices.tax,
+      taxItems: invoices.taxItems,
       total: invoices.total,
       status: invoices.status,
       dueDate: invoices.dueDate,
@@ -229,8 +245,10 @@ export async function getInvoiceById(id: string) {
     customerAddress: row.customerAddress,
     items: row.items,
     subtotal: row.subtotal,
+    discountPercent: row.discountPercent,
     discount: row.discount,
     tax: row.tax,
+    taxItems: (row.taxItems as TaxItem[]) ?? [],
     total: row.total,
     status: row.status,
     dueDate: row.dueDate,
@@ -319,8 +337,10 @@ export async function getInvoiceByNumber(invoiceNumber: string) {
       customerAddress: invoices.customerAddress,
       items: invoices.items,
       subtotal: invoices.subtotal,
+      discountPercent: invoices.discountPercent,
       discount: invoices.discount,
       tax: invoices.tax,
+      taxItems: invoices.taxItems,
       total: invoices.total,
       status: invoices.status,
       dueDate: invoices.dueDate,
@@ -331,9 +351,12 @@ export async function getInvoiceByNumber(invoiceNumber: string) {
       currency: settings.currency,
       tenantName: tenants.name,
       tenantSlug: tenants.slug,
-      tenantPhone: settings.storePhone,
-      tenantEmail: settings.storeEmail,
-      tenantAddress: settings.storeAddress,
+      storeName: settings.storeName,
+      storePhone: settings.storePhone,
+      storeEmail: settings.storeEmail,
+      storeAddress: settings.storeAddress,
+      storeDescription: settings.storeDescription,
+      taxNumber: settings.taxNumber,
       receiptFooter: settings.receiptFooter,
     })
     .from(invoices)
@@ -353,8 +376,10 @@ export async function getInvoiceByNumber(invoiceNumber: string) {
     customerAddress: row.customerAddress || undefined,
     items: row.items as Array<{ name: string; description?: string; quantity: number; price: number; total: number }>,
     subtotal: row.subtotal,
+    discountPercent: row.discountPercent,
     discount: row.discount,
     tax: row.tax,
+    taxItems: (row.taxItems as TaxItem[]) ?? [],
     total: row.total,
     status: row.status as InvoiceStatus,
     dueDate: row.dueDate,
@@ -365,11 +390,13 @@ export async function getInvoiceByNumber(invoiceNumber: string) {
     receiptFooter: row.receiptFooter || '',
     tenant: {
       id: String(row.tenantId),
-      name: row.tenantName || 'Store',
+      name: row.storeName || row.tenantName || 'Store',
       slug: row.tenantSlug || '',
-      phone: row.tenantPhone || '',
-      email: row.tenantEmail || '',
-      address: row.tenantAddress || '',
+      phone: row.storePhone || '',
+      email: row.storeEmail || '',
+      address: row.storeAddress || '',
+      description: row.storeDescription || '',
+      taxNumber: row.taxNumber || '',
     },
   }
 

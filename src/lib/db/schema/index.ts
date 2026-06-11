@@ -51,6 +51,18 @@ export const customers = mysqlTable('customers', {
   index('customer_tenant_email_idx').on(table.tenantId, table.email),
 ])
 
+/**
+ * Tax line item: a single tax applied to a sale/invoice (e.g. NHIS 2.5%, VAT 15%, GET Fund 2.5%).
+ * The `amount` is precomputed at creation time and stored so historical
+ * receipts are immutable.
+ */
+export interface TaxItem {
+  name: string
+  /** Rate as a percentage, e.g. 15 for 15% VAT. */
+  rate: number
+  amount: number
+}
+
 export const sales = mysqlTable('sales', {
   id: int('id').primaryKey().autoincrement(),
   tenantId: int('tenant_id').notNull().references(() => tenants.id),
@@ -60,8 +72,14 @@ export const sales = mysqlTable('sales', {
   customerId: int('customer_id').references(() => customers.id),
   items: json('items').$type<Array<{ name: string; quantity: number; price: number; subtotal: number }>>().notNull(),
   subtotal: double('subtotal').notNull(),
+  /** Discount as a percentage of the subtotal, e.g. 10 for 10%. */
+  discountPercent: double('discount_percent').notNull().default(0),
+  /** Absolute discount amount in the tenant's currency. Recomputed at creation. */
   discount: double('discount').notNull().default(0),
+  /** Total of all tax lines combined. The individual lines are in `taxItems`. */
   tax: double('tax').notNull().default(0),
+  /** Itemised taxes (NHIS, VAT, GET Fund, etc.) for line-by-line rendering. */
+  taxItems: json('tax_items').$type<TaxItem[]>().notNull().default([]),
   total: double('total').notNull(),
   paymentMethod: varchar('payment_method', { length: 20 }).notNull(),
   notes: text('notes'),
@@ -85,8 +103,10 @@ export const invoices = mysqlTable('invoices', {
   customerAddress: text('customer_address'),
   items: json('items').$type<Array<{ name: string; description?: string; quantity: number; price: number; total: number }>>().notNull(),
   subtotal: double('subtotal').notNull(),
+  discountPercent: double('discount_percent').notNull().default(0),
   discount: double('discount').notNull().default(0),
   tax: double('tax').notNull().default(0),
+  taxItems: json('tax_items').$type<TaxItem[]>().notNull().default([]),
   total: double('total').notNull(),
   status: varchar('status', { length: 20 }).notNull().default('draft'),
   dueDate: varchar('due_date', { length: 50 }).notNull(),
@@ -143,6 +163,19 @@ export const auditLogs = mysqlTable('audit_logs', {
   index('audit_tenant_user_idx').on(table.tenantId, table.performedBy),
 ])
 
+/**
+ * A single tax definition that the shop enables by default. e.g.
+ *   { name: 'VAT', rate: 15 }
+ *   { name: 'NHIS', rate: 2.5 }
+ *   { name: 'GET Fund', rate: 2.5 }
+ * The `enabled` flag lets the shop opt in or out per-transaction.
+ */
+export interface TaxDefinition {
+  name: string
+  rate: number
+  enabled: boolean
+}
+
 export const settings = mysqlTable('settings', {
   id: int('id').primaryKey().autoincrement(),
   tenantId: int('tenant_id').notNull().unique().references(() => tenants.id),
@@ -150,10 +183,17 @@ export const settings = mysqlTable('settings', {
   storePhone: varchar('store_phone', { length: 50 }),
   storeEmail: varchar('store_email', { length: 255 }),
   storeAddress: text('store_address'),
+  /** Short blurb shown on receipts/invoices under the company name. */
+  storeDescription: text('store_description'),
+  /** Government-issued tax / business registration number, shown on invoices. */
+  taxNumber: varchar('tax_number', { length: 100 }),
   logo: varchar('logo', { length: 500 }),
   currency: varchar('currency', { length: 10 }).notNull().default('GHS'),
   timezone: varchar('timezone', { length: 50 }).notNull().default('UTC'),
+  /** Default overall tax rate (kept for legacy use; new taxes come from `taxes`). */
   taxRate: double('tax_rate').notNull().default(0),
+  /** Shop-defined tax lines that the user can enable/disable per transaction. */
+  taxes: json('taxes').$type<TaxDefinition[]>().notNull().default([]),
   receiptFooter: text('receipt_footer').notNull(),
   defaultPaymentMethods: json('default_payment_methods').$type<string[]>().notNull(),
   showLogoOnReceipt: tinyint('show_logo_on_receipt').notNull().default(1),

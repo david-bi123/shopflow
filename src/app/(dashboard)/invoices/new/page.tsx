@@ -1,35 +1,83 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Plus, Trash2, ArrowLeft, User, Package, FileText, Receipt, Calendar } from 'lucide-react'
+import {
+  Plus,
+  Trash2,
+  ArrowLeft,
+  User,
+  Package,
+  CreditCard,
+  Receipt,
+  FileText,
+  Percent,
+  CheckCircle2,
+  Building2,
+  Calendar,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
-import { createInvoiceSchema, type CreateInvoiceInput } from '@/lib/validations/invoice'
+import { createInvoiceSchema, type CreateInvoiceInput, type TaxItem } from '@/lib/validations/invoice'
 import { createInvoice } from '@/lib/actions/invoice-actions'
 import { formatCurrency } from '@/lib/utils/format'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { cn } from '@/lib/utils/cn'
 
 type FormValues = CreateInvoiceInput
 
 const defaultItem = { name: '', description: '', quantity: 1, price: 0, total: 0 }
 
+const DEFAULT_TAXES = [
+  { name: 'VAT', rate: 15, enabled: true },
+  { name: 'NHIS', rate: 2.5, enabled: true },
+  { name: 'GET Fund', rate: 2.5, enabled: true },
+]
+
 export default function NewInvoicePage() {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
+  const [currency, setCurrency] = useState('GHS')
+  const [storeInfo, setStoreInfo] = useState<{
+    taxes: { name: string; rate: number; enabled: boolean }[]
+    storeName: string
+  } | null>(null)
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const { getSettings } = await import('@/lib/actions/settings-actions')
+        const result = await getSettings()
+        if (!('error' in result) && result.settings) {
+          const s = result.settings as { currency: string; taxes?: { name: string; rate: number; enabled: boolean }[]; storeName: string }
+          setCurrency(s.currency)
+          setStoreInfo({
+            taxes: s.taxes ?? DEFAULT_TAXES,
+            storeName: s.storeName,
+          })
+        }
+      } catch {
+        // use defaults
+      }
+    }
+    loadSettings()
+  }, [])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(createInvoiceSchema) as never,
@@ -39,24 +87,44 @@ export default function NewInvoicePage() {
       customerPhone: '',
       customerAddress: '',
       items: [{ ...defaultItem }],
-      dueDate: '',
-      discount: 0,
+      discountPercent: 0,
       tax: 0,
+      taxItems: [],
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       notes: '',
     },
   })
 
-  const { register, control, handleSubmit, formState: { errors }, watch } = form
+  const { register, control, handleSubmit, formState: { errors }, watch, setValue } = form
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
   const items = watch('items')
-  const discount = watch('discount') || 0
-  const tax = watch('tax') || 0
+  const discountPercent = watch('discountPercent') || 0
+  const taxItems = watch('taxItems') ?? []
 
   const subtotal = items.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
     0
   )
-  const grandTotal = subtotal - Number(discount) + Number(tax)
+  const discount = (subtotal * Number(discountPercent)) / 100
+  const afterDiscount = Math.max(0, subtotal - discount)
+
+  const liveTaxItems: TaxItem[] = useMemo(() => {
+    return (taxItems as TaxItem[]).map((t) => ({
+      ...t,
+      amount: Math.round(afterDiscount * t.rate) / 100,
+    }))
+  }, [afterDiscount, taxItems])
+
+  const tax = liveTaxItems.reduce((sum, t) => sum + t.amount, 0)
+  const grandTotal = afterDiscount + tax
+
+  useEffect(() => {
+    if (!storeInfo) return
+    const seeded: TaxItem[] = storeInfo.taxes
+      .filter((t) => t.enabled)
+      .map((t) => ({ name: t.name, rate: t.rate, amount: 0 }))
+    setValue('taxItems', seeded, { shouldDirty: false })
+  }, [storeInfo, setValue])
 
   const onSubmit = async (data: FormValues) => {
     setSubmitting(true)
@@ -65,10 +133,22 @@ export default function NewInvoicePage() {
         (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
         0
       )
-      const calculatedTotal = calculatedSubtotal - Number(discount) + Number(tax)
+      const calculatedDiscount = (calculatedSubtotal * Number(discountPercent)) / 100
+      const after = Math.max(0, calculatedSubtotal - calculatedDiscount)
+      const calculatedTaxItems: TaxItem[] = (data.taxItems ?? []).map((t) => ({
+        name: t.name,
+        rate: t.rate,
+        amount: Math.round(after * t.rate) / 100,
+      }))
+      const calculatedTax = calculatedTaxItems.reduce((sum, t) => sum + t.amount, 0)
+      const calculatedTotal = after + calculatedTax
+
       await createInvoice({
         ...data,
         subtotal: calculatedSubtotal,
+        discount: calculatedDiscount,
+        tax: calculatedTax,
+        taxItems: calculatedTaxItems,
         total: calculatedTotal,
       })
       toast.success('Invoice created successfully')
@@ -80,9 +160,44 @@ export default function NewInvoicePage() {
     }
   }
 
+  const toggleTax = (name: string) => {
+    const current = (taxItems as TaxItem[]) ?? []
+    const exists = current.find((t) => t.name === name)
+    if (exists) {
+      setValue(
+        'taxItems',
+        current.filter((t) => t.name !== name),
+        { shouldDirty: true }
+      )
+    } else {
+      const def = storeInfo?.taxes.find((t) => t.name === name) ?? DEFAULT_TAXES.find((t) => t.name === name)
+      if (!def) return
+      setValue(
+        'taxItems',
+        [...current, { name: def.name, rate: def.rate, amount: 0 }],
+        { shouldDirty: true }
+      )
+    }
+  }
+
+  const setTaxRate = (name: string, rate: number) => {
+    const current = (taxItems as TaxItem[]) ?? []
+    setValue(
+      'taxItems',
+      current.map((t) => (t.name === name ? { ...t, rate } : t)),
+      { shouldDirty: true }
+    )
+  }
+
+  const enabledTaxNames = new Set(liveTaxItems.map((t) => t.name))
+  const availableTaxes = storeInfo?.taxes ?? DEFAULT_TAXES
+
   return (
-    <div className="space-y-6">
-      <PageHeader title="New Invoice" description="Create a new invoice for your customer">
+    <div className="space-y-6 pb-8">
+      <PageHeader
+        title={`New Invoice${storeInfo ? ` \u00b7 ${storeInfo.storeName}` : ''}`}
+        description="Create a new invoice for your customer"
+      >
         <Button variant="outline" asChild>
           <Link href="/invoices">
             <ArrowLeft className="mr-2 size-4" />
@@ -122,9 +237,6 @@ export default function NewInvoicePage() {
                   {...register('customerEmail')}
                   placeholder="customer@example.com"
                 />
-                {errors.customerEmail && (
-                  <p className="text-sm text-destructive">{errors.customerEmail.message}</p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="customerPhone">Phone (optional)</Label>
@@ -156,12 +268,7 @@ export default function NewInvoicePage() {
                 </div>
                 <CardTitle className="text-base">Invoice Items</CardTitle>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => append({ ...defaultItem })}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => append({ ...defaultItem })}>
                 <Plus className="mr-2 size-4" />
                 Add Item
               </Button>
@@ -184,9 +291,7 @@ export default function NewInvoicePage() {
                         placeholder="Item name"
                       />
                       {errors.items?.[index]?.name && (
-                        <p className="text-sm text-destructive">
-                          {errors.items[index]?.name?.message}
-                        </p>
+                        <p className="text-sm text-destructive">{errors.items[index]?.name?.message}</p>
                       )}
                     </div>
                     {fields.length > 1 && (
@@ -216,42 +321,35 @@ export default function NewInvoicePage() {
                         id={`items.${index}.quantity`}
                         type="number"
                         min="1"
-                        {...register(`items.${index}.quantity`)}
+                        {...register(`items.${index}.quantity`, { valueAsNumber: true })}
                       />
                       {errors.items?.[index]?.quantity && (
-                        <p className="text-sm text-destructive">
-                          {errors.items[index]?.quantity?.message}
-                        </p>
+                        <p className="text-sm text-destructive">{errors.items[index]?.quantity?.message}</p>
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor={`items.${index}.price`}>Price *</Label>
+                      <Label htmlFor={`items.${index}.price`}>Unit Price *</Label>
                       <Input
                         id={`items.${index}.price`}
                         type="number"
                         min="0"
                         step="0.01"
-                        {...register(`items.${index}.price`)}
+                        {...register(`items.${index}.price`, { valueAsNumber: true })}
                       />
                       {errors.items?.[index]?.price && (
-                        <p className="text-sm text-destructive">
-                          {errors.items[index]?.price?.message}
-                        </p>
+                        <p className="text-sm text-destructive">{errors.items[index]?.price?.message}</p>
                       )}
                     </div>
                     <div className="space-y-2">
                       <Label>Total</Label>
                       <div className="flex h-9 items-center rounded-md border bg-muted px-3 text-sm font-medium">
-                        {formatCurrency(lineTotal)}
+                        {formatCurrency(lineTotal, currency)}
                       </div>
                     </div>
                   </div>
                 </div>
               )
             })}
-            {errors.items?.root && (
-              <p className="text-sm text-destructive">{errors.items.root.message}</p>
-            )}
           </CardContent>
         </Card>
 
@@ -264,7 +362,7 @@ export default function NewInvoicePage() {
               <CardTitle className="text-base">Invoice Details</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 pt-5">
+          <CardContent className="space-y-5 pt-5">
             <div className="space-y-2">
               <Label htmlFor="dueDate">Due Date *</Label>
               <div className="relative">
@@ -281,26 +379,91 @@ export default function NewInvoicePage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="discount">Discount</Label>
+            <div className="space-y-2">
+              <Label htmlFor="discountPercent" className="flex items-center gap-1.5">
+                <Percent className="size-3.5 text-muted-foreground" />
+                Discount (%)
+              </Label>
+              <div className="relative">
                 <Input
-                  id="discount"
+                  id="discountPercent"
                   type="number"
                   min="0"
+                  max="100"
                   step="0.01"
-                  {...register('discount')}
+                  className="pr-10"
+                  {...register('discountPercent', { valueAsNumber: true })}
                 />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  %
+                </span>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="tax">Tax</Label>
-                <Input
-                  id="tax"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  {...register('tax')}
-                />
+              {discount > 0 && (
+                <p className="text-xs text-emerald-600">
+                  \u2212{formatCurrency(discount, currency)} off
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5">
+                  <Building2 className="size-3.5 text-muted-foreground" />
+                  Taxes
+                </Label>
+                <span className="text-xs text-muted-foreground">
+                  Toggle each tax on/off, edit rate inline
+                </span>
+              </div>
+              <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                {availableTaxes.map((t) => {
+                  const enabled = enabledTaxNames.has(t.name)
+                  const current = liveTaxItems.find((x) => x.name === t.name)
+                  return (
+                    <div
+                      key={t.name}
+                      className={cn(
+                        'flex items-center gap-3 rounded-md border bg-card px-3 py-2 transition-colors',
+                        enabled && 'ring-1 ring-primary/30'
+                      )}
+                    >
+                      <Switch
+                        checked={enabled}
+                        onCheckedChange={() => toggleTax(t.name)}
+                        aria-label={`Toggle ${t.name}`}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{t.name}</p>
+                        {enabled && current && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {formatCurrency(current.amount, currency)}
+                          </p>
+                        )}
+                      </div>
+                      {enabled && (
+                        <div className="relative w-24">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            className="h-8 pr-7 text-right text-sm"
+                            value={current?.rate ?? t.rate}
+                            onChange={(e) =>
+                              setTaxRate(t.name, parseFloat(e.target.value) || 0)
+                            }
+                          />
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                            %
+                          </span>
+                        </div>
+                      )}
+                      {!enabled && (
+                        <span className="text-xs text-muted-foreground">{t.rate}%</span>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
@@ -312,20 +475,35 @@ export default function NewInvoicePage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Subtotal</span>
-                  <span className="font-medium">{formatCurrency(subtotal)}</span>
+                  <span className="font-medium">{formatCurrency(subtotal, currency)}</span>
                 </div>
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Discount</span>
-                  <span className="text-destructive">-{formatCurrency(Number(discount))}</span>
-                </div>
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Tax</span>
-                  <span className="text-emerald-600">+{formatCurrency(Number(tax))}</span>
-                </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Discount ({Number(discountPercent).toFixed(2)}%)</span>
+                    <span className="text-destructive">-{formatCurrency(discount, currency)}</span>
+                  </div>
+                )}
+                {liveTaxItems.length > 0 ? (
+                  liveTaxItems.map((t) => (
+                    <div key={t.name} className="flex justify-between text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
+                      </span>
+                      <span className="text-emerald-600">+{formatCurrency(t.amount, currency)}</span>
+                    </div>
+                  ))
+                ) : (
+                  tax > 0 && (
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Tax</span>
+                      <span className="text-emerald-600">+{formatCurrency(tax, currency)}</span>
+                    </div>
+                  )
+                )}
                 <div className="border-t border-primary/10 pt-2">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Grand Total</span>
-                    <span className="text-primary">{formatCurrency(grandTotal)}</span>
+                    <span className="text-primary">{formatCurrency(grandTotal, currency)}</span>
                   </div>
                 </div>
               </div>
@@ -343,7 +521,7 @@ export default function NewInvoicePage() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-4">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" asChild>
             <Link href="/invoices">Cancel</Link>
           </Button>
@@ -351,7 +529,7 @@ export default function NewInvoicePage() {
             type="submit"
             disabled={submitting}
             size="lg"
-            className="min-w-[180px] bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
+            className="bg-gradient-to-r from-primary to-primary/80 shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
           >
             {submitting ? (
               <>
