@@ -21,14 +21,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -45,6 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { DataTable } from '@/components/shared/data-table'
 import { EmptyState } from '@/components/shared/empty-state'
 import { formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
@@ -384,92 +377,118 @@ export default function StaffPage() {
         </div>
       ) : (
         <>
-          <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow className="border-b transition-colors">
-                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Role</TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Last Login</TableHead>
-                    <TableHead className="w-36 shrink-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginated.map((member, index) => {
-                    const roleStyle = ROLE_STYLES[member.role] ?? ROLE_STYLES.staff
-                    const statusStyle = STATUS_STYLES[member.status] ?? STATUS_STYLES.pending
-                    return (
-                      <TableRow
-                        key={member.id}
-                        className={cn(
-                          'border-b transition-colors duration-200 last:border-b-0',
-                          index % 2 === 0 ? 'bg-card' : 'bg-muted/20'
-                        )}
-                      >
-                        <TableCell className="font-medium">{member.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{member.email}</TableCell>
-                        <TableCell>
-                          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', roleStyle.bg, roleStyle.label)}>
-                            <span className={cn('h-1.5 w-1.5 rounded-full', roleStyle.dot)} />
-                            {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', statusStyle.bg, statusStyle.label)}>
-                            <span className={cn('h-1.5 w-1.5 rounded-full', statusStyle.dot)} />
-                            {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {member.lastLogin ? formatDate(member.lastLogin) : 'Never'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Select
-                              value={member.role}
-                              onValueChange={(v) => handleUpdateRole(member, v)}
-                            >
-                              <SelectTrigger className="h-8 w-24 rounded-lg border-border/60 text-xs focus:ring-2 focus:ring-amber-500/20">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="staff">Staff</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleToggleStatus(member)}
-                              title={member.status === 'active' ? 'Suspend' : 'Activate'}
-                              className="rounded-full"
-                            >
-                              {member.status === 'active' ? (
-                                <ShieldOff className="size-4 text-amber-500" />
-                              ) : (
-                                <ShieldCheck className="size-4 text-emerald-500" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(member.id)}
-                              className="rounded-full"
-                            >
-                              <Trash2 className="size-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+          <DataTable
+            columns={[
+              {
+                key: 'name',
+                header: 'Name',
+                primaryOnCard: true,
+                cell: (m: StaffMember) => <span className="font-medium">{m.name}</span>,
+              },
+              {
+                key: 'email',
+                header: 'Email',
+                mobileLabel: 'Email',
+                cell: (m: StaffMember) => <span className="text-muted-foreground">{m.email}</span>,
+              },
+              {
+                key: 'role',
+                header: 'Role',
+                mobileLabel: 'Role',
+                cell: (m: StaffMember) => {
+                  const roleStyle = ROLE_STYLES[m.role] ?? ROLE_STYLES.staff
+                  return (
+                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', roleStyle.bg, roleStyle.label)}>
+                      <span className={cn('h-1.5 w-1.5 rounded-full', roleStyle.dot)} />
+                      {m.role.charAt(0).toUpperCase() + m.role.slice(1)}
+                    </span>
+                  )
+                },
+              },
+              {
+                key: 'status',
+                header: 'Status',
+                mobileLabel: 'Status',
+                cell: (m: StaffMember) => {
+                  const statusStyle = STATUS_STYLES[m.status] ?? STATUS_STYLES.pending
+                  return (
+                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', statusStyle.bg, statusStyle.label)}>
+                      <span className={cn('h-1.5 w-1.5 rounded-full', statusStyle.dot)} />
+                      {m.status.charAt(0).toUpperCase() + m.status.slice(1)}
+                    </span>
+                  )
+                },
+              },
+              {
+                key: 'lastLogin',
+                header: 'Last Login',
+                mobileLabel: 'Last login',
+                cell: (m: StaffMember) => (
+                  <span className="text-muted-foreground">{m.lastLogin ? formatDate(m.lastLogin) : 'Never'}</span>
+                ),
+              },
+              {
+                key: 'actions',
+                header: 'Actions',
+                className: 'w-44',
+                cell: (m: StaffMember) => (
+                  <div className="flex items-center gap-1">
+                    <Select
+                      value={m.role}
+                      onValueChange={(v) => handleUpdateRole(m, v)}
+                    >
+                      <SelectTrigger className="h-8 w-24 rounded-lg border-border/60 text-xs focus:ring-2 focus:ring-amber-500/20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="staff">Staff</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleToggleStatus(m)}
+                      title={m.status === 'active' ? 'Suspend' : 'Activate'}
+                      className="rounded-full"
+                    >
+                      {m.status === 'active' ? (
+                        <ShieldOff className="size-4 text-amber-500" />
+                      ) : (
+                        <ShieldCheck className="size-4 text-emerald-500" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(m.id)}
+                      className="rounded-full"
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                ),
+              },
+            ]}
+            data={paginated}
+            keyExtractor={(m) => m.id}
+            renderCardActions={(m) => (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleToggleStatus(m)}
+                title={m.status === 'active' ? 'Suspend' : 'Activate'}
+                className="h-9 w-9 rounded-full"
+                aria-label={m.status === 'active' ? 'Suspend' : 'Activate'}
+              >
+                {m.status === 'active' ? (
+                  <ShieldOff className="size-4 text-amber-500" />
+                ) : (
+                  <ShieldCheck className="size-4 text-emerald-500" />
+                )}
+              </Button>
+            )}
+          />
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between">

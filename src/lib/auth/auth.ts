@@ -11,6 +11,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // Trust the host header from Vercel/proxies so cookies are issued correctly
   // in production. Safe to leave on in dev too.
   trustHost: true,
+  // Pin the session cookie name to `next-auth.session-token` so the
+  // middleware (which checks for this name) finds it. Without this,
+  // NextAuth v5 defaults to `authjs.session-token` and the cookie is
+  // invisible to the middleware, causing an infinite /login ↔ /dashboard
+  // redirect loop in production.
+  cookies: {
+    sessionToken: {
+      name:
+        process.env.NODE_ENV === 'production'
+          ? '__Secure-next-auth.session-token'
+          : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
   providers: [
     Credentials({
       name: 'credentials',

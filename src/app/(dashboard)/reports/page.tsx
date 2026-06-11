@@ -309,33 +309,37 @@ export default function ReportsPage() {
       </div>
 
       {/* Segmented date preset buttons */}
-      <div className="inline-flex items-center rounded-lg border border-border/60 bg-muted/50 p-0.5 shadow-sm">
-        {PRESETS.map((preset, idx) => (
-          <button
-            key={preset.key}
-            onClick={() => setDatePreset(preset.key)}
-            className={cn(
-              'relative whitespace-nowrap rounded-md px-3.5 py-1.5 text-xs font-medium transition-all duration-200',
-              datePreset === preset.key
-                ? 'bg-white text-foreground shadow-sm ring-1 ring-border/60 dark:bg-zinc-800'
-                : 'text-muted-foreground hover:text-foreground',
-              idx === 0 && 'rounded-r-none',
-              idx === PRESETS.length - 1 && 'rounded-l-none',
-              idx > 0 && idx < PRESETS.length - 1 && 'rounded-none'
-            )}
-          >
-            {preset.label}
-          </button>
-        ))}
+      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="inline-flex items-center rounded-lg border border-border/60 bg-muted/50 p-0.5 shadow-sm">
+          {PRESETS.map((preset, idx) => (
+            <button
+              key={preset.key}
+              onClick={() => setDatePreset(preset.key)}
+              className={cn(
+                'relative whitespace-nowrap rounded-md px-3.5 py-1.5 text-xs font-medium transition-all duration-200',
+                datePreset === preset.key
+                  ? 'bg-white text-foreground shadow-sm ring-1 ring-border/60 dark:bg-zinc-800'
+                  : 'text-muted-foreground hover:text-foreground',
+                idx === 0 && 'rounded-r-none',
+                idx === PRESETS.length - 1 && 'rounded-l-none',
+                idx > 0 && idx < PRESETS.length - 1 && 'rounded-none'
+              )}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <Tabs defaultValue="sales">
-        <TabsList>
-          <TabsTrigger value="sales">Sales Report</TabsTrigger>
-          <TabsTrigger value="product">Product Report</TabsTrigger>
-          <TabsTrigger value="staff">Staff Report</TabsTrigger>
-          <TabsTrigger value="invoice">Invoice Report</TabsTrigger>
-        </TabsList>
+        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="sales">Sales Report</TabsTrigger>
+            <TabsTrigger value="product">Product Report</TabsTrigger>
+            <TabsTrigger value="staff">Staff Report</TabsTrigger>
+            <TabsTrigger value="invoice">Invoice Report</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="sales" className="space-y-6">
           {loading ? (

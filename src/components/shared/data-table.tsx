@@ -9,12 +9,30 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { ReactNode } from 'react'
+import { cn } from '@/lib/utils/cn'
 
 export interface Column<T> {
   key: string
   header: string
   cell: (item: T) => ReactNode
   className?: string
+  /**
+   * When true, this column is hidden on mobile (< sm) and only shown in
+   * the table view on tablet+. Use for secondary info (e.g. email,
+   * address) that crowds the mobile card.
+   */
+  hideOnMobileCard?: boolean
+  /**
+   * The label shown next to this column's value on the mobile card view
+   * (e.g. "Customer", "Total"). Optional — if omitted, the column is
+   * hidden on the card.
+   */
+  mobileLabel?: string
+  /**
+   * If true, this column is rendered as the primary line of the card
+   * (large bold text). Typically the name/title field.
+   */
+  primaryOnCard?: boolean
 }
 
 interface DataTableProps<T> {
@@ -22,6 +40,16 @@ interface DataTableProps<T> {
   data: T[]
   keyExtractor: (item: T) => string
   onRowClick?: (item: T) => void
+  /**
+   * Optional renderer for the action area on each mobile card. Render
+   * buttons / dropdowns here. The card layout positions this on the right.
+   */
+  renderCardActions?: (item: T) => ReactNode
+  /**
+   * Optional caption shown above the mobile card list to remind users
+   * they can tap a card to open the row. Defaults to "Tap a card to open".
+   */
+  cardListHint?: string
 }
 
 function EmptyState({ colSpan }: { colSpan: number }) {
@@ -59,70 +87,170 @@ function EmptyState({ colSpan }: { colSpan: number }) {
   )
 }
 
+function CardEmptyState() {
+  return (
+    <div className="rounded-xl border border-dashed bg-slate-50/40 p-8 text-center sm:hidden">
+      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-6 w-6 text-slate-400"
+        >
+          <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+          <line x1="3" x2="21" y1="9" y2="9" />
+          <line x1="9" x2="9" y1="21" y2="9" />
+        </svg>
+      </div>
+      <p className="text-sm font-medium text-slate-900">No results found</p>
+      <p className="mt-1 text-xs text-slate-500">Try adjusting your search or filters.</p>
+    </div>
+  )
+}
+
 export function DataTable<T>({
   columns,
   data,
   keyExtractor,
   onRowClick,
+  renderCardActions,
+  cardListHint = 'Tap a card to open',
 }: DataTableProps<T>) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm">
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader className="bg-slate-50/60">
-            <TableRow className="border-b transition-colors hover:bg-slate-50/60">
-              {columns.map((col) => (
-                <TableHead
-                  key={col.key}
-                  className={[
-                    'text-xs font-semibold uppercase tracking-wider text-slate-500',
-                    col.className,
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                >
-                  {col.header}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
+  // Identify the primary column for the card view (largest text)
+  const primaryCol = columns.find((c) => c.primaryOnCard) ?? columns[0]
 
-          <TableBody>
-            {data.length === 0 ? (
-              <EmptyState colSpan={columns.length} />
-            ) : (
-              data.map((item, index) => (
-                <TableRow
-                  key={keyExtractor(item)}
-                  data-state={onRowClick ? 'interactive' : undefined}
-                  className={[
-                    'border-b transition-colors duration-200 last:border-b-0',
-                    index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30',
-                    onRowClick ? 'cursor-pointer hover:bg-slate-100/80' : 'hover:bg-slate-50/60',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  onClick={() => onRowClick?.(item)}
-                >
-                  {columns.map((col) => (
-                    <TableCell
-                      key={col.key}
-                      className={[
-                        'text-sm text-slate-700',
-                        col.className,
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      {col.cell(item)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+  return (
+    <>
+      {/* Mobile card list — visible only on small screens */}
+      <div className="sm:hidden">
+        {data.length === 0 ? (
+          <CardEmptyState />
+        ) : (
+          <>
+            {cardListHint && (
+              <p className="mb-2 px-1 text-[11px] uppercase tracking-wider text-muted-foreground/70">
+                {cardListHint}
+              </p>
             )}
-          </TableBody>
-        </Table>
+            <ul className="space-y-2">
+              {data.map((item) => {
+                const primary = primaryCol.cell(item)
+                const secondaryCols = columns.filter(
+                  (c) =>
+                    c.key !== primaryCol.key &&
+                    c.mobileLabel &&
+                    !c.hideOnMobileCard,
+                )
+                return (
+                  <li
+                    key={keyExtractor(item)}
+                    onClick={() => onRowClick?.(item)}
+                    className={cn(
+                      'rounded-xl border border-border/60 bg-card p-3 shadow-sm transition-colors',
+                      onRowClick && 'cursor-pointer hover:bg-accent/30 active:bg-accent/50',
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-foreground">
+                          {primary}
+                        </div>
+                        {secondaryCols.length > 0 && (
+                          <dl className="mt-1.5 space-y-0.5">
+                            {secondaryCols.map((col) => (
+                              <div
+                                key={col.key}
+                                className="flex items-baseline gap-1.5 text-xs"
+                              >
+                                <dt className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                                  {col.mobileLabel}
+                                </dt>
+                                <dd className="min-w-0 truncate text-foreground/80">
+                                  {col.cell(item)}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        )}
+                      </div>
+                      {renderCardActions && (
+                        <div
+                          className="shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {renderCardActions(item)}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </>
+        )}
       </div>
-    </div>
+
+      {/* Desktop table — visible only on sm+ screens */}
+      <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm sm:block">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-slate-50/60">
+              <TableRow className="border-b transition-colors hover:bg-slate-50/60">
+                {columns.map((col) => (
+                  <TableHead
+                    key={col.key}
+                    className={cn(
+                      'whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-500',
+                      col.className,
+                    )}
+                  >
+                    {col.header}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {data.length === 0 ? (
+                <EmptyState colSpan={columns.length} />
+              ) : (
+                data.map((item, index) => (
+                  <TableRow
+                    key={keyExtractor(item)}
+                    data-state={onRowClick ? 'interactive' : undefined}
+                    className={cn(
+                      'border-b transition-colors duration-200 last:border-b-0',
+                      index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30',
+                      onRowClick
+                        ? 'cursor-pointer hover:bg-slate-100/80'
+                        : 'hover:bg-slate-50/60',
+                    )}
+                    onClick={() => onRowClick?.(item)}
+                  >
+                    {columns.map((col) => (
+                      <TableCell
+                        key={col.key}
+                        className={cn(
+                          'whitespace-nowrap text-sm text-slate-700',
+                          col.className,
+                        )}
+                      >
+                        {col.cell(item)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </>
   )
 }

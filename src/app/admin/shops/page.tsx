@@ -230,6 +230,7 @@ export default function AdminShopsPage() {
     {
       key: 'name',
       header: 'Shop Name',
+      primaryOnCard: true,
       cell: (t) => (
         <div className="cursor-pointer" onClick={() => handleViewDetail(t)}>
           <p className="font-medium hover:text-primary transition-colors">{t.name}</p>
@@ -240,11 +241,13 @@ export default function AdminShopsPage() {
     {
       key: 'slug',
       header: 'Slug',
+      hideOnMobileCard: true,
       cell: (t) => <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{t.slug}</code>,
     },
     {
       key: 'status',
       header: 'Status',
+      mobileLabel: 'Status',
       cell: (t) => (
         <Badge variant={statusColors[t.status] ?? 'outline'} className="capitalize">
           {t.status}
@@ -254,6 +257,7 @@ export default function AdminShopsPage() {
     {
       key: 'subscription',
       header: 'Subscription',
+      mobileLabel: 'Plan',
       cell: (t) => (
         <div className="text-sm">
           <p className="capitalize">{t.subscriptionStatus}</p>
@@ -440,10 +444,28 @@ export default function AdminShopsPage() {
         />
       ) : (
         <>
-          <DataTable columns={columns} data={filteredTenants} keyExtractor={(t) => t.id} />
+          <DataTable
+            columns={columns}
+            data={filteredTenants}
+            keyExtractor={(t) => t.id}
+            renderCardActions={(t) => (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9 rounded-full"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleViewDetail(t)
+                }}
+                aria-label={`View ${t.name}`}
+              >
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            )}
+          />
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
                 Showing {(page - 1) * 20 + 1}-{Math.min(page * 20, total)} of {total}
               </p>
@@ -455,7 +477,7 @@ export default function AdminShopsPage() {
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  <span className="hidden sm:inline">Previous</span>
                 </Button>
                 <Button
                   variant="outline"

@@ -5,9 +5,14 @@ const PUBLIC_PATHS = new Set(['/', '/login', '/register', '/forgot-password', '/
 const PUBLIC_PREFIXES = ['/r/', '/i/', '/api/auth', '/api/i/', '/api/r/', '/_next/']
 
 const SESSION_COOKIES = [
+  // NextAuth v4 / older naming
   'next-auth.session-token',
   '__Secure-next-auth.session-token',
   '__Host-next-auth.session-token',
+  // NextAuth v5 (authjs) naming
+  'authjs.session-token',
+  '__Secure-authjs.session-token',
+  '__Host-authjs.session-token',
 ]
 
 function hasSessionCookie(req: NextRequest): boolean {

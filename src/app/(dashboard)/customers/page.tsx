@@ -303,6 +303,7 @@ export default function CustomersPage() {
                 {
                   key: 'name',
                   header: 'Name',
+                  primaryOnCard: true,
                   cell: (customer: Customer) => (
                     <span className="font-medium">{customer.name}</span>
                   ),
@@ -310,6 +311,7 @@ export default function CustomersPage() {
                 {
                   key: 'phone',
                   header: 'Phone',
+                  mobileLabel: 'Phone',
                   cell: (customer: Customer) => (
                     <span className="text-muted-foreground">{customer.phone ?? '—'}</span>
                   ),
@@ -317,6 +319,7 @@ export default function CustomersPage() {
                 {
                   key: 'email',
                   header: 'Email',
+                  mobileLabel: 'Email',
                   cell: (customer: Customer) => (
                     <span className="text-muted-foreground">{customer.email ?? '—'}</span>
                   ),
@@ -324,6 +327,7 @@ export default function CustomersPage() {
                 {
                   key: 'totalSales',
                   header: 'Sales',
+                  mobileLabel: 'Sales',
                   cell: (customer: Customer) => (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
                       {customer.totalSales}
@@ -333,6 +337,7 @@ export default function CustomersPage() {
                 {
                   key: 'totalRevenue',
                   header: 'Revenue',
+                  mobileLabel: 'Revenue',
                   cell: (customer: Customer) => (
                     <span className="font-semibold text-violet-600">{formatCurrency(customer.totalRevenue)}</span>
                   ),
@@ -372,6 +377,20 @@ export default function CustomersPage() {
               data={paginated}
               keyExtractor={(customer) => customer.id}
               onRowClick={(customer) => router.push(`/customers/${customer.id}`)}
+              renderCardActions={(customer) => (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDelete(customer.id)
+                  }}
+                  aria-label={`Delete ${customer.name}`}
+                >
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              )}
             />
           </div>
 

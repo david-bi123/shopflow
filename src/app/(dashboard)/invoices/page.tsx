@@ -225,6 +225,7 @@ export default function InvoicesPage() {
             {
               key: 'invoiceNumber',
               header: 'Invoice #',
+              primaryOnCard: true,
               cell: (inv: Invoice) => (
                 <span className="font-medium">{inv.invoiceNumber}</span>
               ),
@@ -232,11 +233,13 @@ export default function InvoicesPage() {
             {
               key: 'customer',
               header: 'Customer',
+              mobileLabel: 'Customer',
               cell: (inv: Invoice) => inv.customerName,
             },
             {
               key: 'total',
               header: 'Total',
+              mobileLabel: 'Total',
               cell: (inv: Invoice) => (
                 <span className="font-semibold text-blue-600">{formatCurrency(inv.total)}</span>
               ),
@@ -244,6 +247,7 @@ export default function InvoicesPage() {
             {
               key: 'status',
               header: 'Status',
+              mobileLabel: 'Status',
               cell: (inv: Invoice) => {
                 const style = STATUS_STYLES[inv.status]
                 return (
@@ -257,6 +261,7 @@ export default function InvoicesPage() {
             {
               key: 'dueDate',
               header: 'Due Date',
+              mobileLabel: 'Due',
               cell: (inv: Invoice) => formatDate(inv.dueDate),
             },
             {
@@ -318,11 +323,57 @@ export default function InvoicesPage() {
           data={paginated}
           keyExtractor={(inv) => inv.id}
           onRowClick={(inv) => router.push(`/invoices/${inv.id}`)}
+          renderCardActions={(inv) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+                  <MoreHorizontal className="size-4" />
+                  <span className="sr-only">Actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="rounded-2xl shadow-xl">
+                <DropdownMenuItem className="gap-2" onClick={() => router.push(`/invoices/${inv.id}`)}>
+                  <Eye className="size-4 text-muted-foreground" />
+                  View
+                </DropdownMenuItem>
+                {(inv.status === 'draft' || inv.status === 'sent') && (
+                  <DropdownMenuItem className="gap-2" onClick={() => router.push(`/invoices/${inv.id}?edit=true`)}>
+                    <Edit className="size-4 text-muted-foreground" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() =>
+                    window.open(
+                      `https://wa.me/?text=${encodeURIComponent(`Invoice ${inv.invoiceNumber} - Total: ${formatCurrency(inv.total)}`)}`,
+                      '_blank'
+                    )
+                  }
+                >
+                  <Share2 className="size-4 text-muted-foreground" />
+                  Share WhatsApp
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/i/${inv.invoiceNumber}/pdf`, '_blank')}>
+                  <Download className="size-4 text-muted-foreground" />
+                  Download PDF
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="gap-2 text-destructive focus:text-destructive"
+                  onClick={() => handleDelete(inv.id)}
+                >
+                  <Trash2 className="size-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         />
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Page {currentPage} of {totalPages}
           </p>
@@ -335,9 +386,9 @@ export default function InvoicesPage() {
               className="h-9 rounded-full border-border/60 shadow-sm"
             >
               <ChevronLeft className="mr-1 size-4" />
-              Previous
+              <span className="hidden sm:inline">Previous</span>
             </Button>
-            <div className="flex items-center gap-1">
+            <div className="hidden items-center gap-1 sm:flex">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                 <Button
                   key={page}
@@ -355,6 +406,20 @@ export default function InvoicesPage() {
                 </Button>
               ))}
             </div>
+            <div className="flex items-center gap-1 sm:hidden">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  className={cn(
+                    'h-2.5 rounded-full transition-all',
+                    page === currentPage ? 'w-6 bg-blue-600' : 'w-2.5 bg-muted-foreground/30'
+                  )}
+                  aria-label={`Go to page ${page}`}
+                />
+              ))}
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -362,7 +427,7 @@ export default function InvoicesPage() {
               onClick={() => setCurrentPage((p) => p + 1)}
               className="h-9 rounded-full border-border/60 shadow-sm"
             >
-              Next
+              <span className="hidden sm:inline">Next</span>
               <ChevronRight className="ml-1 size-4" />
             </Button>
           </div>

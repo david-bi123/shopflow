@@ -222,6 +222,7 @@ export default function SalesPage() {
             {
               key: 'saleNumber',
               header: 'Sale #',
+              primaryOnCard: true,
               cell: (sale: Sale) => (
                 <span className="font-medium">{sale.saleNumber}</span>
               ),
@@ -229,16 +230,20 @@ export default function SalesPage() {
             {
               key: 'customer',
               header: 'Customer',
+              mobileLabel: 'Customer',
               cell: (sale: Sale) => sale.customerName,
             },
             {
               key: 'items',
               header: 'Items',
+              mobileLabel: 'Items',
+              hideOnMobileCard: false,
               cell: (sale: Sale) => sale.items.length,
             },
             {
               key: 'total',
               header: 'Total',
+              mobileLabel: 'Total',
               cell: (sale: Sale) => (
                 <span className="font-semibold text-emerald-600">{formatCurrency(sale.total)}</span>
               ),
@@ -246,6 +251,7 @@ export default function SalesPage() {
             {
               key: 'paymentMethod',
               header: 'Payment',
+              mobileLabel: 'Paid via',
               cell: (sale: Sale) => (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground">
                   <span className={cn('h-1.5 w-1.5 rounded-full', PAYMENT_DOT[sale.paymentMethod] ?? 'bg-gray-400')} />
@@ -256,6 +262,7 @@ export default function SalesPage() {
             {
               key: 'date',
               header: 'Date',
+              mobileLabel: 'Date',
               cell: (sale: Sale) => formatDate(sale.createdAt),
             },
             {
@@ -307,11 +314,51 @@ export default function SalesPage() {
           data={paginated}
           keyExtractor={(sale) => sale.id}
           onRowClick={(sale) => router.push(`/sales/${sale.id}`)}
+          renderCardActions={(sale) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+                  <MoreHorizontal className="size-4" />
+                  <span className="sr-only">Actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="rounded-2xl shadow-xl">
+                <DropdownMenuItem className="gap-2" onClick={() => router.push(`/sales/${sale.id}`)}>
+                  <Eye className="size-4 text-muted-foreground" />
+                  View
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() =>
+                    window.open(
+                      `https://wa.me/?text=${encodeURIComponent(`Sale ${sale.saleNumber} - Total: ${formatCurrency(sale.total)}`)}`,
+                      '_blank'
+                    )
+                  }
+                >
+                  <Share2 className="size-4 text-muted-foreground" />
+                  Share WhatsApp
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/r/${sale.saleNumber}/pdf`, '_blank')}>
+                  <Download className="size-4 text-muted-foreground" />
+                  Download PDF
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="gap-2 text-destructive focus:text-destructive"
+                  onClick={() => handleDelete(sale.id)}
+                >
+                  <Trash2 className="size-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         />
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Page {currentPage} of {totalPages}
           </p>
@@ -324,9 +371,9 @@ export default function SalesPage() {
               className="h-9 rounded-full border-border/60 shadow-sm"
             >
               <ChevronLeft className="mr-1 size-4" />
-              Previous
+              <span className="hidden sm:inline">Previous</span>
             </Button>
-            <div className="flex items-center gap-1">
+            <div className="hidden items-center gap-1 sm:flex">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                 <Button
                   key={page}
@@ -344,6 +391,20 @@ export default function SalesPage() {
                 </Button>
               ))}
             </div>
+            <div className="flex items-center gap-1 sm:hidden">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  className={cn(
+                    'h-2.5 rounded-full transition-all',
+                    page === currentPage ? 'w-6 bg-emerald-600' : 'w-2.5 bg-muted-foreground/30'
+                  )}
+                  aria-label={`Go to page ${page}`}
+                />
+              ))}
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -351,7 +412,7 @@ export default function SalesPage() {
               onClick={() => setCurrentPage((p) => p + 1)}
               className="h-9 rounded-full border-border/60 shadow-sm"
             >
-              Next
+              <span className="hidden sm:inline">Next</span>
               <ChevronRight className="ml-1 size-4" />
             </Button>
           </div>
