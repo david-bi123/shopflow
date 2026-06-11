@@ -17,6 +17,8 @@ import {
   Sparkles,
   Eye,
   Package,
+  Award,
+  Calendar,
 } from 'lucide-react'
 import {
   Area,
@@ -31,7 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency, formatDate } from '@/lib/utils/format'
+import { formatCurrency, formatDate, formatNumber } from '@/lib/utils/format'
 
 interface DashboardStats {
   todaySales: number
@@ -41,6 +43,10 @@ interface DashboardStats {
   monthlySales: number
   monthlySalesCount: number
   totalSalesCount: number
+  allTimeRevenue: number
+  averageSale: number
+  firstSaleAt: string | null
+  lastSaleAt: string | null
   totalInvoices: number
   totalCustomers: number
   totalStaff: number
@@ -208,6 +214,79 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* All-time / Lifetime totals — the "ultimate total" */}
+      <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent shadow-md">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-emerald-500/5 blur-3xl" />
+        <CardContent className="relative grid gap-5 p-5 sm:grid-cols-2 sm:gap-6 sm:p-6 lg:grid-cols-4">
+          <div className="lg:col-span-1">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 ring-1 ring-inset ring-emerald-500/25">
+                <Award className="size-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700/80 dark:text-emerald-300/80">
+                Lifetime Revenue
+              </p>
+            </div>
+            <div className="text-3xl font-bold tracking-tight tabular-nums text-foreground sm:text-4xl">
+              {formatCurrency(stats?.allTimeRevenue ?? 0)}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {stats?.firstSaleAt
+                ? `Since ${formatDate(stats.firstSaleAt, 'short')}`
+                : 'No sales recorded yet'}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-background/60 p-3 ring-1 ring-inset ring-border/50 backdrop-blur-sm">
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/10">
+                <ShoppingCart className="size-3 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Total Sales
+              </p>
+            </div>
+            <p className="text-xl font-bold tabular-nums text-foreground">
+              {formatNumber(stats?.totalSalesCount ?? 0)}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">All-time count</p>
+          </div>
+
+          <div className="rounded-xl bg-background/60 p-3 ring-1 ring-inset ring-border/50 backdrop-blur-sm">
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/10">
+                <TrendingUp className="size-3 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Average Sale
+              </p>
+            </div>
+            <p className="text-xl font-bold tabular-nums text-foreground">
+              {formatCurrency(stats?.averageSale ?? 0)}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Per transaction</p>
+          </div>
+
+          <div className="rounded-xl bg-background/60 p-3 ring-1 ring-inset ring-border/50 backdrop-blur-sm">
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/10">
+                <Calendar className="size-3 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                First &amp; Last Sale
+              </p>
+            </div>
+            <p className="text-sm font-semibold tabular-nums text-foreground">
+              {stats?.firstSaleAt ? formatDate(stats.firstSaleAt, 'short') : '—'}
+              <span className="mx-1 text-muted-foreground/60">→</span>
+              {stats?.lastSaleAt ? formatDate(stats.lastSaleAt, 'short') : '—'}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Activity window</p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* KPI cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

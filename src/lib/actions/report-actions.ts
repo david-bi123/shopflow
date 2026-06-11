@@ -36,6 +36,14 @@ export async function getDashboardStats() {
   const monthly = calcAgg(monthlySales)
 
   const totalSalesCount = allSales.length
+  const allTimeRevenue = allSales.reduce((sum, s) => sum + s.total, 0)
+  const averageSale = totalSalesCount > 0 ? allTimeRevenue / totalSalesCount : 0
+  const firstSaleAt = allSales.length > 0
+    ? allSales.reduce((min, s) => (s.createdAt < min ? s.createdAt : min), allSales[0].createdAt)
+    : null
+  const lastSaleAt = allSales.length > 0
+    ? allSales.reduce((max, s) => (s.createdAt > max ? s.createdAt : max), allSales[0].createdAt)
+    : null
 
   const [totalInvoices] = await db.select({ total: count() }).from(invoices)
     .where(eq(invoices.tenantId, tenantId))
@@ -77,6 +85,10 @@ export async function getDashboardStats() {
     monthlySales: monthly.total,
     monthlySalesCount: monthly.count,
     totalSalesCount,
+    allTimeRevenue,
+    averageSale,
+    firstSaleAt,
+    lastSaleAt,
     totalInvoices: totalInvoices?.total ?? 0,
     totalCustomers: totalCustomers?.total ?? 0,
     totalStaff: totalStaff?.total ?? 0,
