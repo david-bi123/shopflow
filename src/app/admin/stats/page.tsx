@@ -160,7 +160,7 @@ export default function AdminStatsPage() {
                 </div>
               </CardHeader>
               <CardContent className="relative">
-                <div className="text-3xl font-bold tracking-tight">{card.value}</div>
+                <div className="text-2xl font-bold tracking-tight sm:text-3xl">{card.value}</div>
               </CardContent>
             </Card>
           )
@@ -168,15 +168,15 @@ export default function AdminStatsPage() {
       </div>
 
       <Card className="overflow-hidden border-0 bg-gradient-to-br from-primary/5 to-primary/0 shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between pb-4">
-          <div>
+        <CardHeader className="flex flex-col items-start gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                 <TrendingUp className="h-4 w-4 text-primary" />
               </div>
               <CardTitle>Tenant Growth</CardTitle>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground ml-10">
+            <p className="mt-1 text-sm text-muted-foreground sm:ml-10">
               Monthly new tenant registrations
             </p>
           </div>

@@ -233,8 +233,8 @@ export default function AdminAnnouncementsPage() {
             const PriorityIcon = priorityIcons[a.priority]
             return (
               <Card key={a.id} className="overflow-hidden border-0 bg-card shadow-sm transition-all hover:shadow-md">
-                <CardHeader className="flex flex-row items-start justify-between gap-4 py-4">
-                  <div className="flex items-start gap-3">
+                <CardHeader className="flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <div className="flex min-w-0 items-start gap-3">
                     <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                       a.priority === 'high'
                         ? 'bg-destructive/10'
@@ -250,30 +250,33 @@ export default function AdminAnnouncementsPage() {
                             : 'text-muted-foreground'
                       }`} />
                     </div>
-                    <div className="space-y-1">
-                      <CardTitle className="text-base">{a.title}</CardTitle>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{formatDate(a.createdAt, 'datetime')}</span>
-                        <span>·</span>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <CardTitle className="truncate text-base">{a.title}</CardTitle>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                        <span className="whitespace-nowrap">{formatDate(a.createdAt, 'datetime')}</span>
+                        <span className="hidden sm:inline">·</span>
                         <span className="capitalize">{a.priority} priority</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge
-                      variant={a.active ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {a.active ? 'Active' : 'Inactive'}
-                    </Badge>
-                    <Badge variant={priorityColors[a.priority]} className="text-xs capitalize">
-                      {a.priority}
-                    </Badge>
+                  <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
+                    <div className="flex items-center gap-1.5">
+                      <Badge
+                        variant={a.active ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {a.active ? 'Active' : 'Inactive'}
+                      </Badge>
+                      <Badge variant={priorityColors[a.priority]} className="hidden text-xs capitalize sm:inline-flex">
+                        {a.priority}
+                      </Badge>
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-7 w-7 shrink-0"
                       onClick={() => setExpanded(expanded === a.id ? null : a.id)}
+                      aria-label={expanded === a.id ? 'Collapse' : 'Expand'}
                     >
                       {expanded === a.id ? (
                         <ChevronUp className="h-4 w-4" />
@@ -285,7 +288,7 @@ export default function AdminAnnouncementsPage() {
                 </CardHeader>
                 {expanded === a.id && (
                   <CardContent className="pb-4 pt-0">
-                    <div className={`ml-12 rounded-lg p-4 ${
+                    <div className={`rounded-lg p-4 sm:ml-12 ${
                       a.priority === 'high'
                         ? 'bg-destructive/5 border border-destructive/10'
                         : a.priority === 'medium'

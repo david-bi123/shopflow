@@ -366,11 +366,11 @@ export default function AdminShopsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Shops" description="Manage all shops on the platform">
-        <div className="relative">
+        <div className="relative w-full sm:w-60">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search shops..."
-            className="w-full sm:w-60 pl-8"
+            className="w-full pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -388,7 +388,7 @@ export default function AdminShopsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tracking-tight">{stats.total}</div>
+            <div className="text-2xl font-bold tracking-tight sm:text-3xl">{stats.total}</div>
           </CardContent>
         </Card>
         <Card className="overflow-hidden border-0 bg-gradient-to-br from-emerald-500/5 to-emerald-500/0 shadow-md">
@@ -401,7 +401,7 @@ export default function AdminShopsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tracking-tight text-emerald-600">{stats.active}</div>
+            <div className="text-2xl font-bold tracking-tight text-emerald-600 sm:text-3xl">{stats.active}</div>
           </CardContent>
         </Card>
         <Card className="overflow-hidden border-0 bg-gradient-to-br from-amber-500/5 to-amber-500/0 shadow-md">
@@ -414,12 +414,12 @@ export default function AdminShopsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tracking-tight text-amber-600">{stats.pending}</div>
+            <div className="text-2xl font-bold tracking-tight text-amber-600 sm:text-3xl">{stats.pending}</div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="-mx-4 flex flex-wrap items-center gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0 sm:gap-2">
         {statusOptions.map((opt) => (
           <Button
             key={opt}
@@ -544,7 +544,7 @@ export default function AdminShopsPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                   <div className="space-y-1.5 rounded-lg bg-muted/30 p-3">
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Tag className="h-3 w-3" />
@@ -588,12 +588,12 @@ export default function AdminShopsPage() {
                   ) : (
                     <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-lg border p-2">
                       {detailTarget.users.map((u) => (
-                        <div key={u.id} className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
-                          <div>
-                            <p className="text-sm font-medium">{u.name}</p>
-                            <p className="text-xs text-muted-foreground">{u.email}</p>
+                        <div key={u.id} className="flex flex-col gap-2 rounded-md bg-muted/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">{u.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">{u.email}</p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <Badge variant="outline" className="text-xs capitalize">{u.role}</Badge>
                             <Badge variant={u.status === 'active' ? 'default' : 'secondary'} className="text-xs capitalize">{u.status}</Badge>
                           </div>
