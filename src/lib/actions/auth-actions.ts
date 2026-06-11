@@ -100,7 +100,7 @@ export async function loginAction(data: { email: string; password: string }) {
       if (!tenant) return { error: 'Invalid email or password' }
 
       if (tenant.status === 'pending') return { redirectTo: '/pending-approval' }
-      if (tenant.status === 'suspended') return { error: 'Your shop has been suspended' }
+      if (tenant.status === 'suspended') return { redirectTo: '/suspended' }
       if (tenant.status === 'rejected') return { error: 'Your registration was not approved' }
     }
 

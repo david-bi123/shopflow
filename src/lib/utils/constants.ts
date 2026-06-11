@@ -1,6 +1,16 @@
 export const APP_NAME = 'IndFlow'
 export const SHOPFLOW_DESCRIPTION = 'Modern business management platform for retail shops and SMEs'
 
+/**
+ * Super admin contact (Ghana). Used on /pending-approval and /suspended pages
+ * so users can reach the admin on WhatsApp to get their shop activated or
+ * reinstated.
+ */
+export const SUPER_ADMIN_WHATSAPP = '233550624203' // 0550624203 in E.164
+export const SUPER_ADMIN_WHATSAPP_DISPLAY = '+233 55 062 4203'
+export const superAdminWhatsappLink = (message: string) =>
+  `https://wa.me/${SUPER_ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`
+
 export const PAGINATION_LIMIT = 20
 export const PAGINATION_MAX_LIMIT = 100
 

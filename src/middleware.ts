@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = new Set(['/', '/login', '/register', '/forgot-password'])
+const PUBLIC_PATHS = new Set(['/', '/login', '/register', '/forgot-password', '/pending-approval', '/suspended'])
 const PUBLIC_PREFIXES = ['/r/', '/i/', '/api/auth', '/api/i/', '/api/r/', '/_next/']
 
 const SESSION_COOKIES = [
@@ -23,11 +23,6 @@ export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   if (isPublic(pathname)) return NextResponse.next()
-
-  // Public auth-state pages accessible to authenticated users too
-  if (pathname.startsWith('/pending-approval') || pathname.startsWith('/suspended')) {
-    return hasSessionCookie(req) ? NextResponse.next() : NextResponse.redirect(new URL('/login', req.url))
-  }
 
   if (!hasSessionCookie(req)) {
     const loginUrl = new URL('/login', req.url)
