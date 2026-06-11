@@ -201,7 +201,7 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Staff</h1>
         <Dialog
           open={inviteOpen}
@@ -337,7 +337,7 @@ export default function StaffPage() {
         </Card>
       ) : (
         <>
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -346,7 +346,7 @@ export default function StaffPage() {
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Login</TableHead>
-                  <TableHead className="w-32">Actions</TableHead>
+                  <TableHead className="w-32 shrink-0">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

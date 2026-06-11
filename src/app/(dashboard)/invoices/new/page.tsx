@@ -189,7 +189,7 @@ export default function NewInvoicePage() {
                       placeholder="Brief description"
                     />
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor={`items.${index}.quantity`}>Qty *</Label>
                       <Input
@@ -252,7 +252,7 @@ export default function NewInvoicePage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="discount">Discount</Label>
                 <Input

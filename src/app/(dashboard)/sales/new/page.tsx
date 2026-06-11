@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Plus, Trash2, ArrowLeft, Search, Package, Loader2 } from 'lucide-react'
+import { Plus, Trash2, ArrowLeft } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,22 +23,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { PageHeader } from '@/components/shared/page-header'
 import { createSaleSchema, type CreateSaleInput } from '@/lib/validations/sale'
 import { createSale } from '@/lib/actions/sale-actions'
-import { getProducts } from '@/lib/actions/product-actions'
 import { formatCurrency } from '@/lib/utils/format'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { cn } from '@/lib/utils/cn'
 
 type FormValues = CreateSaleInput
 
@@ -47,30 +38,6 @@ const defaultItem = { name: '', quantity: 1, price: 0, subtotal: 0 }
 export default function NewSalePage() {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [pickerIndex, setPickerIndex] = useState(0)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [products, setProducts] = useState<any[]>([])
-  const [loadingProducts, setLoadingProducts] = useState(false)
-
-  const fetchProducts = useCallback(async (search: string) => {
-    setLoadingProducts(true)
-    try {
-      const result = await getProducts({ search, status: 'active', pageSize: 50 })
-      setProducts(result.data)
-    } catch {
-      setProducts([])
-    } finally {
-      setLoadingProducts(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (pickerOpen) {
-      fetchProducts('')
-      setSearchQuery('')
-    }
-  }, [pickerOpen, fetchProducts])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(createSaleSchema) as any,
@@ -173,24 +140,11 @@ export default function NewSalePage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
                       <Label htmlFor={`items.${index}.name`}>Item Name *</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id={`items.${index}.name`}
-                          {...register(`items.${index}.name`)}
-                          placeholder="Item name"
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="shrink-0"
-                          onClick={() => { setPickerIndex(index); setPickerOpen(true) }}
-                          title="Browse products"
-                        >
-                          <Package className="size-4" />
-                        </Button>
-                      </div>
+                      <Input
+                        id={`items.${index}.name`}
+                        {...register(`items.${index}.name`)}
+                        placeholder="Item name"
+                      />
                       {errors.items?.[index]?.name && (
                         <p className="text-sm text-destructive">
                           {errors.items[index]?.name?.message}
@@ -209,7 +163,7 @@ export default function NewSalePage() {
                       </Button>
                     )}
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor={`items.${index}.quantity`}>Qty *</Label>
                       <Input
@@ -279,7 +233,7 @@ export default function NewSalePage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="discount">Discount</Label>
                 <Input
@@ -346,70 +300,6 @@ export default function NewSalePage() {
         </div>
       </form>
 
-      {/* Product picker dialog */}
-      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Select Product</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value)
-                  fetchProducts(e.target.value)
-                }}
-                className="pl-9"
-                autoFocus
-              />
-            </div>
-            <div className="max-h-80 overflow-y-auto space-y-1">
-              {loadingProducts ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : products.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No products found
-                </p>
-              ) : (
-                products.map((product) => (
-                  <button
-                    key={product.id}
-                    type="button"
-                    onClick={() => {
-                      form.setValue(`items.${pickerIndex}.name`, product.name)
-                      form.setValue(`items.${pickerIndex}.price`, product.price)
-                      form.setValue(`items.${pickerIndex}.quantity`, 1)
-                      form.setValue(`items.${pickerIndex}.subtotal`, product.price)
-                      setPickerOpen(false)
-                    }}
-                    className={cn(
-                      'flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent',
-                    )}
-                  >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                      <Package className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm font-medium">{product.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {product.sku && `${product.sku} · `}
-                        {product.category && `${product.category} · `}
-                        Stock: {product.stockQuantity}
-                      </p>
-                    </div>
-                    <p className="shrink-0 text-sm font-semibold">{formatCurrency(product.price)}</p>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

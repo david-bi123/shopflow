@@ -337,7 +337,7 @@ export default function AdminShopsPage() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search shops..."
-            className="w-60 pl-8"
+            className="w-full sm:w-60 pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -380,7 +380,7 @@ export default function AdminShopsPage() {
         </Card>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {statusOptions.map((opt) => (
           <Button
             key={opt}

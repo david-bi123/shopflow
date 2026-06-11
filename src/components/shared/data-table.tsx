@@ -31,7 +31,7 @@ export function DataTable<T>({
   onRowClick,
 }: DataTableProps<T>) {
   return (
-    <div className="rounded-xl border bg-card/50 shadow-sm backdrop-blur">
+    <div className="overflow-x-auto rounded-xl border bg-card/50 shadow-sm backdrop-blur">
       <Table>
         <TableHeader className="[&_tr]:border-b">
           <TableRow>

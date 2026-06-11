@@ -5,7 +5,6 @@ export const saleItemSchema = z.object({
   quantity: z.number().int().min(1, 'Quantity must be at least 1'),
   price: z.number().min(0, 'Price must be non-negative'),
   subtotal: z.number().min(0, 'Subtotal must be non-negative'),
-  productId: z.number().int().optional(),
 })
 
 export const createSaleSchema = z.object({
@@ -37,7 +36,6 @@ export interface Sale {
     quantity: number
     price: number
     subtotal: number
-    productId?: number
   }>
   subtotal: number
   discount: number

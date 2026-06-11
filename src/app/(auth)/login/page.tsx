@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
-import { signIn } from 'next-auth/react'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 import {
@@ -73,22 +72,9 @@ export default function LoginPage() {
       return
     }
 
-    if (result?.ok) {
-      const loginResult = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      })
-
-      if (loginResult?.error) {
-        toast.error('Invalid email or password')
-        setIsLoading(false)
-        return
-      }
-    }
-
     if (result?.redirectTo) {
       window.location.href = result.redirectTo
+      return
     }
   }
 

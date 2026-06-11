@@ -8,6 +8,9 @@ import { registerSchema, loginSchema } from '@/lib/validations/auth'
 import { signIn } from '@/lib/auth/auth'
 import { slugify } from '@/lib/utils/format'
 import { AuthError } from 'next-auth'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { encode } from 'next-auth/jwt'
 
 export async function registerShop(formData: FormData) {
   const raw = {
@@ -107,10 +110,41 @@ export async function loginAction(data: { email: string; password: string }) {
     }
 
     const redirectTo = user.role === 'super_admin' ? '/admin' : '/dashboard'
-    return { ok: true, redirectTo, email: data.email, password: data.password }
+
+    // Create JWT session token manually
+    const token = {
+      sub: String(user.id),
+      id: String(user.id),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tenantId: user.tenantId ? String(user.tenantId) : undefined,
+    }
+
+    const sessionToken = await encode({
+      token,
+      secret: process.env.NEXTAUTH_SECRET!,
+      salt: 'next-auth.session-token',
+      maxAge: 30 * 24 * 60 * 60,
+    })
+
+    const cookieStore = await cookies()
+    cookieStore.set('next-auth.session-token', sessionToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60,
+    })
+
+    redirect(redirectTo)
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: 'Invalid email or password' }
+    }
+    // Let redirect() errors propagate — Next.js handles them
+    if (error instanceof Error && error.message?.includes('NEXT_REDIRECT')) {
+      throw error
     }
     return { error: 'Something went wrong' }
   }
