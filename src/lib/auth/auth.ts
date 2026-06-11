@@ -8,6 +8,9 @@ import type { Role } from '@/types'
 import type { User } from 'next-auth'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // Trust the host header from Vercel/proxies so cookies are issued correctly
+  // in production. Safe to leave on in dev too.
+  trustHost: true,
   providers: [
     Credentials({
       name: 'credentials',
