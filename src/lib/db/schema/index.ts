@@ -42,6 +42,13 @@ export const customers = mysqlTable('customers', {
   notes: text('notes'),
   totalSales: int('total_sales').notNull().default(0),
   totalRevenue: double('total_revenue').notNull().default(0),
+  /** Cached current outstanding debt. Always derived from debt_ledger but
+   *  kept here for fast list-page reads. */
+  totalDebt: double('total_debt').notNull().default(0),
+  /** Timestamp of the first time this customer became a debtor. */
+  firstDebtAt: varchar('first_debt_at', { length: 50 }),
+  /** Last time the debt changed (creation or payment). */
+  lastDebtActivityAt: varchar('last_debt_activity_at', { length: 50 }),
   createdBy: int('created_by').notNull().references(() => users.id),
   createdAt: varchar('created_at', { length: 50 }).notNull(),
   updatedAt: varchar('updated_at', { length: 50 }).notNull(),
@@ -49,6 +56,7 @@ export const customers = mysqlTable('customers', {
   index('customer_tenant_name_idx').on(table.tenantId, table.name),
   index('customer_tenant_phone_idx').on(table.tenantId, table.phone),
   index('customer_tenant_email_idx').on(table.tenantId, table.email),
+  index('customer_tenant_debt_idx').on(table.tenantId, table.totalDebt),
 ])
 
 /**
@@ -81,6 +89,10 @@ export const sales = mysqlTable('sales', {
   /** Itemised taxes (NHIS, VAT, GET Fund, etc.) for line-by-line rendering. */
   taxItems: json('tax_items').$type<TaxItem[]>().notNull().default([]),
   total: double('total').notNull(),
+  /** Amount paid at sale time. Defaults to total (paid in full). */
+  amountPaid: double('amount_paid').notNull().default(0),
+  /** Outstanding amount owed (total - amountPaid). Always 0 if paid in full. */
+  amountOwed: double('amount_owed').notNull().default(0),
   paymentMethod: varchar('payment_method', { length: 20 }).notNull(),
   notes: text('notes'),
   createdBy: int('created_by').notNull().references(() => users.id),
@@ -90,6 +102,7 @@ export const sales = mysqlTable('sales', {
   uniqueIndex('sale_tenant_number_idx').on(table.tenantId, table.saleNumber),
   index('sale_tenant_created_idx').on(table.tenantId, table.createdAt),
   index('sale_tenant_customer_idx').on(table.tenantId, table.customerId),
+  index('sale_tenant_owed_idx').on(table.tenantId, table.amountOwed),
 ])
 
 export const invoices = mysqlTable('invoices', {
@@ -108,6 +121,10 @@ export const invoices = mysqlTable('invoices', {
   tax: double('tax').notNull().default(0),
   taxItems: json('tax_items').$type<TaxItem[]>().notNull().default([]),
   total: double('total').notNull(),
+  /** Amount paid at invoice time. Defaults to total. */
+  amountPaid: double('amount_paid').notNull().default(0),
+  /** Outstanding amount owed on this invoice. */
+  amountOwed: double('amount_owed').notNull().default(0),
   status: varchar('status', { length: 20 }).notNull().default('draft'),
   dueDate: varchar('due_date', { length: 50 }).notNull(),
   notes: text('notes'),
@@ -119,6 +136,47 @@ export const invoices = mysqlTable('invoices', {
   index('invoice_tenant_status_idx').on(table.tenantId, table.status),
   index('invoice_tenant_customer_idx').on(table.tenantId, table.customerId),
   index('invoice_tenant_due_idx').on(table.tenantId, table.dueDate),
+  index('invoice_tenant_owed_idx').on(table.tenantId, table.amountOwed),
+])
+
+/**
+ * Immutable, append-only ledger of every event that changes a customer's
+ * outstanding debt. The running balance at any point in time is the
+ * algebraic sum of all entries for that customer.
+ *
+ * Positive `amount` = the customer owes us more (sale/invoice created
+ * with partial payment, or a manual interest charge).
+ * Negative `amount` = the customer paid some toward their debt.
+ *
+ * The `customers.totalDebt` column is a cached running balance for fast
+ * list-page reads; it must be kept in sync inside a transaction.
+ */
+export const debtLedger = mysqlTable('debt_ledger', {
+  id: int('id').primaryKey().autoincrement(),
+  tenantId: int('tenant_id').notNull().references(() => tenants.id),
+  customerId: int('customer_id').notNull().references(() => customers.id),
+  /** Signed amount. +ve = debt increased, -ve = debt reduced. */
+  amount: double('amount').notNull(),
+  /**
+   * What kind of event this is:
+   *  - sale_created / invoice_created: debt was created from a partial
+   *    payment. `referenceType` + `referenceId` point at the source row.
+   *  - manual_payment: cash paid in by the customer (no source).
+   *  - sale_voided / invoice_voided: the original sale/invoice was
+   *    deleted so the debt it created is reversed.
+   */
+  type: varchar('type', { length: 30 }).notNull(),
+  referenceType: varchar('reference_type', { length: 20 }),
+  referenceId: int('reference_id'),
+  notes: text('notes'),
+  /** Balance after this entry was applied — denormalised for fast history rendering. */
+  balanceAfter: double('balance_after').notNull().default(0),
+  createdBy: int('created_by').notNull().references(() => users.id),
+  createdAt: varchar('created_at', { length: 50 }).notNull(),
+}, (table) => [
+  index('debt_tenant_customer_created_idx').on(table.tenantId, table.customerId, table.createdAt),
+  index('debt_tenant_customer_idx').on(table.tenantId, table.customerId),
+  index('debt_tenant_reference_idx').on(table.tenantId, table.referenceType, table.referenceId),
 ])
 
 export const counters = mysqlTable('counters', {

@@ -28,6 +28,8 @@ export interface Invoice {
   tax: number
   taxItems: TaxItem[]
   total: number
+  amountPaid: number
+  amountOwed: number
   status: InvoiceStatus
   dueDate: string
   notes?: string
@@ -75,6 +77,7 @@ export const createInvoiceSchema = z.object({
   tax: z.number().min(0).default(0),
   taxItems: z.array(taxItemSchema).default([]),
   total: z.number().min(0),
+  amountPaid: z.number().min(0).default(0),
   dueDate: z.string().min(1, 'Due date is required'),
   notes: z.string().max(1000).optional().or(z.literal('')),
 })

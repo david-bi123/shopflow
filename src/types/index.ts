@@ -14,6 +14,8 @@ export type NotificationType =
   | 'invoice.created'
   | 'invoice.paid'
   | 'invoice.overdue'
+  | 'debt.paid'
+  | 'debt.incurred'
   | 'staff.invited'
   | 'staff.removed'
   | 'shop.approved'

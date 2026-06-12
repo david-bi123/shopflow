@@ -21,9 +21,14 @@ import {
   CircleAlert,
   CircleDashed,
   CircleX,
+  AlertTriangle,
+  HandCoins,
   Printer,
   Copy,
   Check,
+  Pencil,
+  Save,
+  X as XIcon,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -240,6 +245,12 @@ export default function InvoiceDetailPage() {
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700 ring-1 ring-red-200/60 dark:bg-red-950/60 dark:text-red-300 dark:ring-red-800/40">
                     <CircleAlert className="size-3" />
                     {Math.abs(diffDays)} {Math.abs(diffDays) === 1 ? 'day' : 'days'} overdue
+                  </div>
+                )}
+                {(invoice.amountOwed ?? 0) > 0.005 && (
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700 ring-1 ring-red-200/60 dark:bg-red-950/60 dark:text-red-300 dark:ring-red-800/40">
+                    <AlertTriangle className="size-3" />
+                    Owes {formatCurrency(invoice.amountOwed)}
                   </div>
                 )}
               </div>
@@ -540,15 +551,29 @@ export default function InvoiceDetailPage() {
               )
             )}
             <Separator className="my-2" />
-            <div className="flex items-baseline justify-between rounded-xl bg-primary/5 p-3 ring-1 ring-inset ring-primary/10">
+            <div className="flex items baseline justify-between rounded-xl bg-primary/5 p-3 ring-1 ring-inset ring-primary/10">
               <span className="text-sm font-semibold text-foreground">Total Due</span>
               <span className="text-2xl font-bold tabular-nums text-foreground">
                 {formatCurrency(invoice.total)}
               </span>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Amount Paid</span>
+              <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                {formatCurrency(invoice.amountPaid ?? invoice.total)}
+              </span>
+            </div>
+             {(invoice.amountOwed ?? 0) > 0.005 && (
+               <div className="flex items-baseline justify-between rounded-xl bg-red-50/60 p-3 ring-1 ring-inset ring-red-200/60 dark:bg-red-950/30 dark:ring-red-800/40">
+                 <span className="text-sm font-semibold text-red-700 dark:text-red-300">Outstanding</span>
+                 <span className="text-xl font-bold tabular-nums text-red-700 dark:text-red-300">
+                   {formatCurrency(invoice.amountOwed)}
+                 </span>
+               </div>
+             )}
+           </CardContent>
+         </Card>
+       </div>
 
       {/* Customer Notes */}
       {(invoice.notes || invoice.customerAddress) && (

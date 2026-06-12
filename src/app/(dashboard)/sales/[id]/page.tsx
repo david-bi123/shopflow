@@ -20,6 +20,8 @@ import {
   Printer,
   Copy,
   Check,
+  AlertTriangle,
+  HandCoins,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -179,6 +181,12 @@ export default function SaleDetailPage() {
                   <CircleCheck className="mr-1 size-3" />
                   Completed
                 </Badge>
+                {(sale.amountOwed ?? 0) > 0.005 && (
+                  <Badge className="bg-red-100 text-red-700 ring-1 ring-red-200/60 dark:bg-red-950/60 dark:text-red-300 dark:ring-red-800/40">
+                    <AlertTriangle className="mr-1 size-3" />
+                    Owes {formatCurrency(sale.amountOwed)}
+                  </Badge>
+                )}
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">{sale.saleNumber}</h1>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -416,6 +424,20 @@ export default function SaleDetailPage() {
                 {formatCurrency(sale.total)}
               </span>
             </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Amount Paid</span>
+              <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                {formatCurrency(sale.amountPaid ?? sale.total)}
+              </span>
+            </div>
+            {(sale.amountOwed ?? 0) > 0.005 && (
+              <div className="flex items-baseline justify-between rounded-xl bg-red-50/60 p-3 ring-1 ring-inset ring-red-200/60 dark:bg-red-950/30 dark:ring-red-800/40">
+                <span className="text-sm font-semibold text-red-700 dark:text-red-300">Outstanding</span>
+                <span className="text-xl font-bold tabular-nums text-red-700 dark:text-red-300">
+                  {formatCurrency(sale.amountOwed)}
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -17,6 +17,8 @@ import {
   CheckCircle2,
   Building2,
   Calendar,
+  HandCoins,
+  AlertTriangle,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -90,6 +92,7 @@ export default function NewInvoicePage() {
       discountPercent: 0,
       tax: 0,
       taxItems: [],
+      amountPaid: 0,
       dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       notes: '',
     },
@@ -100,6 +103,7 @@ export default function NewInvoicePage() {
   const items = watch('items')
   const discountPercent = watch('discountPercent') || 0
   const taxItems = watch('taxItems') ?? []
+  const amountPaid = watch('amountPaid') ?? 0
 
   const subtotal = items.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
@@ -142,6 +146,10 @@ export default function NewInvoicePage() {
       }))
       const calculatedTax = calculatedTaxItems.reduce((sum, t) => sum + t.amount, 0)
       const calculatedTotal = after + calculatedTax
+      const safeAmountPaid = Math.max(
+        0,
+        Math.min(calculatedTotal, Number(data.amountPaid ?? calculatedTotal) || 0)
+      )
 
       await createInvoice({
         ...data,
@@ -150,8 +158,14 @@ export default function NewInvoicePage() {
         tax: calculatedTax,
         taxItems: calculatedTaxItems,
         total: calculatedTotal,
+        amountPaid: safeAmountPaid,
       })
-      toast.success('Invoice created successfully')
+      const owed = Math.max(0, Math.round((calculatedTotal - safeAmountPaid) * 100) / 100)
+      if (owed > 0) {
+        toast.success(`Invoice created \u2014 ${formatCurrency(owed, currency)} owed`)
+      } else {
+        toast.success('Invoice created successfully')
+      }
       router.push('/invoices')
     } catch {
       toast.error('Failed to create invoice')
@@ -505,6 +519,61 @@ export default function NewInvoicePage() {
                     <span>Grand Total</span>
                     <span className="text-primary">{formatCurrency(grandTotal, currency)}</span>
                   </div>
+                </div>
+
+                {/* Debt: amount paid + amount owed */}
+                <div className="mt-3 space-y-2 rounded-lg border bg-card p-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="amountPaid" className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+                      <HandCoins className="size-3.5" />
+                      Amount Paid
+                    </Label>
+                    <button
+                      type="button"
+                      className="text-[10px] font-semibold uppercase tracking-wider text-primary underline-offset-2 hover:underline"
+                      onClick={() => form.setValue('amountPaid', grandTotal)}
+                    >
+                      Pay in full
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="amountPaid"
+                      type="number"
+                      min="0"
+                      max={grandTotal}
+                      step="0.01"
+                      className="pr-12"
+                      defaultValue={grandTotal}
+                      {...register('amountPaid', { valueAsNumber: true })}
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                      GHS
+                    </span>
+                  </div>
+                  {(() => {
+                    const paid = Math.max(0, Math.min(grandTotal, Number(amountPaid) || 0))
+                    const owed = Math.max(0, Math.round((grandTotal - paid) * 100) / 100)
+                    return owed > 0.01 ? (
+                      <div className="rounded-md border border-red-200/60 bg-red-50/60 p-2 text-xs text-red-700 dark:border-red-800/40 dark:bg-red-950/30 dark:text-red-300">
+                        <div className="flex items-center justify-between font-medium">
+                          <span className="flex items-center gap-1.5">
+                            <AlertTriangle className="size-3" /> Customer will owe
+                          </span>
+                          <span className="font-bold tabular-nums">{formatCurrency(owed, currency)}</span>
+                        </div>
+                        <p className="mt-0.5 text-[10px] text-red-600/80 dark:text-red-400/80">
+                          Added to the customer&apos;s debt ledger.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-md border border-emerald-200/60 bg-emerald-50/60 p-2 text-xs text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/30 dark:text-emerald-300">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="size-3" /> Paid in full
+                        </span>
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             </div>

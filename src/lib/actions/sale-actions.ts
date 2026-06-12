@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
-import { sales, customers, tenants, settings } from '@/lib/db/schema'
+import { sales, customers, tenants, settings, debtLedger } from '@/lib/db/schema'
 import { eq, and, or, like, sql, desc, count } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
 import { createSaleSchema, type TaxItem } from '@/lib/validations/sale'
@@ -48,14 +48,32 @@ export async function createSale(data: CreateSaleInput) {
 
   const calculatedTotal = Math.round((afterDiscount + calculatedTax) * 100) / 100
 
+  // Debt handling: amountPaid defaults to total (paid in full). If the
+  // customer paid less, the difference becomes a debt.
+  const amountPaid = Math.min(calculatedTotal, validated.data.amountPaid ?? calculatedTotal)
+  const amountOwed = Math.max(0, Math.round((calculatedTotal - amountPaid) * 100) / 100)
+  const now = new Date().toISOString()
+
   const saleNumber = await getNextSaleNumber(tenantId)
+
+  // Resolve the customer to attribute the debt to. We prefer the explicit
+  // customerId; otherwise we look up by name (matching the existing logic).
+  let debtorCustomerId: number | null = null
+  if (validated.data.customerId) {
+    debtorCustomerId = toNum(validated.data.customerId)
+  } else if (validated.data.customerName) {
+    const [existing] = await db.select().from(customers)
+      .where(and(eq(customers.tenantId, tenantId), eq(customers.name, validated.data.customerName)))
+      .limit(1)
+    if (existing) debtorCustomerId = existing.id
+  }
 
   const result = await db.insert(sales).values({
     tenantId,
     saleNumber,
-    customerName: data.customerName || undefined,
-    customerPhone: data.customerPhone || undefined,
-    customerId: data.customerId ? toNum(data.customerId) : undefined,
+    customerName: (data.customerName as string | undefined) ?? null,
+    customerPhone: (data.customerPhone as string | undefined) ?? null,
+    customerId: debtorCustomerId,
     items,
     subtotal: calculatedSubtotal,
     discountPercent,
@@ -63,35 +81,71 @@ export async function createSale(data: CreateSaleInput) {
     tax: calculatedTax,
     taxItems,
     total: calculatedTotal,
-    paymentMethod: validated.data.paymentMethod,
-    notes: data.notes || undefined,
+    amountPaid,
+    amountOwed,
+    paymentMethod: validated.data.paymentMethod as 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other',
+    notes: (data.notes as string | undefined) ?? null,
     createdBy: toNum(session.user.id),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   })
   const [sale] = await db.select().from(sales).where(eq(sales.id, result[0].insertId))
 
-  if (data.customerId) {
-    await db.update(customers).set({
-      totalSales: sql`${customers.totalSales} + 1`,
-      totalRevenue: sql`${customers.totalRevenue} + ${calculatedTotal}`,
-    }).where(eq(customers.id, toNum(data.customerId)))
-  }
-
-  if (data.customerName && !data.customerId) {
-    const [existing] = await db.select().from(customers).where(
-      and(
-        eq(customers.tenantId, tenantId),
-        eq(customers.name, data.customerName)
-      )
-    ).limit(1)
-
-    if (existing) {
-      await db.update(customers).set({
+  if (debtorCustomerId) {
+    await db.update(customers)
+      .set({
         totalSales: sql`${customers.totalSales} + 1`,
         totalRevenue: sql`${customers.totalRevenue} + ${calculatedTotal}`,
-      }).where(eq(customers.id, existing.id))
-    }
+      })
+      .where(eq(customers.id, debtorCustomerId))
+  } else if (data.customerName) {
+    // Walk-in / first-time customer. We create the row so the debt can
+    // be attributed to it.
+    const ts = now
+    const ins = await db.insert(customers).values({
+      tenantId,
+      name: data.customerName,
+      phone: data.customerPhone || null,
+      createdBy: toNum(session.user.id),
+      createdAt: ts,
+      updatedAt: ts,
+    }).$returningId()
+    const newCustomerId = ins[0].id
+    debtorCustomerId = newCustomerId
+    // Backfill the FK on the sale so future reads link the two.
+    await db.update(sales).set({ customerId: newCustomerId }).where(eq(sales.id, sale.id))
+  }
+
+  // Write a debt_ledger entry whenever the customer didn't pay in full,
+  // and bump their cached totalDebt.
+  if (amountOwed > 0 && debtorCustomerId) {
+    const [last] = await db.select({ balance: debtLedger.balanceAfter })
+      .from(debtLedger)
+      .where(and(
+        eq(debtLedger.tenantId, tenantId),
+        eq(debtLedger.customerId, debtorCustomerId),
+      ))
+      .orderBy(desc(debtLedger.createdAt), desc(debtLedger.id))
+      .limit(1)
+    const previousBalance = last?.balance ?? 0
+    const newBalance = Math.round((previousBalance + amountOwed) * 100) / 100
+    await db.insert(debtLedger).values({
+      tenantId,
+      customerId: debtorCustomerId,
+      amount: amountOwed,
+      type: 'sale_created',
+      referenceType: 'sale',
+      referenceId: sale.id,
+      notes: `Sale ${saleNumber} \u2014 paid ${amountPaid} of ${calculatedTotal}`,
+      balanceAfter: newBalance,
+      createdBy: toNum(session.user.id),
+      createdAt: now,
+    })
+    await db.update(customers).set({
+      totalDebt: newBalance,
+      firstDebtAt: sql`COALESCE(${customers.firstDebtAt}, ${now})`,
+      lastDebtActivityAt: now,
+    }).where(eq(customers.id, debtorCustomerId))
   }
 
   await createAuditLog({
@@ -101,7 +155,7 @@ export async function createSale(data: CreateSaleInput) {
     entityId: String(sale.id),
     performedBy: toNum(session.user.id),
     performedByName: session.user.name || 'Unknown',
-    details: { saleNumber, total: calculatedTotal },
+    details: { saleNumber, total: calculatedTotal, amountPaid, amountOwed },
   })
 
   await createNotification({
@@ -109,7 +163,9 @@ export async function createSale(data: CreateSaleInput) {
     userId: toNum(session.user.id),
     type: 'sale.created',
     title: 'Sale Created',
-    message: `Sale #${saleNumber} for ${data.total} has been created`,
+    message: amountOwed > 0
+      ? `Sale #${saleNumber} \u2014 ${amountOwed} still owed`
+      : `Sale #${saleNumber} for ${data.total} has been created`,
     link: `/sales/${sale.id}`,
   })
 
@@ -225,6 +281,8 @@ export async function getSaleByNumber(saleNumber: string) {
       tax: sales.tax,
       taxItems: sales.taxItems,
       total: sales.total,
+      amountPaid: sales.amountPaid,
+      amountOwed: sales.amountOwed,
       paymentMethod: sales.paymentMethod,
       notes: sales.notes,
       createdBy: sales.createdBy,

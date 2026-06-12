@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
-import { invoices, customers, users, tenants, settings } from '@/lib/db/schema'
+import { invoices, customers, users, tenants, settings, debtLedger } from '@/lib/db/schema'
 import { eq, and, or, like, sql, desc } from 'drizzle-orm'
 import { toNum, serializeRow } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
@@ -44,10 +44,16 @@ export async function createInvoice(data: CreateInvoiceInput) {
   const calculatedTax = Math.round(taxItems.reduce((sum, t) => sum + t.amount, 0) * 100) / 100
   const calculatedTotal = Math.round((afterDiscount + calculatedTax) * 100) / 100
 
+  const amountPaid = Math.min(calculatedTotal, validated.data.amountPaid ?? calculatedTotal)
+  const amountOwed = Math.max(0, Math.round((calculatedTotal - amountPaid) * 100) / 100)
+  const now = new Date().toISOString()
+
+  const debtorCustomerId = data.customerId ? toNum(data.customerId) : null
+
   const result = await db.insert(invoices).values({
     tenantId,
     invoiceNumber,
-    customerId: data.customerId ? toNum(data.customerId) : null,
+    customerId: debtorCustomerId,
     customerName: data.customerName,
     customerEmail: data.customerEmail || null,
     customerPhone: data.customerPhone || null,
@@ -59,22 +65,55 @@ export async function createInvoice(data: CreateInvoiceInput) {
     tax: calculatedTax,
     taxItems,
     total: calculatedTotal,
+    amountPaid,
+    amountOwed,
     dueDate: new Date(data.dueDate).toISOString(),
     notes: data.notes || null,
     createdBy,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   })
   const [invoice] = await db.select().from(invoices).where(eq(invoices.id, result[0].insertId))
 
-  if (data.customerId) {
+  if (debtorCustomerId) {
     await db.update(customers)
       .set({
         totalSales: sql`total_sales + 1`,
         totalRevenue: sql`total_revenue + ${calculatedTotal}`,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       })
-      .where(eq(customers.id, toNum(data.customerId)))
+      .where(eq(customers.id, debtorCustomerId))
+  }
+
+  // Debt attribution (only if customer is selected and amount not fully paid)
+  if (amountOwed > 0 && debtorCustomerId) {
+    const [last] = await db.select({ balance: debtLedger.balanceAfter })
+      .from(debtLedger)
+      .where(and(
+        eq(debtLedger.tenantId, tenantId),
+        eq(debtLedger.customerId, debtorCustomerId),
+      ))
+      .orderBy(desc(debtLedger.createdAt), desc(debtLedger.id))
+      .limit(1)
+    const previousBalance = last?.balance ?? 0
+    const newBalance = Math.round((previousBalance + amountOwed) * 100) / 100
+    await db.insert(debtLedger).values({
+      tenantId,
+      customerId: debtorCustomerId,
+      amount: amountOwed,
+      type: 'invoice_created',
+      referenceType: 'invoice',
+      referenceId: invoice.id,
+      notes: `Invoice ${invoiceNumber} \u2014 paid ${amountPaid} of ${calculatedTotal}`,
+      balanceAfter: newBalance,
+      createdBy,
+      createdAt: now,
+    })
+    await db.update(customers).set({
+      totalDebt: newBalance,
+      firstDebtAt: sql`COALESCE(${customers.firstDebtAt}, ${now})`,
+      lastDebtActivityAt: now,
+    }).where(eq(customers.id, debtorCustomerId))
   }
 
   await createAuditLog({
@@ -84,7 +123,7 @@ export async function createInvoice(data: CreateInvoiceInput) {
     entityId: String(invoice.id),
     performedBy: createdBy,
     performedByName: session.user.name || 'Unknown',
-    details: { invoiceNumber, total: calculatedTotal },
+    details: { invoiceNumber, total: calculatedTotal, amountPaid, amountOwed },
   })
 
   await createNotification({
@@ -92,7 +131,9 @@ export async function createInvoice(data: CreateInvoiceInput) {
     userId: createdBy,
     type: 'invoice.created',
     title: 'Invoice Created',
-    message: `Invoice #${invoiceNumber} for ${data.total} has been created`,
+    message: amountOwed > 0
+      ? `Invoice #${invoiceNumber} \u2014 ${amountOwed} still owed`
+      : `Invoice #${invoiceNumber} for ${data.total} has been created`,
     link: `/invoices/${invoice.id}`,
   })
 
@@ -151,6 +192,8 @@ export async function getInvoices(page = 1, limit = 20, filters?: Record<string,
       tax: invoices.tax,
       taxItems: invoices.taxItems,
       total: invoices.total,
+      amountPaid: invoices.amountPaid,
+      amountOwed: invoices.amountOwed,
       status: invoices.status,
       dueDate: invoices.dueDate,
       notes: invoices.notes,
@@ -182,6 +225,8 @@ export async function getInvoices(page = 1, limit = 20, filters?: Record<string,
     tax: row.tax,
     taxItems: (row.taxItems as TaxItem[]) ?? [],
     total: row.total,
+    amountPaid: row.amountPaid,
+    amountOwed: row.amountOwed,
     status: row.status,
     dueDate: row.dueDate,
     notes: row.notes,
@@ -220,6 +265,8 @@ export async function getInvoiceById(id: string) {
       tax: invoices.tax,
       taxItems: invoices.taxItems,
       total: invoices.total,
+      amountPaid: invoices.amountPaid,
+      amountOwed: invoices.amountOwed,
       status: invoices.status,
       dueDate: invoices.dueDate,
       notes: invoices.notes,
@@ -250,6 +297,8 @@ export async function getInvoiceById(id: string) {
     tax: row.tax,
     taxItems: (row.taxItems as TaxItem[]) ?? [],
     total: row.total,
+    amountPaid: row.amountPaid,
+    amountOwed: row.amountOwed,
     status: row.status,
     dueDate: row.dueDate,
     notes: row.notes,
@@ -342,6 +391,8 @@ export async function getInvoiceByNumber(invoiceNumber: string) {
       tax: invoices.tax,
       taxItems: invoices.taxItems,
       total: invoices.total,
+      amountPaid: invoices.amountPaid,
+      amountOwed: invoices.amountOwed,
       status: invoices.status,
       dueDate: invoices.dueDate,
       notes: invoices.notes,
@@ -381,6 +432,8 @@ export async function getInvoiceByNumber(invoiceNumber: string) {
     tax: row.tax,
     taxItems: (row.taxItems as TaxItem[]) ?? [],
     total: row.total,
+    amountPaid: row.amountPaid,
+    amountOwed: row.amountOwed,
     status: row.status as InvoiceStatus,
     dueDate: row.dueDate,
     notes: row.notes || undefined,

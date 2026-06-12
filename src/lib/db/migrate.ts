@@ -35,6 +35,14 @@ async function migrate() {
     { table: 'settings', column: 'store_description', ddl: 'ALTER TABLE `settings` ADD COLUMN `store_description` TEXT' },
     { table: 'settings', column: 'tax_number', ddl: 'ALTER TABLE `settings` ADD COLUMN `tax_number` VARCHAR(100)' },
     { table: 'settings', column: 'taxes', ddl: 'ALTER TABLE `settings` ADD COLUMN `taxes` JSON NOT NULL' },
+    // --- Debt tracking ---
+    { table: 'sales', column: 'amount_paid', ddl: 'ALTER TABLE `sales` ADD COLUMN `amount_paid` DOUBLE NOT NULL DEFAULT 0' },
+    { table: 'sales', column: 'amount_owed', ddl: 'ALTER TABLE `sales` ADD COLUMN `amount_owed` DOUBLE NOT NULL DEFAULT 0' },
+    { table: 'invoices', column: 'amount_paid', ddl: 'ALTER TABLE `invoices` ADD COLUMN `amount_paid` DOUBLE NOT NULL DEFAULT 0' },
+    { table: 'invoices', column: 'amount_owed', ddl: 'ALTER TABLE `invoices` ADD COLUMN `amount_owed` DOUBLE NOT NULL DEFAULT 0' },
+    { table: 'customers', column: 'total_debt', ddl: 'ALTER TABLE `customers` ADD COLUMN `total_debt` DOUBLE NOT NULL DEFAULT 0' },
+    { table: 'customers', column: 'first_debt_at', ddl: 'ALTER TABLE `customers` ADD COLUMN `first_debt_at` VARCHAR(50)' },
+    { table: 'customers', column: 'last_debt_activity_at', ddl: 'ALTER TABLE `customers` ADD COLUMN `last_debt_activity_at` VARCHAR(50)' },
   ]
 
   for (const { table, column, ddl } of alters) {
@@ -44,7 +52,18 @@ async function migrate() {
       console.log('     ok')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (msg.includes('Duplicate column') || msg.includes('already exists') || msg.includes('ER_DUP_FIELDNAME')) {
+      const code = (err as { cause?: { code?: string; errno?: number } })?.cause?.code
+      const errno = (err as { cause?: { errno?: number } })?.cause?.errno
+      const isDuplicate =
+        msg.includes('Duplicate column') ||
+        msg.includes('already exists') ||
+        code === 'ER_DUP_FIELDNAME' ||
+        errno === 1060 ||
+        msg.includes('CREATE TABLE') === false && msg.includes('exist') === false && (code === '42S21' || errno === 1060)
+      const isAlreadyExists =
+        msg.includes('already exists') ||
+        (err as { cause?: { code?: string } })?.cause?.code === 'ER_TABLE_EXISTS_ERROR'
+      if (isDuplicate || isAlreadyExists) {
         console.log('     already exists, skipping')
       } else {
         throw err
@@ -58,6 +77,35 @@ async function migrate() {
   await db.execute(sql`UPDATE \`sales\` SET \`tax_items\` = JSON_ARRAY() WHERE \`tax_items\` IS NULL OR JSON_LENGTH(\`tax_items\`) IS NULL`)
   await db.execute(sql`UPDATE \`invoices\` SET \`tax_items\` = JSON_ARRAY() WHERE \`tax_items\` IS NULL OR JSON_LENGTH(\`tax_items\`) IS NULL`)
   await db.execute(sql`UPDATE \`settings\` SET \`taxes\` = JSON_ARRAY() WHERE \`taxes\` IS NULL OR JSON_LENGTH(\`taxes\`) IS NULL`)
+
+  // --- debt_ledger table ---
+  console.log('  -> debt_ledger table')
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS \`debt_ledger\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`tenant_id\` INT NOT NULL,
+        \`customer_id\` INT NOT NULL,
+        \`amount\` DOUBLE NOT NULL,
+        \`type\` VARCHAR(30) NOT NULL,
+        \`reference_type\` VARCHAR(20),
+        \`reference_id\` INT,
+        \`notes\` TEXT,
+        \`balance_after\` DOUBLE NOT NULL DEFAULT 0,
+        \`created_by\` INT NOT NULL,
+        \`created_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        INDEX \`debt_tenant_customer_created_idx\` (\`tenant_id\`, \`customer_id\`, \`created_at\`),
+        INDEX \`debt_tenant_customer_idx\` (\`tenant_id\`, \`customer_id\`),
+        INDEX \`debt_tenant_reference_idx\` (\`tenant_id\`, \`reference_type\`, \`reference_id\`)
+      )
+    `)
+    console.log('     ok')
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg.includes('already exists')) console.log('     already exists, skipping')
+    else throw err
+  }
 
   console.log('\n--- Migration complete ---')
   process.exit(0)

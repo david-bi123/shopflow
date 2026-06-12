@@ -17,7 +17,7 @@ if (fs.existsSync(envPath)) {
 }
 
 import { dbConnect } from './connect'
-import { tenants, users, settings as settingsTable, customers, sales, invoices, auditLogs, subscriptions } from './schema'
+import { tenants, users, settings as settingsTable, customers, sales, invoices, auditLogs, subscriptions, debtLedger } from './schema'
 import bcrypt from 'bcryptjs'
 import { faker } from '@faker-js/faker'
 import { eq, sql } from 'drizzle-orm'
@@ -311,6 +311,16 @@ async function seed() {
       const tax = Math.round(taxItems.reduce((sum, t) => sum + t.amount, 0) * 100) / 100
       const total = Math.round((afterDiscount + tax) * 100) / 100
 
+      // Debt probability per sale: ~25% (gives Alice ~8 outstanding sales).
+      const isPartial = faker.helpers.maybe(() => true, { probability: 0.25 }) ?? false
+      let amountPaid = total
+      if (isPartial) {
+        // Customer paid between 30% and 85% up front.
+        const payRatio = faker.number.float({ min: 0.3, max: 0.85, fractionDigits: 2 })
+        amountPaid = Math.round(total * payRatio * 100) / 100
+      }
+      const amountOwed = Math.max(0, Math.round((total - amountPaid) * 100) / 100)
+
       const customer = faker.helpers.arrayElement(tenantCustomers)
       const randomStaff = faker.helpers.arrayElement([...tenantStaff, owner])
 
@@ -328,6 +338,8 @@ async function seed() {
         tax,
         taxItems,
         total,
+        amountPaid,
+        amountOwed,
         paymentMethod: faker.helpers.arrayElement([...paymentMethods]),
         notes: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.3 }),
         createdBy: randomStaff.id,
@@ -335,6 +347,37 @@ async function seed() {
         updatedAt: saleCreatedAt,
       })
       totalSales++
+
+      // If partial, add to the customer's running debt (debt_ledger + cached totalDebt)
+      if (amountOwed > 0.01) {
+        // The customer object from earlier doesn't carry totalDebt, so we
+        // do a tiny SQL lookup for the cached balance. The other tenanted
+        // entries stay in memory so the running balance is correct.
+        const [custRow] = await db
+          .select({ totalDebt: customers.totalDebt })
+          .from(customers)
+          .where(eq(customers.id, customer.id))
+          .limit(1)
+        const previousBalance = custRow?.totalDebt ?? 0
+        const newBalance = Math.round((previousBalance + amountOwed) * 100) / 100
+        await db.insert(debtLedger).values({
+          tenantId: tenant.id,
+          customerId: customer.id,
+          amount: amountOwed,
+          type: 'sale_created',
+          referenceType: 'sale',
+          referenceId: null, // sale.id is auto-increment; we accept null for seeded data
+          notes: `Sale SALE-${tenant.slug.toUpperCase().slice(0, 3)}-${String(j + 1).padStart(4, '0')} \u2014 paid ${amountPaid} of ${total}`,
+          balanceAfter: newBalance,
+          createdBy: randomStaff.id,
+          createdAt: saleCreatedAt,
+        })
+        await db.update(customers).set({
+          totalDebt: newBalance,
+          firstDebtAt: sql`COALESCE(${customers.firstDebtAt}, ${saleCreatedAt})`,
+          lastDebtActivityAt: saleCreatedAt,
+        }).where(eq(customers.id, customer.id))
+      }
     }
   }
 
@@ -373,7 +416,17 @@ async function seed() {
       const tax = Math.round(taxItems.reduce((sum, t) => sum + t.amount, 0) * 100) / 100
       const total = Math.round((afterDiscount + tax) * 100) / 100
 
+      // Invoices more often go out partially paid (B2B). ~30% partial.
+      const isPartial = faker.helpers.maybe(() => true, { probability: 0.3 }) ?? false
+      let amountPaid = total
+      if (isPartial) {
+        const payRatio = faker.number.float({ min: 0.2, max: 0.7, fractionDigits: 2 })
+        amountPaid = Math.round(total * payRatio * 100) / 100
+      }
+      const amountOwed = Math.max(0, Math.round((total - amountPaid) * 100) / 100)
+
       const customer = faker.helpers.arrayElement(tenantCustomers)
+      const createdAt = faker.date.between({ from: new Date('2025-01-01'), to: new Date() }).toISOString()
 
       await db.insert(invoices).values({
         tenantId: tenant.id,
@@ -390,14 +443,97 @@ async function seed() {
         tax,
         taxItems,
         total,
+        amountPaid,
+        amountOwed,
         status: faker.helpers.arrayElement([...invoiceStatuses]),
         dueDate: faker.date.between({ from: new Date('2025-02-01'), to: new Date('2025-12-31') }).toISOString(),
         notes: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.3 }),
         createdBy: owner.id,
-        createdAt: faker.date.between({ from: new Date('2025-01-01'), to: new Date() }).toISOString(),
-        updatedAt: faker.date.between({ from: new Date('2025-01-01'), to: new Date() }).toISOString(),
+        createdAt,
+        updatedAt: createdAt,
       })
       totalInvoices++
+
+      if (amountOwed > 0.01) {
+        const [custRow] = await db
+          .select({ totalDebt: customers.totalDebt })
+          .from(customers)
+          .where(eq(customers.id, customer.id))
+          .limit(1)
+        const previousBalance = custRow?.totalDebt ?? 0
+        const newBalance = Math.round((previousBalance + amountOwed) * 100) / 100
+        await db.insert(debtLedger).values({
+          tenantId: tenant.id,
+          customerId: customer.id,
+          amount: amountOwed,
+          type: 'invoice_created',
+          referenceType: 'invoice',
+          referenceId: null,
+          notes: `Invoice INV-${tenant.slug.toUpperCase().slice(0, 3)}-${String(j + 1).padStart(4, '0')} \u2014 paid ${amountPaid} of ${total}`,
+          balanceAfter: newBalance,
+          createdBy: owner.id,
+          createdAt,
+        })
+        await db.update(customers).set({
+          totalDebt: newBalance,
+          firstDebtAt: sql`COALESCE(${customers.firstDebtAt}, ${createdAt})`,
+          lastDebtActivityAt: createdAt,
+        }).where(eq(customers.id, customer.id))
+      }
+    }
+  }
+
+  console.log('Seeding partial debt payments (simulating customers paying down)...')
+  let totalDebtPayments = 0
+  for (const tenant of tenantRecords) {
+    const tenantDebtors = await db
+      .select({ id: customers.id, name: customers.name, totalDebt: customers.totalDebt })
+      .from(customers)
+      .where(sql`${customers.tenantId} = ${tenant.id} AND ${customers.totalDebt} > 0`)
+    for (const c of tenantDebtors) {
+      // Each debtor has 1-3 historical debt payments they made
+      const numPayments = faker.number.int({ min: 1, max: 3 })
+      let running = c.totalDebt
+      for (let k = 0; k < numPayments; k++) {
+        if (running <= 0) break
+        // Pay between 10% and 60% of remaining balance (or all of it for small balances)
+        const payRatio = running < 50
+          ? 1
+          : faker.number.float({ min: 0.1, max: 0.6, fractionDigits: 2 })
+        const payAmount = Math.round(running * payRatio * 100) / 100
+        const previousBalance = running
+        running = Math.round((running - payAmount) * 100) / 100
+        const ts = faker.date.between({
+          from: new Date('2025-03-01'),
+          to: new Date(),
+        }).toISOString()
+        await db.insert(debtLedger).values({
+          tenantId: tenant.id,
+          customerId: c.id,
+          amount: -payAmount,
+          type: 'manual_payment',
+          referenceType: null,
+          referenceId: null,
+          notes: faker.helpers.arrayElement([
+            'Cash payment',
+            'Mobile Money transfer',
+            'Bank transfer',
+            'Partial settlement',
+          ]),
+          balanceAfter: running,
+          createdBy: ownerRecords.find((o) => o.tenantId === tenant.id)?.id ?? 0,
+          createdAt: ts,
+        })
+        await db.update(customers)
+          .set({ totalDebt: running, lastDebtActivityAt: ts })
+          .where(eq(customers.id, c.id))
+        totalDebtPayments++
+        // Stop early once the most recent payment reduced balance close to zero
+        if (running < 0.01) break
+        // The next payment we record is smaller because the balance dropped
+        // (variables closure: running already reflects this)
+        void previousBalance
+      }
     }
   }
 
@@ -426,6 +562,7 @@ async function seed() {
   console.log(`  Sales: ${totalSales}`)
   console.log(`  Invoices: ${totalInvoices}`)
   console.log(`  Audit Logs: ${tenantRecords.length * 5}`)
+  console.log(`  Debt Payments: ${totalDebtPayments}`)
   console.log('')
   console.log('--- Login Credentials ---')
   console.log('  Super Admin:  super@indflow.com / Admin123!')

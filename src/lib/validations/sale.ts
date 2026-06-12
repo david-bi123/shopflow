@@ -13,13 +13,15 @@ export const taxItemSchema = z.object({
   amount: z.number().min(0),
 })
 
+export type TaxItem = z.infer<typeof taxItemSchema>
+
 export const createSaleSchema = z.object({
   customerName: z.string().max(200).optional().or(z.literal('')),
   customerPhone: z.string().max(50).optional().or(z.literal('')),
   customerId: z.string().optional().or(z.literal('')),
   items: z.array(saleItemSchema).min(1, 'At least one item is required'),
   subtotal: z.number().min(0),
-  /** Discount as a percentage of the subtotal (e.g. 10 = 10%). 0 = no discount. */
+  /** Discount as a percentage of the subtotal (e.g. 10 for 10%). 0 = no discount. */
   discountPercent: z.number().min(0).max(100).default(0),
   /** Computed discount amount in the tenant's currency. */
   discount: z.number().min(0).default(0),
@@ -28,14 +30,13 @@ export const createSaleSchema = z.object({
   /** Per-tax breakdown (NHIS, VAT, GET Fund, ...). Empty array = no taxes. */
   taxItems: z.array(taxItemSchema).default([]),
   total: z.number().min(0),
-  paymentMethod: z.enum(['cash', 'card', 'mobile_money', 'bank_transfer', 'other']),
+  /** Amount paid at sale time. Defaults to total (paid in full). */
+  amountPaid: z.number().min(0).default(0),
+  paymentMethod: z.string().max(50).optional().or(z.literal('')),
   notes: z.string().max(1000).optional().or(z.literal('')),
 })
 
-export const updateSaleSchema = createSaleSchema.partial()
-
 export type CreateSaleInput = z.infer<typeof createSaleSchema>
-export type TaxItem = z.infer<typeof taxItemSchema>
 
 export interface Sale {
   id: string
@@ -56,6 +57,8 @@ export interface Sale {
   tax: number
   taxItems: TaxItem[]
   total: number
+  amountPaid: number
+  amountOwed: number
   paymentMethod: string
   notes?: string
   createdAt: string
