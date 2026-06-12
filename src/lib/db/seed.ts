@@ -145,7 +145,23 @@ async function seed() {
 
   console.log('Clearing existing data...')
   await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`)
-  const tables = ['announcements', 'audit_logs', 'sales', 'invoices', 'customers', 'notifications', 'settings', 'subscriptions', 'users', 'counters', 'tenants']
+  // Order doesn't matter with FK_CHECKS=0, but children first for
+  // sanity: anything that holds a tenant_id / customer_id / user_id
+  // is wiped before the rows they reference.
+  const tables = [
+    'debt_ledger',
+    'announcements',
+    'audit_logs',
+    'sales',
+    'invoices',
+    'customers',
+    'notifications',
+    'settings',
+    'subscriptions',
+    'users',
+    'counters',
+    'tenants',
+  ]
   for (const table of tables) {
     await db.execute(sql`DELETE FROM ${sql.identifier(table)}`)
   }
@@ -538,6 +554,12 @@ async function seed() {
   }
 
   console.log('Seeding audit logs...')
+  const seedIps = ['102.176.45.10', '154.161.12.99', '197.251.224.15', '105.112.74.20']
+  const seedUserAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    'IndFlow/1.0 (Android; Mobile; POS-Terminal)',
+  ]
   for (let i = 0; i < tenantRecords.length; i++) {
     const tenant = tenantRecords[i]
     const owner = ownerRecords[i]
@@ -550,6 +572,10 @@ async function seed() {
         performedBy: owner.id,
         performedByName: owner.name,
         details: { description: faker.lorem.sentence() },
+        // Populate IP / user-agent for the first entry in each tenant
+        // so the schema's new columns are exercised by the seed.
+        ip: j === 0 ? faker.helpers.arrayElement(seedIps) : null,
+        userAgent: j === 0 ? faker.helpers.arrayElement(seedUserAgents) : null,
       })
     }
   }

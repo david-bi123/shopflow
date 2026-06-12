@@ -292,7 +292,7 @@ export default function SalesPage() {
                       className="gap-2"
                       onClick={() =>
                         window.open(
-                          `https://wa.me/?text=${encodeURIComponent(`Sale ${sale.saleNumber} - Total: ${formatCurrency(sale.total)}`)}`,
+                          `https://wa.me/?text=${encodeURIComponent(`Sale ${sale.saleNumber} - Total: ${formatCurrency(sale.total)}`)}%0A${window.location.origin}/r/${(sale as { publicToken?: string }).publicToken ?? sale.saleNumber}`,
                           '_blank'
                         )
                       }
@@ -300,7 +300,7 @@ export default function SalesPage() {
                       <Share2 className="size-4 text-muted-foreground" />
                       Share WhatsApp
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/r/${sale.saleNumber}/pdf`, '_blank')}>
+                    <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/r/${(sale as { publicToken?: string }).publicToken ?? sale.saleNumber}/pdf`, '_blank')}>
                       <Download className="size-4 text-muted-foreground" />
                       Download PDF
                     </DropdownMenuItem>
@@ -337,7 +337,7 @@ export default function SalesPage() {
                   className="gap-2"
                   onClick={() =>
                     window.open(
-                      `https://wa.me/?text=${encodeURIComponent(`Sale ${sale.saleNumber} - Total: ${formatCurrency(sale.total)}`)}`,
+                      `https://wa.me/?text=${encodeURIComponent(`Sale ${sale.saleNumber} - Total: ${formatCurrency(sale.total)}`)}%0A${window.location.origin}/r/${(sale as { publicToken?: string }).publicToken ?? sale.saleNumber}`,
                       '_blank'
                     )
                   }
@@ -345,7 +345,7 @@ export default function SalesPage() {
                   <Share2 className="size-4 text-muted-foreground" />
                   Share WhatsApp
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/r/${sale.saleNumber}/pdf`, '_blank')}>
+                <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/r/${(sale as { publicToken?: string }).publicToken ?? sale.saleNumber}/pdf`, '_blank')}>
                   <Download className="size-4 text-muted-foreground" />
                   Download PDF
                 </DropdownMenuItem>

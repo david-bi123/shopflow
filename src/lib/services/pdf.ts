@@ -44,6 +44,10 @@ export interface StoreInfo {
   address?: string
   taxNumber?: string
   footer?: string
+  /** ISO-4217 currency code (e.g. GHS, USD, NGN). Defaults to GHS. */
+  currency?: string
+  /** Currency symbol prefix (e.g. "GH₵", "$", "₦"). Defaults to the code itself. */
+  currencySymbol?: string
 }
 
 const HEADER_COLOR = '#0f172a'
@@ -57,11 +61,18 @@ const TEXT_MUTED = '#64748b'
 const SUCCESS_GREEN = '#059669'
 const DISCOUNT_RED = '#dc2626'
 
-function formatMoney(value: number): string {
-  return `GHS ${value.toFixed(2)}`
+/**
+ * Currency-aware money formatter used by both the receipt and invoice PDFs.
+ * The previous implementation hard-coded "GHS" which was wrong for any
+ * tenant that configured a different currency in Settings.
+ */
+function formatMoney(value: number, store: StoreInfo): string {
+  const code = store.currency || 'GHS'
+  const symbol = store.currencySymbol || code
+  return `${symbol} ${value.toFixed(2)}`
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function drawTableRow(
   doc: PDFKit.PDFDocument,
   y: number,
@@ -182,10 +193,11 @@ interface DrawTotalsOpts {
   doc: PDFKit.PDFDocument
   width?: number
   includeDiscountLabel?: boolean
+  store: StoreInfo
 }
 
 function drawTotals(opts: DrawTotalsOpts) {
-  const { doc, startX } = opts
+  const { doc, startX, store } = opts
   const boxWidth = opts.width ?? 215
   let y = doc.y + 4
 
@@ -195,7 +207,7 @@ function drawTotals(opts: DrawTotalsOpts) {
   doc.fontSize(9).font('Helvetica').fillColor(TEXT_PRIMARY)
 
   doc.text('Subtotal', startX + 8, y, { width: boxWidth - 16 })
-  doc.text(formatMoney(opts.subtotal), startX + 8, y, { width: boxWidth - 16, align: 'right' })
+  doc.text(formatMoney(opts.subtotal, store), startX + 8, y, { width: boxWidth - 16, align: 'right' })
   y += 14
 
   if (opts.discount > 0) {
@@ -203,7 +215,7 @@ function drawTotals(opts: DrawTotalsOpts) {
       ? `Discount (${opts.discountPercent}%)`
       : 'Discount'
     doc.fillColor(TEXT_PRIMARY).text(label, startX + 8, y, { width: boxWidth - 16 })
-    doc.fillColor(DISCOUNT_RED).text(`-${formatMoney(opts.discount)}`, startX + 8, y, { width: boxWidth - 16, align: 'right' })
+    doc.fillColor(DISCOUNT_RED).text(`-${formatMoney(opts.discount, store)}`, startX + 8, y, { width: boxWidth - 16, align: 'right' })
     doc.fillColor(TEXT_PRIMARY)
     y += 14
   }
@@ -211,12 +223,12 @@ function drawTotals(opts: DrawTotalsOpts) {
   if (opts.taxItems.length > 0) {
     for (const t of opts.taxItems) {
       doc.text(`${t.name} (${t.rate}%)`, startX + 8, y, { width: boxWidth - 16 })
-      doc.text(formatMoney(t.amount), startX + 8, y, { width: boxWidth - 16, align: 'right' })
+      doc.text(formatMoney(t.amount, store), startX + 8, y, { width: boxWidth - 16, align: 'right' })
       y += 14
     }
   } else if (opts.tax > 0) {
     doc.text('Tax', startX + 8, y, { width: boxWidth - 16 })
-    doc.text(formatMoney(opts.tax), startX + 8, y, { width: boxWidth - 16, align: 'right' })
+    doc.text(formatMoney(opts.tax, store), startX + 8, y, { width: boxWidth - 16, align: 'right' })
     y += 14
   }
 
@@ -225,7 +237,7 @@ function drawTotals(opts: DrawTotalsOpts) {
 
   doc.fontSize(12).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
   doc.text('TOTAL', startX + 8, y, { width: boxWidth - 16 })
-  doc.text(formatMoney(opts.total), startX + 8, y, { width: boxWidth - 16, align: 'right' })
+  doc.text(formatMoney(opts.total, store), startX + 8, y, { width: boxWidth - 16, align: 'right' })
   y += 18
 
   return y
@@ -321,8 +333,8 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
       const values = [
         item.name.substring(0, 24),
         String(item.quantity),
-        formatMoney(item.price),
-        formatMoney(item.subtotal),
+        formatMoney(item.price, store),
+        formatMoney(item.subtotal, store),
       ]
       let rx = margin
       values.forEach((text, i) => {
@@ -341,14 +353,14 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     // --- Totals (discount, each tax, grand total) ---
     doc.fontSize(7).font('Helvetica')
     doc.text('Subtotal:', margin, y, { width: contentWidth - 70, continued: true })
-    doc.text(formatMoney(sale.subtotal), { align: 'right', width: 70 })
+    doc.text(formatMoney(sale.subtotal, store), { align: 'right', width: 70 })
     y += 11
 
     if (sale.discount > 0) {
       const label = sale.discountPercent > 0 ? `Discount (${sale.discountPercent}%):` : 'Discount:'
       doc.fillColor(DISCOUNT_RED)
       doc.text(label, margin, y, { width: contentWidth - 70, continued: true })
-      doc.text(`-${formatMoney(sale.discount)}`, { align: 'right', width: 70 })
+      doc.text(`-${formatMoney(sale.discount, store)}`, { align: 'right', width: 70 })
       doc.fillColor(TEXT_PRIMARY)
       y += 11
     }
@@ -356,12 +368,12 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     if (sale.taxItems.length > 0) {
       for (const t of sale.taxItems) {
         doc.text(`${t.name} (${t.rate}%):`, margin, y, { width: contentWidth - 70, continued: true })
-        doc.text(formatMoney(t.amount), { align: 'right', width: 70 })
+        doc.text(formatMoney(t.amount, store), { align: 'right', width: 70 })
         y += 11
       }
     } else if (sale.tax > 0) {
       doc.text('Tax:', margin, y, { width: contentWidth - 70, continued: true })
-      doc.text(formatMoney(sale.tax), { align: 'right', width: 70 })
+      doc.text(formatMoney(sale.tax, store), { align: 'right', width: 70 })
       y += 11
     }
 
@@ -370,7 +382,7 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
 
     doc.fontSize(10).font('Helvetica-Bold')
     doc.text('TOTAL:', margin, y, { width: contentWidth - 70, continued: true })
-    doc.text(formatMoney(sale.total), { align: 'right', width: 70 })
+    doc.text(formatMoney(sale.total, store), { align: 'right', width: 70 })
     y += 14
 
     // --- Payment method + PAID stamp ---
@@ -503,8 +515,8 @@ export function generateInvoicePdf(invoice: InvoicePdfData, store: StoreInfo): P
       const values = [
         item.description ? `${item.name}\n${item.description}` : item.name,
         String(item.quantity),
-        formatMoney(item.price),
-        formatMoney(item.total),
+        formatMoney(item.price, store),
+        formatMoney(item.total, store),
       ]
       values.forEach((text, i) => {
         const pad = 8
@@ -529,6 +541,7 @@ export function generateInvoicePdf(invoice: InvoicePdfData, store: StoreInfo): P
       tax: invoice.tax,
       total: invoice.total,
       includeDiscountLabel: true,
+      store,
     })
 
     if (invoice.notes) {

@@ -39,39 +39,54 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
   const amount = Math.round(validated.data.amount * 100) / 100
   const now = new Date().toISOString()
 
-  // Atomic-ish: read balance, write ledger, update customer.
-  const [customer] = await db.select().from(customers)
-    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
-    .limit(1)
-  if (!customer) return { error: 'Customer not found' }
-  if (customer.totalDebt < 0.01) return { error: 'Customer has no outstanding debt' }
-  if (amount > customer.totalDebt + 0.001) {
-    return { error: `Payment exceeds outstanding debt of \u20b5${customer.totalDebt.toFixed(2)}` }
+  // Read the current balance + insert the payment entry + update the
+  // cached customer balance in a single transaction. Doing it as three
+  // separate queries can leave the ledger out of sync with the cached
+  // total if any step fails.
+  type TxResult =
+    | { ok: true; entryId: number; balanceAfter: number; customerName: string }
+    | { ok: false; error: string }
+
+  const result: TxResult = await db.transaction(async (tx): Promise<TxResult> => {
+    const [customer] = await tx.select().from(customers)
+      .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+      .limit(1)
+    if (!customer) return { ok: false, error: 'Customer not found' }
+    if (customer.totalDebt < 0.01) return { ok: false, error: 'Customer has no outstanding debt' }
+    if (amount > customer.totalDebt + 0.001) {
+      return { ok: false, error: `Payment exceeds outstanding debt of \u20b5${customer.totalDebt.toFixed(2)}` }
+    }
+
+    const newBalance = Math.max(0, Math.round((customer.totalDebt - amount) * 100) / 100)
+    const [inserted] = await tx
+      .insert(debtLedger)
+      .values({
+        tenantId,
+        customerId,
+        amount: -amount, // negative = payment
+        type: 'manual_payment',
+        referenceType: null,
+        referenceId: null,
+        notes: validated.data.notes || `Cash payment via ${validated.data.paymentMethod.replace('_', ' ')}`,
+        balanceAfter: newBalance,
+        createdBy: userId,
+        createdAt: now,
+      })
+      .$returningId()
+
+    await tx.update(customers)
+      .set({
+        totalDebt: newBalance,
+        lastDebtActivityAt: now,
+      })
+      .where(eq(customers.id, customerId))
+
+    return { ok: true, entryId: (inserted as { id: number }).id, balanceAfter: newBalance, customerName: customer.name }
+  })
+
+  if (!result.ok) {
+    return { error: result.error }
   }
-
-  const newBalance = Math.max(0, Math.round((customer.totalDebt - amount) * 100) / 100)
-  const [inserted] = await db
-    .insert(debtLedger)
-    .values({
-      tenantId,
-      customerId,
-      amount: -amount, // negative = payment
-      type: 'manual_payment',
-      referenceType: null,
-      referenceId: null,
-      notes: validated.data.notes || `Cash payment via ${validated.data.paymentMethod.replace('_', ' ')}`,
-      balanceAfter: newBalance,
-      createdBy: userId,
-      createdAt: now,
-    })
-    .$returningId()
-
-  await db.update(customers)
-    .set({
-      totalDebt: newBalance,
-      lastDebtActivityAt: now,
-    })
-    .where(eq(customers.id, customerId))
 
   await createAuditLog({
     tenantId,
@@ -80,7 +95,7 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
     entityId: String(customerId),
     performedBy: userId,
     performedByName: session.user.name || 'Unknown',
-    details: { amount, paymentMethod: validated.data.paymentMethod, balanceAfter: newBalance },
+    details: { amount, paymentMethod: validated.data.paymentMethod, balanceAfter: result.balanceAfter },
   })
 
   await createNotification({
@@ -88,13 +103,13 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
     userId,
     type: 'debt.paid',
     title: 'Debt Payment Received',
-    message: `${customer.name} paid \u20b5${amount.toFixed(2)} toward their debt. Balance: \u20b5${newBalance.toFixed(2)}.`,
+    message: `${result.customerName} paid \u20b5${amount.toFixed(2)} toward their debt. Balance: \u20b5${result.balanceAfter.toFixed(2)}.`,
     link: `/customers/${customerId}`,
   })
 
   revalidatePath('/customers')
   revalidatePath(`/customers/${customerId}`)
-  return actionOk({ entryId: (inserted as { id: number }).id, balanceAfter: newBalance })
+  return actionOk({ entryId: result.entryId, balanceAfter: result.balanceAfter })
   })
 }
 

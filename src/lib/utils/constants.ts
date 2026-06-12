@@ -31,6 +31,19 @@ export const CURRENCIES = [
   { code: 'XOF', symbol: 'CFA', name: 'West African CFA Franc' },
 ] as const
 
+/**
+ * Resolve the display symbol for an ISO-4217 currency code. Falls back
+ * to the code itself if the currency is unknown (e.g. a tenant
+ * pre-configured a code we haven't catalogued yet).
+ */
+export function getCurrencySymbol(code: string | null | undefined): string {
+  if (!code) return 'GHS'
+  const match = CURRENCIES.find((c) => c.code === code)
+  return match?.symbol ?? code
+}
+
+export type CurrencyCode = (typeof CURRENCIES)[number]['code']
+
 export const TIMEZONES = [
   'UTC',
   'America/New_York',

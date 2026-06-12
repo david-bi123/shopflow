@@ -1,4 +1,12 @@
 import { z } from 'zod'
+import { CURRENCIES, TIMEZONES, PAYMENT_METHODS } from '@/lib/utils/constants'
+
+// ISO-4217 codes for the currencies we expose in the UI. Mirrors the
+// `CURRENCIES` array in `lib/utils/constants.ts` so any currency added
+// there is automatically accepted here.
+const currencyCodes = CURRENCIES.map((c) => c.code) as [string, ...string[]]
+const timezoneIds = TIMEZONES as unknown as [string, ...string[]]
+const paymentMethodValues = PAYMENT_METHODS.map((p) => p.value) as [string, ...string[]]
 
 export const taxDefinitionSchema = z.object({
   name: z.string().min(1).max(50),
@@ -14,12 +22,14 @@ export const updateSettingsSchema = z.object({
   storeDescription: z.string().max(500).optional().or(z.literal('')),
   taxNumber: z.string().max(100).optional().or(z.literal('')),
   logo: z.string().optional().or(z.literal('')),
-  currency: z.string().min(1, 'Currency is required'),
-  timezone: z.string().min(1, 'Timezone is required'),
+  currency: z.enum(currencyCodes),
+  timezone: z.enum(timezoneIds),
   taxRate: z.number().min(0).max(100),
   taxes: z.array(taxDefinitionSchema),
   receiptFooter: z.string().max(500).optional().or(z.literal('')),
-  defaultPaymentMethods: z.array(z.string()).min(1),
+  defaultPaymentMethods: z
+    .array(z.enum(paymentMethodValues))
+    .min(1, 'At least one default payment method is required'),
   showLogoOnReceipt: z.boolean(),
   showQrOnReceipt: z.boolean(),
 })

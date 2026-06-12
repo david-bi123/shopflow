@@ -68,7 +68,7 @@ async function main() {
   console.log(`Counters before:`, counterRows)
 
   // Pick a sale number that doesn't already exist
-  let saleSeq = (counterRows.find((c) => c.name === 'sale')?.sequence ?? 0) + 1
+  const saleSeq = (counterRows.find((c) => c.name === 'sale')?.sequence ?? 0) + 1
   const saleNumber = `SALE-DBTEST-${String(saleSeq).padStart(4, '0')}`
   const now = new Date().toISOString()
 

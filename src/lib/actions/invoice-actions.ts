@@ -13,6 +13,7 @@ import { createNotification } from '@/lib/services/notification'
 import { createInvoiceSchema, updateInvoiceStatusSchema } from '@/lib/validations/invoice'
 import { actionHandler } from '@/lib/utils/action-handler'
 import { actionOk } from '@/lib/utils/action-result'
+import { verifyPublicToken, buildPublicToken } from '@/lib/services/public-token'
 import type { CreateInvoiceInput, InvoiceStatus, Invoice, TaxItem } from '@/lib/validations/invoice'
 
 export async function createInvoice(data: CreateInvoiceInput) {
@@ -57,71 +58,76 @@ export async function createInvoice(data: CreateInvoiceInput) {
 
   const debtorCustomerId = data.customerId ? toNum(data.customerId) : null
 
-  const result = await db.insert(invoices).values({
-    tenantId,
-    invoiceNumber,
-    customerId: debtorCustomerId,
-      customerName: (data.customerName as string | undefined) ?? '',
-    customerEmail: data.customerEmail || null,
-    customerPhone: data.customerPhone || null,
-    customerAddress: data.customerAddress || null,
-    items,
-    subtotal: calculatedSubtotal,
-    discountPercent,
-    discount: calculatedDiscount,
-    tax: calculatedTax,
-    taxItems,
-    total: calculatedTotal,
-    amountPaid,
-    amountOwed,
-    dueDate: new Date(data.dueDate).toISOString(),
-    notes: data.notes || null,
-    createdBy,
-    createdAt: now,
-    updatedAt: now,
-  })
-  const [invoice] = await db.select().from(invoices).where(eq(invoices.id, result[0].insertId))
-
-  if (debtorCustomerId) {
-    await db.update(customers)
-      .set({
-        totalSales: sql`total_sales + 1`,
-        totalRevenue: sql`total_revenue + ${calculatedTotal}`,
-        updatedAt: now,
-      })
-      .where(eq(customers.id, debtorCustomerId))
-  }
-
-  // Debt attribution (only if customer is selected and amount not fully paid)
-  if (amountOwed > 0 && debtorCustomerId) {
-    const [last] = await db.select({ balance: debtLedger.balanceAfter })
-      .from(debtLedger)
-      .where(and(
-        eq(debtLedger.tenantId, tenantId),
-        eq(debtLedger.customerId, debtorCustomerId),
-      ))
-      .orderBy(desc(debtLedger.createdAt), desc(debtLedger.id))
-      .limit(1)
-    const previousBalance = last?.balance ?? 0
-    const newBalance = Math.round((previousBalance + amountOwed) * 100) / 100
-    await db.insert(debtLedger).values({
+  // Invoice row + debt attribution + cached balance must commit together.
+  const invoice = await db.transaction(async (tx) => {
+    const inserted = await tx.insert(invoices).values({
       tenantId,
+      invoiceNumber,
       customerId: debtorCustomerId,
-      amount: amountOwed,
-      type: 'invoice_created',
-      referenceType: 'invoice',
-      referenceId: invoice.id,
-      notes: `Invoice ${invoiceNumber} \u2014 paid ${amountPaid} of ${calculatedTotal}`,
-      balanceAfter: newBalance,
+        customerName: (data.customerName as string | undefined) ?? '',
+      customerEmail: data.customerEmail || null,
+      customerPhone: data.customerPhone || null,
+      customerAddress: data.customerAddress || null,
+      items,
+      subtotal: calculatedSubtotal,
+      discountPercent,
+      discount: calculatedDiscount,
+      tax: calculatedTax,
+      taxItems,
+      total: calculatedTotal,
+      amountPaid,
+      amountOwed,
+      dueDate: new Date(data.dueDate).toISOString(),
+      notes: data.notes || null,
       createdBy,
       createdAt: now,
+      updatedAt: now,
     })
-    await db.update(customers).set({
-      totalDebt: newBalance,
-      firstDebtAt: sql`COALESCE(${customers.firstDebtAt}, ${now})`,
-      lastDebtActivityAt: now,
-    }).where(eq(customers.id, debtorCustomerId))
-  }
+    const [newInvoice] = await tx.select().from(invoices).where(eq(invoices.id, inserted[0].insertId))
+
+    if (debtorCustomerId) {
+      await tx.update(customers)
+        .set({
+          totalSales: sql`total_sales + 1`,
+          totalRevenue: sql`total_revenue + ${calculatedTotal}`,
+          updatedAt: now,
+        })
+        .where(eq(customers.id, debtorCustomerId))
+    }
+
+    // Debt attribution (only if customer is selected and amount not fully paid)
+    if (amountOwed > 0 && debtorCustomerId) {
+      const [last] = await tx.select({ balance: debtLedger.balanceAfter })
+        .from(debtLedger)
+        .where(and(
+          eq(debtLedger.tenantId, tenantId),
+          eq(debtLedger.customerId, debtorCustomerId),
+        ))
+        .orderBy(desc(debtLedger.createdAt), desc(debtLedger.id))
+        .limit(1)
+      const previousBalance = last?.balance ?? 0
+      const newBalance = Math.round((previousBalance + amountOwed) * 100) / 100
+      await tx.insert(debtLedger).values({
+        tenantId,
+        customerId: debtorCustomerId,
+        amount: amountOwed,
+        type: 'invoice_created',
+        referenceType: 'invoice',
+        referenceId: newInvoice.id,
+        notes: `Invoice ${invoiceNumber} \u2014 paid ${amountPaid} of ${calculatedTotal}`,
+        balanceAfter: newBalance,
+        createdBy,
+        createdAt: now,
+      })
+      await tx.update(customers).set({
+        totalDebt: newBalance,
+        firstDebtAt: sql`COALESCE(${customers.firstDebtAt}, ${now})`,
+        lastDebtActivityAt: now,
+      }).where(eq(customers.id, debtorCustomerId))
+    }
+
+    return newInvoice
+  })
 
   await createAuditLog({
     tenantId,
@@ -241,6 +247,7 @@ export async function getInvoices(page = 1, limit = 20, filters?: Record<string,
     createdBy: { name: row.createdByName },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    publicToken: buildPublicToken({ t: 'i', tn: Number(row.tenantId), id: Number(row.id) }),
   }))
 
   return {
@@ -313,9 +320,10 @@ export async function getInvoiceById(id: string) {
     createdBy: { name: row.createdByName },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-  }
+    publicToken: buildPublicToken({ t: 'i', tn: Number(row.tenantId), id: Number(row.id) }),
+  } as unknown as Invoice
 
-  return { invoice: invoice as unknown as Invoice }
+  return { invoice }
 }
 
 export async function updateInvoiceStatus(id: string, status: string) {
@@ -380,36 +388,38 @@ export async function deleteInvoice(id: string) {
     .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)))
   if (!invoice) return { error: 'Invoice not found' }
 
-  // Reverse any outstanding debt attribution before deleting
-  if ((invoice.amountOwed ?? 0) > 0.01 && invoice.customerId) {
-    const [custRow] = await db
-      .select({ totalDebt: customers.totalDebt })
-      .from(customers)
-      .where(eq(customers.id, invoice.customerId))
-      .limit(1)
-    const previousBalance = custRow?.totalDebt ?? 0
-    const reversed = Math.max(0, Math.round((previousBalance - (invoice.amountOwed ?? 0)) * 100) / 100)
-    const now = new Date().toISOString()
-    await db.insert(debtLedger).values({
-      tenantId,
-      customerId: invoice.customerId,
-      amount: -Math.abs(invoice.amountOwed ?? 0),
-      type: 'invoice_voided',
-      referenceType: 'invoice',
-      referenceId: invoiceId,
-      notes: `Reversal: deleted ${invoice.invoiceNumber} (was owing ${invoice.amountOwed?.toFixed(2)})`,
-      balanceAfter: reversed,
-      createdBy: userId,
-      createdAt: now,
-    })
-    await db.update(customers)
-      .set({ totalDebt: reversed, lastDebtActivityAt: now })
-      .where(eq(customers.id, invoice.customerId))
-  }
+  // Reverse the debt attribution (if any) and delete the invoice atomically.
+  await db.transaction(async (tx) => {
+    if ((invoice.amountOwed ?? 0) > 0.01 && invoice.customerId) {
+      const [custRow] = await tx
+        .select({ totalDebt: customers.totalDebt })
+        .from(customers)
+        .where(eq(customers.id, invoice.customerId))
+        .limit(1)
+      const previousBalance = custRow?.totalDebt ?? 0
+      const reversed = Math.max(0, Math.round((previousBalance - (invoice.amountOwed ?? 0)) * 100) / 100)
+      const now = new Date().toISOString()
+      await tx.insert(debtLedger).values({
+        tenantId,
+        customerId: invoice.customerId,
+        amount: -Math.abs(invoice.amountOwed ?? 0),
+        type: 'invoice_voided',
+        referenceType: 'invoice',
+        referenceId: invoiceId,
+        notes: `Reversal: deleted ${invoice.invoiceNumber} (was owing ${invoice.amountOwed?.toFixed(2)})`,
+        balanceAfter: reversed,
+        createdBy: userId,
+        createdAt: now,
+      })
+      await tx.update(customers)
+        .set({ totalDebt: reversed, lastDebtActivityAt: now })
+        .where(eq(customers.id, invoice.customerId))
+    }
 
-  await db
-    .delete(invoices)
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)))
+    await tx
+      .delete(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)))
+  })
 
   revalidatePath('/invoices')
   return actionOk({})
@@ -466,85 +476,90 @@ export async function updateInvoice(id: string, data: CreateInvoiceInput) {
 
   const debtorCustomerId = validated.data.customerId ? toNum(validated.data.customerId) : oldInvoice.customerId
 
-  // 1) Reverse old debt attribution
-  if ((oldInvoice.amountOwed ?? 0) > 0.01 && oldInvoice.customerId) {
-    const [custRow] = await db
-      .select({ totalDebt: customers.totalDebt })
-      .from(customers)
-      .where(eq(customers.id, oldInvoice.customerId))
-      .limit(1)
-    const previousBalance = custRow?.totalDebt ?? 0
-    const reversed = Math.max(0, Math.round((previousBalance - (oldInvoice.amountOwed ?? 0)) * 100) / 100)
-    await db.insert(debtLedger).values({
-      tenantId,
-      customerId: oldInvoice.customerId,
-      amount: -Math.abs(oldInvoice.amountOwed ?? 0),
-      type: 'invoice_voided',
-      referenceType: 'invoice',
-      referenceId: invoiceId,
-      notes: `Reversal: edited ${oldInvoice.invoiceNumber} (was owing ${oldInvoice.amountOwed?.toFixed(2)})`,
-      balanceAfter: reversed,
-      createdBy: userId,
-      createdAt: now,
-    })
-    await db.update(customers)
-      .set({ totalDebt: reversed, lastDebtActivityAt: now })
-      .where(eq(customers.id, oldInvoice.customerId))
-  }
-
-  // 2) Update the invoice row
-  await db
-    .update(invoices)
-    .set({
-      customerId: debtorCustomerId,
-    customerName: (data.customerName as string | undefined) ?? '',
-      customerEmail: (data.customerEmail as string | undefined) ?? null,
-      customerPhone: (data.customerPhone as string | undefined) ?? null,
-      customerAddress: (data.customerAddress as string | undefined) ?? null,
-      items,
-      subtotal: calculatedSubtotal,
-      discountPercent,
-      discount: calculatedDiscount,
-      tax: calculatedTax,
-      taxItems,
-      total: calculatedTotal,
-      amountPaid,
-      amountOwed,
-      dueDate: new Date(data.dueDate).toISOString(),
-      notes: (data.notes as string | undefined) ?? null,
-      updatedAt: now,
-    })
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)))
-
-  // 3) Apply the new debt attribution
-  if (amountOwed > 0.01 && debtorCustomerId) {
-    const [custRow] = await db
-      .select({ totalDebt: customers.totalDebt })
-      .from(customers)
-      .where(eq(customers.id, debtorCustomerId))
-      .limit(1)
-    const previousBalance = custRow?.totalDebt ?? 0
-    const newBalance = Math.round((previousBalance + amountOwed) * 100) / 100
-    await db.insert(debtLedger).values({
-      tenantId,
-      customerId: debtorCustomerId,
-      amount: amountOwed,
-      type: 'invoice_created',
-      referenceType: 'invoice',
-      referenceId: invoiceId,
-      notes: `Edit: ${oldInvoice.invoiceNumber} \u2014 paid ${amountPaid} of ${calculatedTotal}`,
-      balanceAfter: newBalance,
-      createdBy: userId,
-      createdAt: now,
-    })
-    await db.update(customers)
-      .set({
-        totalDebt: newBalance,
-        firstDebtAt: sql`COALESCE(${customers.firstDebtAt}, ${now})`,
-        lastDebtActivityAt: now,
+  // Wrap the whole reverse-old / apply-new sequence in a single transaction
+  // so a failure can't leave the ledger out of sync with the cached
+  // `customers.totalDebt` balance.
+  await db.transaction(async (tx) => {
+    // 1) Reverse old debt attribution
+    if ((oldInvoice.amountOwed ?? 0) > 0.01 && oldInvoice.customerId) {
+      const [custRow] = await tx
+        .select({ totalDebt: customers.totalDebt })
+        .from(customers)
+        .where(eq(customers.id, oldInvoice.customerId))
+        .limit(1)
+      const previousBalance = custRow?.totalDebt ?? 0
+      const reversed = Math.max(0, Math.round((previousBalance - (oldInvoice.amountOwed ?? 0)) * 100) / 100)
+      await tx.insert(debtLedger).values({
+        tenantId,
+        customerId: oldInvoice.customerId,
+        amount: -Math.abs(oldInvoice.amountOwed ?? 0),
+        type: 'invoice_voided',
+        referenceType: 'invoice',
+        referenceId: invoiceId,
+        notes: `Reversal: edited ${oldInvoice.invoiceNumber} (was owing ${oldInvoice.amountOwed?.toFixed(2)})`,
+        balanceAfter: reversed,
+        createdBy: userId,
+        createdAt: now,
       })
-      .where(eq(customers.id, debtorCustomerId))
-  }
+      await tx.update(customers)
+        .set({ totalDebt: reversed, lastDebtActivityAt: now })
+        .where(eq(customers.id, oldInvoice.customerId))
+    }
+
+    // 2) Update the invoice row
+    await tx
+      .update(invoices)
+      .set({
+        customerId: debtorCustomerId,
+      customerName: (data.customerName as string | undefined) ?? '',
+        customerEmail: (data.customerEmail as string | undefined) ?? null,
+        customerPhone: (data.customerPhone as string | undefined) ?? null,
+        customerAddress: (data.customerAddress as string | undefined) ?? null,
+        items,
+        subtotal: calculatedSubtotal,
+        discountPercent,
+        discount: calculatedDiscount,
+        tax: calculatedTax,
+        taxItems,
+        total: calculatedTotal,
+        amountPaid,
+        amountOwed,
+        dueDate: new Date(data.dueDate).toISOString(),
+        notes: (data.notes as string | undefined) ?? null,
+        updatedAt: now,
+      })
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)))
+
+    // 3) Apply the new debt attribution
+    if (amountOwed > 0.01 && debtorCustomerId) {
+      const [custRow] = await tx
+        .select({ totalDebt: customers.totalDebt })
+        .from(customers)
+        .where(eq(customers.id, debtorCustomerId))
+        .limit(1)
+      const previousBalance = custRow?.totalDebt ?? 0
+      const newBalance = Math.round((previousBalance + amountOwed) * 100) / 100
+      await tx.insert(debtLedger).values({
+        tenantId,
+        customerId: debtorCustomerId,
+        amount: amountOwed,
+        type: 'invoice_created',
+        referenceType: 'invoice',
+        referenceId: invoiceId,
+        notes: `Edit: ${oldInvoice.invoiceNumber} \u2014 paid ${amountPaid} of ${calculatedTotal}`,
+        balanceAfter: newBalance,
+        createdBy: userId,
+        createdAt: now,
+      })
+      await tx.update(customers)
+        .set({
+          totalDebt: newBalance,
+          firstDebtAt: sql`COALESCE(${customers.firstDebtAt}, ${now})`,
+          lastDebtActivityAt: now,
+        })
+        .where(eq(customers.id, debtorCustomerId))
+    }
+  })
 
   await createAuditLog({
     tenantId,
@@ -605,6 +620,102 @@ export async function getInvoiceByNumber(invoiceNumber: string) {
     .leftJoin(tenants, eq(invoices.tenantId, tenants.id))
     .leftJoin(settings, eq(invoices.tenantId, settings.tenantId))
     .where(eq(invoices.invoiceNumber, invoiceNumber))
+    .limit(1)
+
+  if (!row) return null
+
+  const invoice: Invoice = {
+    id: String(row.id),
+    invoiceNumber: row.invoiceNumber,
+    customerName: row.customerName,
+    customerEmail: row.customerEmail || undefined,
+    customerPhone: row.customerPhone || undefined,
+    customerAddress: row.customerAddress || undefined,
+    items: row.items as Array<{ name: string; description?: string; quantity: number; price: number; total: number }>,
+    subtotal: row.subtotal,
+    discountPercent: row.discountPercent,
+    discount: row.discount,
+    tax: row.tax,
+    taxItems: (row.taxItems as TaxItem[]) ?? [],
+    total: row.total,
+    amountPaid: row.amountPaid,
+    amountOwed: row.amountOwed,
+    status: row.status as InvoiceStatus,
+    dueDate: row.dueDate,
+    notes: row.notes || undefined,
+    createdAt: row.createdAt,
+    createdBy: { name: String(row.createdBy) },
+    currency: row.currency || 'GHS',
+    receiptFooter: row.receiptFooter || '',
+    tenant: {
+      id: String(row.tenantId),
+      name: row.storeName || row.tenantName || 'Store',
+      slug: row.tenantSlug || '',
+      phone: row.storePhone || '',
+      email: row.storeEmail || '',
+      address: row.storeAddress || '',
+      description: row.storeDescription || '',
+      taxNumber: row.taxNumber || '',
+    },
+  }
+
+  return invoice
+}
+
+/**
+ * Public, unauthenticated lookup by signed token.
+ *
+ * The token encodes `i.<tenantId>.<id>` plus an HMAC. We verify the HMAC
+ * first (constant-time) and only then issue a single primary-key lookup.
+ * Returns `null` for unknown / tampered tokens. Never throws.
+ */
+export async function getInvoiceByPublicToken(token: string): Promise<Invoice | null> {
+  if (!token || typeof token !== 'string') return null
+  const payload = verifyPublicToken(token)
+  if (!payload || payload.t !== 'i') return null
+
+  const db = await dbConnect()
+
+  const [row] = await db
+    .select({
+      id: invoices.id,
+      tenantId: invoices.tenantId,
+      invoiceNumber: invoices.invoiceNumber,
+      customerId: invoices.customerId,
+      customerName: invoices.customerName,
+      customerEmail: invoices.customerEmail,
+      customerPhone: invoices.customerPhone,
+      customerAddress: invoices.customerAddress,
+      items: invoices.items,
+      subtotal: invoices.subtotal,
+      discountPercent: invoices.discountPercent,
+      discount: invoices.discount,
+      tax: invoices.tax,
+      taxItems: invoices.taxItems,
+      total: invoices.total,
+      amountPaid: invoices.amountPaid,
+      amountOwed: invoices.amountOwed,
+      status: invoices.status,
+      dueDate: invoices.dueDate,
+      notes: invoices.notes,
+      createdBy: invoices.createdBy,
+      createdAt: invoices.createdAt,
+      updatedAt: invoices.updatedAt,
+      currency: settings.currency,
+      tenantName: tenants.name,
+      tenantSlug: tenants.slug,
+      storeName: settings.storeName,
+      storePhone: settings.storePhone,
+      storeEmail: settings.storeEmail,
+      storeAddress: settings.storeAddress,
+      storeDescription: settings.storeDescription,
+      taxNumber: settings.taxNumber,
+      receiptFooter: settings.receiptFooter,
+    })
+    .from(invoices)
+    .leftJoin(tenants, eq(invoices.tenantId, tenants.id))
+    .leftJoin(settings, eq(invoices.tenantId, settings.tenantId))
+    .where(and(eq(invoices.id, payload.id), eq(invoices.tenantId, payload.tn)))
     .limit(1)
 
   if (!row) return null

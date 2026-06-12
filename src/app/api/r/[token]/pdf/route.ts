@@ -1,17 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { dbConnect } from '@/lib/db/connect'
 import { sales, tenants, settings } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { generateSaleReceiptPdf } from '@/lib/services/pdf'
+import { verifyPublicToken } from '@/lib/services/public-token'
+import { getCurrencySymbol } from '@/lib/utils/constants'
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/utils/rate-limit'
 
 export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ saleId: string }> }
+  req: NextRequest,
+  { params }: { params: Promise<{ token: string }> }
 ) {
-  try {
-    const { saleId } = await params
-    const db = await dbConnect()
+  // Cap at 30 PDF generations / minute / IP. PDFKit is heavy and
+  // unlimited scraping of a leaked token would burn CPU.
+  const ip = getClientIp(req.headers)
+  const rl = rateLimit(`pdf-sale:${ip}`, { limit: 30, windowSeconds: 60 })
+  if (!rl.allowed) return rateLimitResponse(rl)
 
+  try {
+    const { token } = await params
+    const payload = verifyPublicToken(token)
+    if (!payload || payload.t !== 's') {
+      return new NextResponse('Not found', { status: 404 })
+    }
+
+    const db = await dbConnect()
     const [row] = await db
       .select({
         sale: sales,
@@ -23,18 +36,20 @@ export async function GET(
         storeDescription: settings.storeDescription,
         taxNumber: settings.taxNumber,
         receiptFooter: settings.receiptFooter,
+        currency: settings.currency,
       })
       .from(sales)
       .leftJoin(tenants, eq(sales.tenantId, tenants.id))
       .leftJoin(settings, eq(sales.tenantId, settings.tenantId))
-      .where(eq(sales.saleNumber, saleId))
+      .where(and(eq(sales.id, payload.id), eq(sales.tenantId, payload.tn)))
 
     if (!row) {
-      return new NextResponse('Sale not found', { status: 404 })
+      return new NextResponse('Not found', { status: 404 })
     }
 
     const s = row.sale
     const storeName = row.storeName || row.tenantName || 'Store'
+    const currencyCode = row.currency || 'GHS'
 
     const pdfBuffer = await generateSaleReceiptPdf(
       {
@@ -60,6 +75,8 @@ export async function GET(
         address: row.storeAddress || undefined,
         taxNumber: row.taxNumber || undefined,
         footer: row.receiptFooter || undefined,
+        currency: currencyCode,
+        currencySymbol: getCurrencySymbol(currencyCode),
       }
     )
 
@@ -67,6 +84,7 @@ export async function GET(
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="receipt-${s.saleNumber}.pdf"`,
+        'Cache-Control': 'private, no-store',
       },
     })
   } catch (error) {

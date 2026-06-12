@@ -51,7 +51,11 @@ export interface Invoice {
 }
 
 export const invoiceItemSchema = z.object({
-  name: z.string().max(200).default('Item'),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Item name is required')
+    .max(200, 'Item name must be 200 characters or fewer'),
   description: z.string().max(500).optional().or(z.literal('')),
   quantity: z.number().int().min(1, 'Quantity must be at least 1'),
   price: z.number().min(0, 'Price must be non-negative'),
@@ -76,7 +80,7 @@ export const createInvoiceSchema = z.object({
   discount: z.number().min(0).default(0),
   tax: z.number().min(0).default(0),
   taxItems: z.array(taxItemSchema).default([]),
-  total: z.number().min(0),
+  total: z.number().positive('Invoice total must be greater than zero'),
   amountPaid: z.number().min(0).default(0),
   dueDate: z.string().min(1, 'Due date is required'),
   notes: z.string().max(1000).optional().or(z.literal('')),

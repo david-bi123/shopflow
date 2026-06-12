@@ -162,7 +162,8 @@ export default function InvoiceDetailPage() {
 
   const handleCopyLink = async () => {
     if (!invoice) return
-    const url = `${window.location.origin}/i/${invoice.invoiceNumber}`
+    const token = (invoice as { publicToken?: string }).publicToken ?? invoice.invoiceNumber
+    const url = `${window.location.origin}/i/${token}`
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
@@ -312,14 +313,15 @@ export default function InvoiceDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
+              onClick={() => {
+                const token = (invoice as { publicToken?: string }).publicToken ?? invoice.invoiceNumber
                 window.open(
                   `https://wa.me/?text=${encodeURIComponent(
                     `Invoice ${invoice.invoiceNumber} - Customer: ${invoice.customerName} - Total: ${formatCurrency(invoice.total)} - Due: ${formatDate(invoice.dueDate)}`
-                  )}`,
+                  )}%0A${window.location.origin}/i/${token}`,
                   '_blank'
                 )
-              }
+              }}
               className="bg-white/80 dark:bg-zinc-900/60"
             >
               <Share2 className="mr-2 size-4" />
@@ -328,7 +330,10 @@ export default function InvoiceDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open(`/api/i/${invoice.invoiceNumber}/pdf`, '_blank')}
+              onClick={() => {
+                const token = (invoice as { publicToken?: string }).publicToken ?? invoice.invoiceNumber
+                window.open(`/api/i/${token}/pdf`, '_blank')
+              }}
               className="bg-white/80 dark:bg-zinc-900/60"
             >
               <Download className="mr-2 size-4" />

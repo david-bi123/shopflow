@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Store, ArrowLeft, MapPin, Phone, Mail, Calendar, FileText, User, CircleCheck, CircleAlert, CircleDashed, CircleX } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
-import { getInvoiceByNumber } from '@/lib/actions/invoice-actions'
+import { getInvoiceByPublicToken } from '@/lib/actions/invoice-actions'
 import { PublicActions } from '@/components/shared/public-actions'
 
 const statusConfig: Record<
@@ -44,10 +44,10 @@ const statusConfig: Record<
 export default async function PublicInvoicePage({
   params,
 }: {
-  params: Promise<{ invoiceId: string }>
+  params: Promise<{ token: string }>
 }) {
-  const { invoiceId } = await params
-  const invoice = await getInvoiceByNumber(invoiceId)
+  const { token } = await params
+  const invoice = await getInvoiceByPublicToken(token)
 
   if (!invoice) {
     notFound()
@@ -55,8 +55,8 @@ export default async function PublicInvoicePage({
 
   const currency = invoice.currency ?? 'GHS'
   const tenant = invoice.tenant ?? { id: '', name: 'Store', slug: '' }
-  const invoiceUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/i/${invoice.invoiceNumber}`
-  const pdfUrl = `/api/i/${invoice.invoiceNumber}/pdf`
+  const invoiceUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/i/${token}`
+  const pdfUrl = `/api/i/${token}/pdf`
   const whatsappMessage = encodeURIComponent(
     `Invoice ${invoice.invoiceNumber} - Total: ${formatCurrency(invoice.total, currency)}`
   )

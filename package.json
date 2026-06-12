@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx src/lib/db/seed.ts"
+    "migrate": "tsx src/lib/db/migrate.ts",
+    "seed": "tsx src/lib/db/seed.ts",
+    "db:reset": "tsx src/lib/db/migrate.ts && tsx src/lib/db/seed.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

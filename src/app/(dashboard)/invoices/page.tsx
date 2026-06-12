@@ -293,17 +293,18 @@ export default function InvoicesPage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="gap-2"
-                      onClick={() =>
+                      onClick={() => {
+                        const token = (inv as { publicToken?: string }).publicToken ?? inv.invoiceNumber
                         window.open(
-                          `https://wa.me/?text=${encodeURIComponent(`Invoice ${inv.invoiceNumber} - Total: ${formatCurrency(inv.total)}`)}`,
+                          `https://wa.me/?text=${encodeURIComponent(`Invoice ${inv.invoiceNumber} - Total: ${formatCurrency(inv.total)}`)}%0A${window.location.origin}/i/${token}`,
                           '_blank'
                         )
-                      }
+                      }}
                     >
                       <Share2 className="size-4 text-muted-foreground" />
                       Share WhatsApp
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/i/${inv.invoiceNumber}/pdf`, '_blank')}>
+                    <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/i/${(inv as { publicToken?: string }).publicToken ?? inv.invoiceNumber}/pdf`, '_blank')}>
                       <Download className="size-4 text-muted-foreground" />
                       Download PDF
                     </DropdownMenuItem>
@@ -344,17 +345,18 @@ export default function InvoicesPage() {
                 )}
                 <DropdownMenuItem
                   className="gap-2"
-                  onClick={() =>
+                  onClick={() => {
+                    const token = (inv as { publicToken?: string }).publicToken ?? inv.invoiceNumber
                     window.open(
-                      `https://wa.me/?text=${encodeURIComponent(`Invoice ${inv.invoiceNumber} - Total: ${formatCurrency(inv.total)}`)}`,
+                      `https://wa.me/?text=${encodeURIComponent(`Invoice ${inv.invoiceNumber} - Total: ${formatCurrency(inv.total)}`)}%0A${window.location.origin}/i/${token}`,
                       '_blank'
                     )
-                  }
+                  }}
                 >
                   <Share2 className="size-4 text-muted-foreground" />
                   Share WhatsApp
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/i/${inv.invoiceNumber}/pdf`, '_blank')}>
+                <DropdownMenuItem className="gap-2" onClick={() => window.open(`/api/i/${(inv as { publicToken?: string }).publicToken ?? inv.invoiceNumber}/pdf`, '_blank')}>
                   <Download className="size-4 text-muted-foreground" />
                   Download PDF
                 </DropdownMenuItem>

@@ -112,7 +112,8 @@ export default function SaleDetailPage() {
 
   const handleCopyLink = async () => {
     if (!sale) return
-    const url = `${window.location.origin}/r/${sale.saleNumber}`
+    const token = (sale as { publicToken?: string }).publicToken ?? sale.saleNumber
+    const url = `${window.location.origin}/r/${token}`
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
@@ -217,14 +218,15 @@ export default function SaleDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
+              onClick={() => {
+                const token = (sale as { publicToken?: string }).publicToken ?? sale.saleNumber
                 window.open(
                   `https://wa.me/?text=${encodeURIComponent(
                     `Sale ${sale.saleNumber} - Customer: ${sale.customerName} - Total: ${formatCurrency(sale.total)}`
-                  )}`,
+                  )}%0A${window.location.origin}/r/${token}`,
                   '_blank'
                 )
-              }
+              }}
               className="bg-white/80 dark:bg-zinc-900/60"
             >
               <Share2 className="mr-2 size-4" />
@@ -233,7 +235,10 @@ export default function SaleDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open(`/api/r/${sale.saleNumber}/pdf`, '_blank')}
+              onClick={() => {
+                const token = (sale as { publicToken?: string }).publicToken ?? sale.saleNumber
+                window.open(`/api/r/${token}/pdf`, '_blank')
+              }}
               className="bg-white/80 dark:bg-zinc-900/60"
             >
               <Download className="mr-2 size-4" />

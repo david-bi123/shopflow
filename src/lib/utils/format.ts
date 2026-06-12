@@ -1,6 +1,4 @@
-import { dbConnect } from '@/lib/db/connect'
-import { settings as settingsTable } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { randomBytes } from 'crypto'
 
 export const DEFAULT_CURRENCY = 'GHS'
 
@@ -39,30 +37,45 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-export function generatePassword(length = 12): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
-  let password = ''
-  for (let i = 0; i < length; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return password
-}
-
 /**
- * Resolve a tenant's stored currency. Falls back to GHS so that brand-new
- * tenants (or ones whose settings row was never created) always render
- * prices in Ghana Cedis by default.
+ * Cryptographically-secure random password.
+ *
+ * Uses `crypto.randomBytes` (NOT `Math.random`) so the output is
+ * unpredictable — important because the password is shown to the
+ * inviter in plain text and used as the initial credential for a new
+ * staff member. Guarantees at least one character from each pool so
+ * the result always meets typical password-strength requirements.
  */
-export async function getCurrencyForTenant(tenantId: number | string): Promise<string> {
-  try {
-    const db = await dbConnect()
-    const [row] = await db
-      .select({ currency: settingsTable.currency })
-      .from(settingsTable)
-      .where(eq(settingsTable.tenantId, Number(tenantId)))
-      .limit(1)
-    return row?.currency || DEFAULT_CURRENCY
-  } catch {
-    return DEFAULT_CURRENCY
+export function generatePassword(length = 14): string {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ' // no I/O
+  const lower = 'abcdefghjkmnpqrstuvwxyz' // no l
+  const digits = '23456789' // no 0/1
+  const symbols = '!@#$%^&*?'
+  const all = upper + lower + digits + symbols
+
+  if (length < 4) {
+    throw new Error('generatePassword: length must be >= 4 to include every pool')
   }
+
+  // Pick one from each required pool first, then fill the rest from
+  // the combined alphabet.
+  const required = [
+    upper[randomBytes(1)[0] % upper.length],
+    lower[randomBytes(1)[0] % lower.length],
+    digits[randomBytes(1)[0] % digits.length],
+    symbols[randomBytes(1)[0] % symbols.length],
+  ]
+
+  const remaining = length - required.length
+  const filler = new Array(remaining)
+    .fill(0)
+    .map(() => all[randomBytes(1)[0] % all.length])
+
+  // Shuffle so the four required chars aren't always at the front.
+  const combined = [...required, ...filler]
+  for (let i = combined.length - 1; i > 0; i--) {
+    const j = randomBytes(1)[0] % (i + 1)
+    ;[combined[i], combined[j]] = [combined[j], combined[i]]
+  }
+  return combined.join('')
 }

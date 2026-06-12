@@ -1,7 +1,13 @@
 import { z } from 'zod'
 
 export const saleItemSchema = z.object({
-  name: z.string().max(200).default('Item'),
+  // Item name is required. The previous default of `'Item'` silently
+  // saved an empty line entry when the form was submitted blank.
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Item name is required')
+    .max(200, 'Item name must be 200 characters or fewer'),
   quantity: z.number().int().min(1, 'Quantity must be at least 1'),
   price: z.number().min(0, 'Price must be non-negative'),
   subtotal: z.number().min(0, 'Subtotal must be non-negative'),
@@ -29,7 +35,9 @@ export const createSaleSchema = z.object({
   tax: z.number().min(0).default(0),
   /** Per-tax breakdown (NHIS, VAT, GET Fund, ...). Empty array = no taxes. */
   taxItems: z.array(taxItemSchema).default([]),
-  total: z.number().min(0),
+  // Total must be > 0. A sale with no items (or all items priced at
+  // zero) is almost certainly a mistake.
+  total: z.number().positive('Sale total must be greater than zero'),
   /** Amount paid at sale time. Defaults to total (paid in full). */
   amountPaid: z.number().min(0).default(0),
   paymentMethod: z.string().max(50).optional().or(z.literal('')),
@@ -63,4 +71,6 @@ export interface Sale {
   notes?: string
   createdAt: string
   updatedAt: string
+  /** Signed public token for unguessable share links. */
+  publicToken?: string
 }

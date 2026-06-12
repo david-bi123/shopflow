@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+/**
+ * Route protection at the edge. In Next.js 16 this file replaces the
+ * legacy `middleware.ts` — same matcher, same semantics, just a
+ * different name and a different export name (`proxy`).
+ *
+ * Public routes (login, register, public receipt, etc.) skip auth.
+ * Everything else requires a valid NextAuth session cookie.
+ */
+
 const PUBLIC_PATHS = new Set(['/', '/login', '/register', '/forgot-password', '/pending-approval', '/suspended'])
 const PUBLIC_PREFIXES = ['/r/', '/i/', '/api/auth', '/api/i/', '/api/r/', '/_next/']
 
@@ -24,7 +33,7 @@ function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
 }
 
-export default function middleware(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   if (isPublic(pathname)) return NextResponse.next()

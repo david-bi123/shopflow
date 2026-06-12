@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { AlertTriangle, X, Copy, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -22,11 +22,10 @@ export function GlobalErrorCatcher() {
     at: string
   } | null>(null)
   const [expanded, setExpanded] = useState(false)
-  const [isDev, setIsDev] = useState(false)
-
-  useEffect(() => {
-    setIsDev(process.env.NODE_ENV !== 'production')
-  }, [])
+  // Lazy initializer so the NODE_ENV check happens once on first
+  // render instead of inside a useEffect (which the React Compiler
+  // flags as a cascading setState).
+  const [isDev] = useState(() => process.env.NODE_ENV !== 'production')
 
   const onWindowError = useCallback((event: ErrorEvent) => {
     setError({

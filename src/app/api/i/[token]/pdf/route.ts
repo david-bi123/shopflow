@@ -1,17 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { dbConnect } from '@/lib/db/connect'
 import { invoices, tenants, settings } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { generateInvoicePdf } from '@/lib/services/pdf'
+import { verifyPublicToken } from '@/lib/services/public-token'
+import { getCurrencySymbol } from '@/lib/utils/constants'
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/utils/rate-limit'
 
 export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ invoiceId: string }> }
+  req: NextRequest,
+  { params }: { params: Promise<{ token: string }> }
 ) {
-  try {
-    const { invoiceId } = await params
-    const db = await dbConnect()
+  const ip = getClientIp(req.headers)
+  const rl = rateLimit(`pdf-inv:${ip}`, { limit: 30, windowSeconds: 60 })
+  if (!rl.allowed) return rateLimitResponse(rl)
 
+  try {
+    const { token } = await params
+    const payload = verifyPublicToken(token)
+    if (!payload || payload.t !== 'i') {
+      return new NextResponse('Not found', { status: 404 })
+    }
+
+    const db = await dbConnect()
     const [row] = await db
       .select({
         invoice: invoices,
@@ -23,18 +34,20 @@ export async function GET(
         storeDescription: settings.storeDescription,
         taxNumber: settings.taxNumber,
         receiptFooter: settings.receiptFooter,
+        currency: settings.currency,
       })
       .from(invoices)
       .leftJoin(tenants, eq(invoices.tenantId, tenants.id))
       .leftJoin(settings, eq(invoices.tenantId, settings.tenantId))
-      .where(eq(invoices.invoiceNumber, invoiceId))
+      .where(and(eq(invoices.id, payload.id), eq(invoices.tenantId, payload.tn)))
 
     if (!row) {
-      return new NextResponse('Invoice not found', { status: 404 })
+      return new NextResponse('Not found', { status: 404 })
     }
 
     const inv = row.invoice
     const storeName = row.storeName || row.tenantName || 'Store'
+    const currencyCode = row.currency || 'GHS'
 
     const pdfBuffer = await generateInvoicePdf(
       {
@@ -63,6 +76,8 @@ export async function GET(
         address: row.storeAddress || undefined,
         taxNumber: row.taxNumber || undefined,
         footer: row.receiptFooter || undefined,
+        currency: currencyCode,
+        currencySymbol: getCurrencySymbol(currencyCode),
       }
     )
 
@@ -70,6 +85,7 @@ export async function GET(
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="invoice-${inv.invoiceNumber}.pdf"`,
+        'Cache-Control': 'private, no-store',
       },
     })
   } catch (error) {

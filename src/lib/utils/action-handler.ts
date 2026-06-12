@@ -27,7 +27,7 @@ export async function actionHandler<T>(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     const stack = err instanceof Error ? err.stack : undefined
-    // eslint-disable-next-line no-console
+     
     console.error(`[${name}] failed`, {
       ...context,
       error: message,

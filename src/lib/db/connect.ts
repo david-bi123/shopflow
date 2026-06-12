@@ -1,8 +1,12 @@
-"use server"
-
 import { drizzle } from 'drizzle-orm/mysql2'
 import mysql from 'mysql2/promise'
 import * as schema from './schema/index'
+
+// NOTE: do NOT add `"use server"` here. This module is imported by
+// route handlers, server components, and other server-only contexts,
+// but it does not export any React Server Action — it just hands back
+// a Drizzle instance. Next.js will refuse to bundle a non-action
+// `"use server"` file.
 
 let db: ReturnType<typeof drizzle<typeof schema>> | null = null
 let pool: ReturnType<typeof mysql.createPool> | null = null

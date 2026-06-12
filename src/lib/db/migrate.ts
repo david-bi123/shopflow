@@ -20,68 +20,192 @@ import { dbConnect } from './connect'
 import { sql } from 'drizzle-orm'
 
 /**
- * Add new columns to existing tables without dropping data. Idempotent:
- * if a column already exists the ALTER will fail silently and we move on.
+ * Idempotent schema sync.
+ *
+ * Strategy:
+ *   1. `CREATE TABLE IF NOT EXISTS` for every table in the schema,
+ *      using the same Drizzle-generated DDL. This makes a fresh
+ *      database work in one shot.
+ *   2. `ALTER TABLE … ADD COLUMN` for any column we may have added
+ *      in a later release. Each ALTER is its own statement and is
+ *      wrapped in try/catch — if the column already exists the
+ *      `ER_DUP_FIELDNAME` (errno 1060) error is swallowed.
+ *   3. Backfill any `NOT NULL JSON` column with `[]` so existing
+ *      rows don't trip the constraint on the next read.
+ *
+ * Run with:  `npm run migrate`
  */
-async function migrate() {
-  console.log('Connecting to database...')
-  const db = await dbConnect()
 
-  const alters: { table: string; column: string; ddl: string }[] = [
-    { table: 'sales', column: 'discount_percent', ddl: 'ALTER TABLE `sales` ADD COLUMN `discount_percent` DOUBLE NOT NULL DEFAULT 0' },
-    { table: 'sales', column: 'tax_items', ddl: 'ALTER TABLE `sales` ADD COLUMN `tax_items` JSON NOT NULL' },
-    { table: 'invoices', column: 'discount_percent', ddl: 'ALTER TABLE `invoices` ADD COLUMN `discount_percent` DOUBLE NOT NULL DEFAULT 0' },
-    { table: 'invoices', column: 'tax_items', ddl: 'ALTER TABLE `invoices` ADD COLUMN `tax_items` JSON NOT NULL' },
-    { table: 'settings', column: 'store_description', ddl: 'ALTER TABLE `settings` ADD COLUMN `store_description` TEXT' },
-    { table: 'settings', column: 'tax_number', ddl: 'ALTER TABLE `settings` ADD COLUMN `tax_number` VARCHAR(100)' },
-    { table: 'settings', column: 'taxes', ddl: 'ALTER TABLE `settings` ADD COLUMN `taxes` JSON NOT NULL' },
-    // --- Debt tracking ---
-    { table: 'sales', column: 'amount_paid', ddl: 'ALTER TABLE `sales` ADD COLUMN `amount_paid` DOUBLE NOT NULL DEFAULT 0' },
-    { table: 'sales', column: 'amount_owed', ddl: 'ALTER TABLE `sales` ADD COLUMN `amount_owed` DOUBLE NOT NULL DEFAULT 0' },
-    { table: 'invoices', column: 'amount_paid', ddl: 'ALTER TABLE `invoices` ADD COLUMN `amount_paid` DOUBLE NOT NULL DEFAULT 0' },
-    { table: 'invoices', column: 'amount_owed', ddl: 'ALTER TABLE `invoices` ADD COLUMN `amount_owed` DOUBLE NOT NULL DEFAULT 0' },
-    { table: 'customers', column: 'total_debt', ddl: 'ALTER TABLE `customers` ADD COLUMN `total_debt` DOUBLE NOT NULL DEFAULT 0' },
-    { table: 'customers', column: 'first_debt_at', ddl: 'ALTER TABLE `customers` ADD COLUMN `first_debt_at` VARCHAR(50)' },
-    { table: 'customers', column: 'last_debt_activity_at', ddl: 'ALTER TABLE `customers` ADD COLUMN `last_debt_activity_at` VARCHAR(50)' },
-  ]
+interface Alter {
+  table: string
+  column: string
+  ddl: string
+}
 
-  for (const { table, column, ddl } of alters) {
-    try {
-      console.log(`  -> ${table}.${column}`)
-      await db.execute(sql.raw(ddl))
-      console.log('     ok')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      const code = (err as { cause?: { code?: string; errno?: number } })?.cause?.code
-      const errno = (err as { cause?: { errno?: number } })?.cause?.errno
-      const isDuplicate =
-        msg.includes('Duplicate column') ||
-        msg.includes('already exists') ||
-        code === 'ER_DUP_FIELDNAME' ||
-        errno === 1060 ||
-        msg.includes('CREATE TABLE') === false && msg.includes('exist') === false && (code === '42S21' || errno === 1060)
-      const isAlreadyExists =
-        msg.includes('already exists') ||
-        (err as { cause?: { code?: string } })?.cause?.code === 'ER_TABLE_EXISTS_ERROR'
-      if (isDuplicate || isAlreadyExists) {
-        console.log('     already exists, skipping')
-      } else {
-        throw err
-      }
-    }
-  }
+const alters: Alter[] = [
+  // Sales / invoices: discount + tax breakdowns (added after v0.1)
+  { table: 'sales', column: 'discount_percent', ddl: 'ALTER TABLE `sales` ADD COLUMN `discount_percent` DOUBLE NOT NULL DEFAULT 0' },
+  { table: 'sales', column: 'tax_items', ddl: 'ALTER TABLE `sales` ADD COLUMN `tax_items` JSON NOT NULL' },
+  { table: 'invoices', column: 'discount_percent', ddl: 'ALTER TABLE `invoices` ADD COLUMN `discount_percent` DOUBLE NOT NULL DEFAULT 0' },
+  { table: 'invoices', column: 'tax_items', ddl: 'ALTER TABLE `invoices` ADD COLUMN `tax_items` JSON NOT NULL' },
 
-  // Backfill any existing tax_items / taxes to a safe empty array so the
-  // existing rows still pass strict NOT NULL on next read.
-  console.log('  -> backfilling empty JSON arrays on existing rows')
-  await db.execute(sql`UPDATE \`sales\` SET \`tax_items\` = JSON_ARRAY() WHERE \`tax_items\` IS NULL OR JSON_LENGTH(\`tax_items\`) IS NULL`)
-  await db.execute(sql`UPDATE \`invoices\` SET \`tax_items\` = JSON_ARRAY() WHERE \`tax_items\` IS NULL OR JSON_LENGTH(\`tax_items\`) IS NULL`)
-  await db.execute(sql`UPDATE \`settings\` SET \`taxes\` = JSON_ARRAY() WHERE \`taxes\` IS NULL OR JSON_LENGTH(\`taxes\`) IS NULL`)
+  // Settings: extra store / tax fields
+  { table: 'settings', column: 'store_description', ddl: 'ALTER TABLE `settings` ADD COLUMN `store_description` TEXT' },
+  { table: 'settings', column: 'tax_number', ddl: 'ALTER TABLE `settings` ADD COLUMN `tax_number` VARCHAR(100)' },
+  { table: 'settings', column: 'taxes', ddl: 'ALTER TABLE `settings` ADD COLUMN `taxes` JSON NOT NULL' },
 
-  // --- debt_ledger table ---
-  console.log('  -> debt_ledger table')
-  try {
-    await db.execute(sql`
+  // Debt tracking: amount paid / owed + customer cached balance
+  { table: 'sales', column: 'amount_paid', ddl: 'ALTER TABLE `sales` ADD COLUMN `amount_paid` DOUBLE NOT NULL DEFAULT 0' },
+  { table: 'sales', column: 'amount_owed', ddl: 'ALTER TABLE `sales` ADD COLUMN `amount_owed` DOUBLE NOT NULL DEFAULT 0' },
+  { table: 'invoices', column: 'amount_paid', ddl: 'ALTER TABLE `invoices` ADD COLUMN `amount_paid` DOUBLE NOT NULL DEFAULT 0' },
+  { table: 'invoices', column: 'amount_owed', ddl: 'ALTER TABLE `invoices` ADD COLUMN `amount_owed` DOUBLE NOT NULL DEFAULT 0' },
+  { table: 'customers', column: 'total_debt', ddl: 'ALTER TABLE `customers` ADD COLUMN `total_debt` DOUBLE NOT NULL DEFAULT 0' },
+  { table: 'customers', column: 'first_debt_at', ddl: 'ALTER TABLE `customers` ADD COLUMN `first_debt_at` VARCHAR(50)' },
+  { table: 'customers', column: 'last_debt_activity_at', ddl: 'ALTER TABLE `customers` ADD COLUMN `last_debt_activity_at` VARCHAR(50)' },
+
+  // Audit log: capture client IP / user-agent (added for SOC2-style auditing)
+  { table: 'audit_logs', column: 'ip', ddl: 'ALTER TABLE `audit_logs` ADD COLUMN `ip` TEXT' },
+  { table: 'audit_logs', column: 'user_agent', ddl: 'ALTER TABLE `audit_logs` ADD COLUMN `user_agent` TEXT' },
+]
+
+const createTableStatements: { name: string; ddl: string }[] = [
+  {
+    name: 'tenants',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`tenants\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`name\` VARCHAR(255) NOT NULL,
+        \`slug\` VARCHAR(255) NOT NULL,
+        \`status\` VARCHAR(20) NOT NULL DEFAULT 'pending',
+        \`subscription_status\` VARCHAR(20) NOT NULL DEFAULT 'trial',
+        \`subscription_plan\` VARCHAR(50),
+        \`created_at\` VARCHAR(50) NOT NULL,
+        \`updated_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        UNIQUE INDEX \`tenant_slug_idx\` (\`slug\`),
+        INDEX \`tenant_status_idx\` (\`status\`)
+      )
+    `,
+  },
+  {
+    name: 'users',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`users\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`tenant_id\` INT,
+        \`name\` VARCHAR(255) NOT NULL,
+        \`email\` VARCHAR(255) NOT NULL,
+        \`password\` VARCHAR(255) NOT NULL,
+        \`role\` VARCHAR(20) NOT NULL,
+        \`permissions\` JSON,
+        \`status\` VARCHAR(20) NOT NULL DEFAULT 'active',
+        \`last_login\` TEXT,
+        \`created_at\` VARCHAR(50) NOT NULL,
+        \`updated_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        UNIQUE INDEX \`user_email_idx\` (\`email\`),
+        INDEX \`user_tenant_role_idx\` (\`tenant_id\`, \`role\`)
+      )
+    `,
+  },
+  {
+    name: 'customers',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`customers\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`tenant_id\` INT NOT NULL,
+        \`name\` VARCHAR(255) NOT NULL,
+        \`email\` VARCHAR(255),
+        \`phone\` VARCHAR(50),
+        \`address\` TEXT,
+        \`notes\` TEXT,
+        \`total_sales\` INT NOT NULL DEFAULT 0,
+        \`total_revenue\` DOUBLE NOT NULL DEFAULT 0,
+        \`total_debt\` DOUBLE NOT NULL DEFAULT 0,
+        \`first_debt_at\` VARCHAR(50),
+        \`last_debt_activity_at\` VARCHAR(50),
+        \`created_by\` INT NOT NULL,
+        \`created_at\` VARCHAR(50) NOT NULL,
+        \`updated_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        INDEX \`customer_tenant_name_idx\` (\`tenant_id\`, \`name\`),
+        INDEX \`customer_tenant_phone_idx\` (\`tenant_id\`, \`phone\`),
+        INDEX \`customer_tenant_email_idx\` (\`tenant_id\`, \`email\`),
+        INDEX \`customer_tenant_debt_idx\` (\`tenant_id\`, \`total_debt\`)
+      )
+    `,
+  },
+  {
+    name: 'sales',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`sales\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`tenant_id\` INT NOT NULL,
+        \`sale_number\` VARCHAR(50) NOT NULL,
+        \`customer_name\` VARCHAR(255),
+        \`customer_phone\` VARCHAR(50),
+        \`customer_id\` INT,
+        \`items\` JSON NOT NULL,
+        \`subtotal\` DOUBLE NOT NULL,
+        \`discount_percent\` DOUBLE NOT NULL DEFAULT 0,
+        \`discount\` DOUBLE NOT NULL DEFAULT 0,
+        \`tax\` DOUBLE NOT NULL DEFAULT 0,
+        \`tax_items\` JSON NOT NULL,
+        \`total\` DOUBLE NOT NULL,
+        \`amount_paid\` DOUBLE NOT NULL DEFAULT 0,
+        \`amount_owed\` DOUBLE NOT NULL DEFAULT 0,
+        \`payment_method\` VARCHAR(20) NOT NULL,
+        \`notes\` TEXT,
+        \`created_by\` INT NOT NULL,
+        \`created_at\` VARCHAR(50) NOT NULL,
+        \`updated_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        UNIQUE INDEX \`sale_tenant_number_idx\` (\`tenant_id\`, \`sale_number\`),
+        INDEX \`sale_tenant_created_idx\` (\`tenant_id\`, \`created_at\`),
+        INDEX \`sale_tenant_customer_idx\` (\`tenant_id\`, \`customer_id\`),
+        INDEX \`sale_tenant_owed_idx\` (\`tenant_id\`, \`amount_owed\`)
+      )
+    `,
+  },
+  {
+    name: 'invoices',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`invoices\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`tenant_id\` INT NOT NULL,
+        \`invoice_number\` VARCHAR(50) NOT NULL,
+        \`customer_id\` INT,
+        \`customer_name\` VARCHAR(255) NOT NULL,
+        \`customer_email\` VARCHAR(255),
+        \`customer_phone\` VARCHAR(50),
+        \`customer_address\` TEXT,
+        \`items\` JSON NOT NULL,
+        \`subtotal\` DOUBLE NOT NULL,
+        \`discount_percent\` DOUBLE NOT NULL DEFAULT 0,
+        \`discount\` DOUBLE NOT NULL DEFAULT 0,
+        \`tax\` DOUBLE NOT NULL DEFAULT 0,
+        \`tax_items\` JSON NOT NULL,
+        \`total\` DOUBLE NOT NULL,
+        \`amount_paid\` DOUBLE NOT NULL DEFAULT 0,
+        \`amount_owed\` DOUBLE NOT NULL DEFAULT 0,
+        \`status\` VARCHAR(20) NOT NULL DEFAULT 'draft',
+        \`due_date\` VARCHAR(50) NOT NULL,
+        \`notes\` TEXT,
+        \`created_by\` INT NOT NULL,
+        \`created_at\` VARCHAR(50) NOT NULL,
+        \`updated_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        UNIQUE INDEX \`invoice_tenant_number_idx\` (\`tenant_id\`, \`invoice_number\`),
+        INDEX \`invoice_tenant_status_idx\` (\`tenant_id\`, \`status\`),
+        INDEX \`invoice_tenant_customer_idx\` (\`tenant_id\`, \`customer_id\`),
+        INDEX \`invoice_tenant_due_idx\` (\`tenant_id\`, \`due_date\`),
+        INDEX \`invoice_tenant_owed_idx\` (\`tenant_id\`, \`amount_owed\`)
+      )
+    `,
+  },
+  {
+    name: 'debt_ledger',
+    ddl: `
       CREATE TABLE IF NOT EXISTS \`debt_ledger\` (
         \`id\` INT NOT NULL AUTO_INCREMENT,
         \`tenant_id\` INT NOT NULL,
@@ -99,13 +223,180 @@ async function migrate() {
         INDEX \`debt_tenant_customer_idx\` (\`tenant_id\`, \`customer_id\`),
         INDEX \`debt_tenant_reference_idx\` (\`tenant_id\`, \`reference_type\`, \`reference_id\`)
       )
-    `)
-    console.log('     ok')
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    if (msg.includes('already exists')) console.log('     already exists, skipping')
-    else throw err
+    `,
+  },
+  {
+    name: 'counters',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`counters\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`tenant_id\` INT NOT NULL,
+        \`name\` VARCHAR(100) NOT NULL,
+        \`sequence\` INT NOT NULL DEFAULT 0,
+        PRIMARY KEY (\`id\`),
+        UNIQUE INDEX \`counter_tenant_name_idx\` (\`tenant_id\`, \`name\`)
+      )
+    `,
+  },
+  {
+    name: 'notifications',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`notifications\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`tenant_id\` INT NOT NULL,
+        \`user_id\` INT NOT NULL,
+        \`type\` TEXT NOT NULL,
+        \`title\` TEXT NOT NULL,
+        \`message\` TEXT NOT NULL,
+        \`link\` TEXT,
+        \`read\` TINYINT NOT NULL DEFAULT 0,
+        \`created_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        INDEX \`notif_tenant_user_read_idx\` (\`tenant_id\`, \`user_id\`, \`read\`),
+        INDEX \`notif_tenant_created_idx\` (\`tenant_id\`, \`created_at\`)
+      )
+    `,
+  },
+  {
+    name: 'audit_logs',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`audit_logs\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`tenant_id\` INT NOT NULL,
+        \`action\` VARCHAR(100) NOT NULL,
+        \`entity\` TEXT NOT NULL,
+        \`entity_id\` TEXT,
+        \`performed_by\` INT NOT NULL,
+        \`performed_by_name\` TEXT NOT NULL,
+        \`details\` JSON,
+        \`ip\` TEXT,
+        \`user_agent\` TEXT,
+        \`created_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        INDEX \`audit_tenant_created_idx\` (\`tenant_id\`, \`created_at\`),
+        INDEX \`audit_tenant_action_idx\` (\`tenant_id\`, \`action\`),
+        INDEX \`audit_tenant_user_idx\` (\`tenant_id\`, \`performed_by\`)
+      )
+    `,
+  },
+  {
+    name: 'settings',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`settings\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`tenant_id\` INT NOT NULL,
+        \`store_name\` VARCHAR(255) NOT NULL,
+        \`store_phone\` VARCHAR(50),
+        \`store_email\` VARCHAR(255),
+        \`store_address\` TEXT,
+        \`store_description\` TEXT,
+        \`tax_number\` VARCHAR(100),
+        \`logo\` VARCHAR(500),
+        \`currency\` VARCHAR(10) NOT NULL DEFAULT 'GHS',
+        \`timezone\` VARCHAR(50) NOT NULL DEFAULT 'UTC',
+        \`tax_rate\` DOUBLE NOT NULL DEFAULT 0,
+        \`taxes\` JSON NOT NULL,
+        \`receipt_footer\` TEXT NOT NULL,
+        \`default_payment_methods\` JSON NOT NULL,
+        \`show_logo_on_receipt\` TINYINT NOT NULL DEFAULT 1,
+        \`show_qr_on_receipt\` TINYINT NOT NULL DEFAULT 1,
+        \`created_at\` VARCHAR(50) NOT NULL,
+        \`updated_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        UNIQUE INDEX \`settings_tenant_idx\` (\`tenant_id\`)
+      )
+    `,
+  },
+  {
+    name: 'subscriptions',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`subscriptions\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`tenant_id\` INT NOT NULL,
+        \`plan\` VARCHAR(20) NOT NULL DEFAULT 'free',
+        \`status\` VARCHAR(20) NOT NULL DEFAULT 'trial',
+        \`trial_ends_at\` VARCHAR(50),
+        \`current_period_start\` VARCHAR(50) NOT NULL,
+        \`current_period_end\` VARCHAR(50),
+        \`cancelled_at\` VARCHAR(50),
+        \`created_at\` VARCHAR(50) NOT NULL,
+        \`updated_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        UNIQUE INDEX \`subscription_tenant_idx\` (\`tenant_id\`)
+      )
+    `,
+  },
+  {
+    name: 'announcements',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`announcements\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`title\` VARCHAR(255) NOT NULL,
+        \`message\` TEXT NOT NULL,
+        \`priority\` VARCHAR(10) NOT NULL DEFAULT 'medium',
+        \`active\` TINYINT NOT NULL DEFAULT 1,
+        \`created_by\` INT NOT NULL,
+        \`created_at\` VARCHAR(50) NOT NULL,
+        \`updated_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        INDEX \`announcement_active_created_idx\` (\`active\`, \`created_at\`)
+      )
+    `,
+  },
+]
+
+function isAlreadyExists(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  const code = (err as { cause?: { code?: string } })?.cause?.code
+  const errno = (err as { cause?: { errno?: number } })?.cause?.errno
+  return (
+    msg.includes('Duplicate column') ||
+    msg.includes('already exists') ||
+    code === 'ER_DUP_FIELDNAME' ||
+    code === 'ER_TABLE_EXISTS_ERROR' ||
+    errno === 1060 ||
+    errno === 1050
+  )
+}
+
+async function migrate() {
+  console.log('Connecting to database...')
+  const db = await dbConnect()
+
+  console.log('\n--- Step 1: CREATE TABLE ---')
+  for (const { name, ddl } of createTableStatements) {
+    try {
+      console.log(`  -> ${name}`)
+      await db.execute(sql.raw(ddl))
+      console.log('     ok')
+    } catch (err) {
+      if (isAlreadyExists(err)) {
+        console.log('     already exists, skipping')
+      } else {
+        throw err
+      }
+    }
   }
+
+  console.log('\n--- Step 2: ALTER TABLE (additive columns) ---')
+  for (const { table, column, ddl } of alters) {
+    try {
+      console.log(`  -> ${table}.${column}`)
+      await db.execute(sql.raw(ddl))
+      console.log('     ok')
+    } catch (err) {
+      if (isAlreadyExists(err)) {
+        console.log('     already exists, skipping')
+      } else {
+        throw err
+      }
+    }
+  }
+
+  console.log('\n--- Step 3: Backfill empty JSON arrays ---')
+  await db.execute(sql`UPDATE \`sales\` SET \`tax_items\` = JSON_ARRAY() WHERE \`tax_items\` IS NULL OR JSON_LENGTH(\`tax_items\`) IS NULL`)
+  await db.execute(sql`UPDATE \`invoices\` SET \`tax_items\` = JSON_ARRAY() WHERE \`tax_items\` IS NULL OR JSON_LENGTH(\`tax_items\`) IS NULL`)
+  await db.execute(sql`UPDATE \`settings\` SET \`taxes\` = JSON_ARRAY() WHERE \`taxes\` IS NULL OR JSON_LENGTH(\`taxes\`) IS NULL`)
 
   console.log('\n--- Migration complete ---')
   process.exit(0)

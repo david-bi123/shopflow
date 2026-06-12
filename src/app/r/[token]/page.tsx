@@ -1,17 +1,17 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Store, ArrowLeft, CheckCircle2, Calendar, Hash, User, Phone, CreditCard, FileText, Mail, MapPin } from 'lucide-react'
+import { Store, ArrowLeft, CheckCircle2, Calendar, Hash, User, Phone, CreditCard, FileText, MapPin } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
-import { getSaleByNumber } from '@/lib/actions/sale-actions'
+import { getSaleByPublicToken } from '@/lib/actions/sale-actions'
 import { PublicActions } from '@/components/shared/public-actions'
 
 export default async function PublicReceiptPage({
   params,
 }: {
-  params: Promise<{ saleId: string }>
+  params: Promise<{ token: string }>
 }) {
-  const { saleId } = await params
-  const sale = (await getSaleByNumber(saleId)) as (Record<string, unknown> & {
+  const { token } = await params
+  const sale = (await getSaleByPublicToken(token)) as (Record<string, unknown> & {
     saleNumber: string
     customerName?: string | null
     customerPhone?: string | null
@@ -36,8 +36,8 @@ export default async function PublicReceiptPage({
   const currency = sale.currency ?? 'GHS'
   const tenant = sale.tenant ?? { name: 'Store', slug: '' }
 
-  const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/r/${sale.saleNumber}`
-  const pdfUrl = `/api/r/${sale.saleNumber}/pdf`
+  const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/r/${token}`
+  const pdfUrl = `/api/r/${token}/pdf`
   const whatsappMessage = `Sale ${sale.saleNumber} - ${sale.customerName || 'Customer'} - Total: ${formatCurrency(sale.total, currency)}`
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}%0A${receiptUrl}`
 
@@ -221,7 +221,7 @@ export default async function PublicReceiptPage({
             </div>
           )}
 
-          <div className="border-t border-border/60 bg-gradient-to-b from-white to-slate-50/50 px-5 py-5 dark:from-card dark:to-zinc-900/30 sm:px-6">
+          <div className="border-t border-border/60 bg-gradient-to-b from-white to-slate-50/50 px-5 py-5 dark:from-card dark:to-zinc-900/30 sm:px-6 sm:py-6">
             <div className="flex flex-col items-center gap-2">
               <div className="rounded-xl border border-border/60 bg-white p-2.5 shadow-sm">
                 <div className="flex h-20 w-20 items-center justify-center">
