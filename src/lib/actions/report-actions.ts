@@ -30,18 +30,23 @@ export async function getDashboardStats() {
   // All aggregates in a single round trip using conditional SUM/COUNT.
   // This replaces a previous implementation that loaded the entire sales
   // table into Node memory and summed it in JS.
+  //
+  // NOTE: every `sql` template expression below uses an explicit `AS name`
+  // because Drizzle's `select({ key: sql\`expr\` })` shortcut does not
+  // always emit the alias in the generated SQL, and MySQL strict mode
+  // rejects unaliased expressions in SELECT.
   const [aggregates] = await db
     .select({
-      todayTotal: sql<number>`COALESCE(SUM(CASE WHEN ${sales.createdAt} >= ${startOfDay} THEN ${sales.total} ELSE 0 END), 0)`,
-      todayCount: sql<number>`COUNT(CASE WHEN ${sales.createdAt} >= ${startOfDay} THEN 1 END)`,
-      weeklyTotal: sql<number>`COALESCE(SUM(CASE WHEN ${sales.createdAt} >= ${startOfWeekStr} THEN ${sales.total} ELSE 0 END), 0)`,
-      weeklyCount: sql<number>`COUNT(CASE WHEN ${sales.createdAt} >= ${startOfWeekStr} THEN 1 END)`,
-      monthlyTotal: sql<number>`COALESCE(SUM(CASE WHEN ${sales.createdAt} >= ${startOfMonth} THEN ${sales.total} ELSE 0 END), 0)`,
-      monthlyCount: sql<number>`COUNT(CASE WHEN ${sales.createdAt} >= ${startOfMonth} THEN 1 END)`,
-      totalCount: sql<number>`COUNT(*)`,
-      allTimeRevenue: sql<number>`COALESCE(SUM(${sales.total}), 0)`,
-      firstSaleAt: sql<string | null>`MIN(${sales.createdAt})`,
-      lastSaleAt: sql<string | null>`MAX(${sales.createdAt})`,
+      todayTotal: sql<number>`COALESCE(SUM(CASE WHEN ${sales.createdAt} >= ${startOfDay} THEN ${sales.total} ELSE 0 END), 0)`.as('today_total'),
+      todayCount: sql<number>`COUNT(CASE WHEN ${sales.createdAt} >= ${startOfDay} THEN 1 END)`.as('today_count'),
+      weeklyTotal: sql<number>`COALESCE(SUM(CASE WHEN ${sales.createdAt} >= ${startOfWeekStr} THEN ${sales.total} ELSE 0 END), 0)`.as('weekly_total'),
+      weeklyCount: sql<number>`COUNT(CASE WHEN ${sales.createdAt} >= ${startOfWeekStr} THEN 1 END)`.as('weekly_count'),
+      monthlyTotal: sql<number>`COALESCE(SUM(CASE WHEN ${sales.createdAt} >= ${startOfMonth} THEN ${sales.total} ELSE 0 END), 0)`.as('monthly_total'),
+      monthlyCount: sql<number>`COUNT(CASE WHEN ${sales.createdAt} >= ${startOfMonth} THEN 1 END)`.as('monthly_count'),
+      totalCount: sql<number>`COUNT(*)`.as('total_count'),
+      allTimeRevenue: sql<number>`COALESCE(SUM(${sales.total}), 0)`.as('all_time_revenue'),
+      firstSaleAt: sql<string | null>`MIN(${sales.createdAt})`.as('first_sale_at'),
+      lastSaleAt: sql<string | null>`MAX(${sales.createdAt})`.as('last_sale_at'),
     })
     .from(sales)
     .where(eq(sales.tenantId, tenantId))
@@ -137,12 +142,12 @@ export async function getSalesChartData(days = 30) {
 
   const tenantId = toNum(session.user.tenantId!)
 
-  const dayExpr = sql<string>`substr(${sales.createdAt}, 1, 10)`
+  const dayExpr = sql<string>`substr(${sales.createdAt}, 1, 10)`.as('day')
   const rows = await db
     .select({
       date: dayExpr,
-      sales: sql<number>`COALESCE(SUM(${sales.total}), 0)`,
-      orders: sql<number>`COUNT(*)`,
+      sales: sql<number>`COALESCE(SUM(${sales.total}), 0)`.as('sales'),
+      orders: sql<number>`COUNT(*)`.as('orders'),
     })
     .from(sales)
     .where(and(eq(sales.tenantId, tenantId), gte(sales.createdAt, startDateStr)))
@@ -177,21 +182,21 @@ export async function getSalesReport(startDate: string, endDate: string) {
     lte(sales.createdAt, end),
   )
 
-  const dayExpr = sql<string>`substr(${sales.createdAt}, 1, 10)`
+  const dayExpr = sql<string>`substr(${sales.createdAt}, 1, 10)`.as('day')
 
   const [[kpis], daily, methodAgg] = await Promise.all([
     db
       .select({
-        totalRevenue: sql<number>`COALESCE(SUM(${sales.total}), 0)`,
-        totalSales: sql<number>`COUNT(*)`,
+        totalRevenue: sql<number>`COALESCE(SUM(${sales.total}), 0)`.as('total_revenue'),
+        totalSales: sql<number>`COUNT(*)`.as('total_sales'),
       })
       .from(sales)
       .where(where),
     db
       .select({
         label: dayExpr,
-        revenue: sql<number>`COALESCE(SUM(${sales.total}), 0)`,
-        sales: sql<number>`COUNT(*)`,
+        revenue: sql<number>`COALESCE(SUM(${sales.total}), 0)`.as('revenue'),
+        sales: sql<number>`COUNT(*)`.as('sales'),
       })
       .from(sales)
       .where(where)
@@ -200,8 +205,8 @@ export async function getSalesReport(startDate: string, endDate: string) {
     db
       .select({
         method: sales.paymentMethod,
-        count: sql<number>`COUNT(*)`,
-        total: sql<number>`COALESCE(SUM(${sales.total}), 0)`,
+        count: sql<number>`COUNT(*)`.as('count'),
+        total: sql<number>`COALESCE(SUM(${sales.total}), 0)`.as('total'),
       })
       .from(sales)
       .where(where)
