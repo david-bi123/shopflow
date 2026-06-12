@@ -75,12 +75,18 @@ export const createInvoiceSchema = z.object({
   customerPhone: z.string().max(50).optional().or(z.literal('')),
   customerAddress: z.string().max(500).optional().or(z.literal('')),
   items: z.array(invoiceItemSchema).min(1, 'At least one item is required'),
-  subtotal: z.number().min(0),
+  /**
+   * The following five fields are computed server-side from `items` +
+   * `discountPercent` + `taxItems`. Optional in the schema so the
+   * client form's react-hook-form resolver doesn't fail on fields that
+   * aren't registered as inputs; the action recomputes them.
+   */
+  subtotal: z.number().min(0).optional(),
   discountPercent: z.number().min(0).max(100).default(0),
   discount: z.number().min(0).default(0),
   tax: z.number().min(0).default(0),
   taxItems: z.array(taxItemSchema).default([]),
-  total: z.number().positive('Invoice total must be greater than zero'),
+  total: z.number().positive('Invoice total must be greater than zero').optional(),
   amountPaid: z.number().min(0).default(0),
   dueDate: z.string().min(1, 'Due date is required'),
   notes: z.string().max(1000).optional().or(z.literal('')),

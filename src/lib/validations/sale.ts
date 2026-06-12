@@ -26,7 +26,14 @@ export const createSaleSchema = z.object({
   customerPhone: z.string().max(50).optional().or(z.literal('')),
   customerId: z.string().optional().or(z.literal('')),
   items: z.array(saleItemSchema).min(1, 'At least one item is required'),
-  subtotal: z.number().min(0),
+  /**
+   * The following five fields are computed server-side from `items` +
+   * `discountPercent` + `taxItems`. They're optional in the schema so
+   * the client form's react-hook-form resolver doesn't fail on the
+   * fields that aren't registered as inputs; the action recomputes
+   * and overwrites them.
+   */
+  subtotal: z.number().min(0).optional(),
   /** Discount as a percentage of the subtotal (e.g. 10 for 10%). 0 = no discount. */
   discountPercent: z.number().min(0).max(100).default(0),
   /** Computed discount amount in the tenant's currency. */
@@ -35,9 +42,8 @@ export const createSaleSchema = z.object({
   tax: z.number().min(0).default(0),
   /** Per-tax breakdown (NHIS, VAT, GET Fund, ...). Empty array = no taxes. */
   taxItems: z.array(taxItemSchema).default([]),
-  // Total must be > 0. A sale with no items (or all items priced at
-  // zero) is almost certainly a mistake.
-  total: z.number().positive('Sale total must be greater than zero'),
+  /** Total — recomputed server-side. Optional so the form passes. */
+  total: z.number().positive('Sale total must be greater than zero').optional(),
   /** Amount paid at sale time. Defaults to total (paid in full). */
   amountPaid: z.number().min(0).default(0),
   paymentMethod: z.string().max(50).optional().or(z.literal('')),
