@@ -197,9 +197,15 @@ export async function getSales(page = 1, limit = 20, filters?: Record<string, st
   const conditions = [eq(sales.tenantId, toNum(session.user.tenantId!))]
 
   if (filters?.search) {
+    const term = `%${filters.search}%`
+    // Match against sale number, customer name, OR any line item name
+    // inside the JSON items array. The CAST-to-CHAR LIKE pattern is the
+    // most reliable cross-version MySQL way to substring-match inside a
+    // JSON column without needing a generated column / fulltext index.
     const searchCondition = or(
-      like(sales.saleNumber, `%${filters.search}%`),
-      like(sales.customerName, `%${filters.search}%`)
+      like(sales.saleNumber, term),
+      like(sales.customerName, term),
+      sql`CAST(${sales.items} AS CHAR) LIKE ${term}`,
     )
     if (searchCondition) conditions.push(searchCondition)
   }

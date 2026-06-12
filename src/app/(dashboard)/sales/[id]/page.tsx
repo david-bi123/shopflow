@@ -357,28 +357,43 @@ export default function SaleDetailPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y divide-border/60">
-              {sale.items.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-slate-50/40 dark:hover:bg-zinc-900/30"
-                >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-xs font-semibold text-muted-foreground ring-1 ring-border/60">
-                    {String(index + 1).padStart(2, '0')}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {formatCurrency(item.price)} × {item.quantity}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold tabular-nums text-foreground">
-                      {formatCurrency(item.subtotal)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 bg-slate-50/70 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:bg-zinc-900/50">
+                    <th className="px-5 py-2.5 text-left sm:px-6">Item</th>
+                    <th className="px-2 py-2.5 text-right">Quantity</th>
+                    <th className="px-2 py-2.5 text-right">Unit Price</th>
+                    <th className="px-5 py-2.5 text-right sm:px-6">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {sale.items.map((item, index) => (
+                    <tr
+                      key={index}
+                      className="transition-colors hover:bg-slate-50/40 dark:hover:bg-zinc-900/30"
+                    >
+                      <td className="px-5 py-3.5 sm:px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60 text-[10px] font-semibold text-muted-foreground ring-1 ring-border/60">
+                            {String(index + 1).padStart(2, '0')}
+                          </div>
+                          <span className="truncate font-medium text-foreground">{item.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-2 py-3.5 text-right tabular-nums text-muted-foreground">
+                        {item.quantity}
+                      </td>
+                      <td className="px-2 py-3.5 text-right tabular-nums text-muted-foreground">
+                        {formatCurrency(item.price)}
+                      </td>
+                      <td className="px-5 py-3.5 text-right tabular-nums font-semibold text-foreground sm:px-6">
+                        {formatCurrency(item.subtotal)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>

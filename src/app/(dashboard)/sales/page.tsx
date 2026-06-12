@@ -107,9 +107,12 @@ export default function SalesPage() {
   }
 
   const filtered = sales.filter((sale) => {
+    const q = search.toLowerCase()
     const matchesSearch =
-      sale.saleNumber.toLowerCase().includes(search.toLowerCase()) ||
-      (sale.customerName ?? '').toLowerCase().includes(search.toLowerCase())
+      !q ||
+      sale.saleNumber.toLowerCase().includes(q) ||
+      (sale.customerName ?? '').toLowerCase().includes(q) ||
+      sale.items.some((item) => item.name.toLowerCase().includes(q))
     const matchesPayment =
       paymentFilter === 'all' || sale.paymentMethod === paymentFilter
     return matchesSearch && matchesPayment
@@ -187,7 +190,7 @@ export default function SalesPage() {
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by sale number or customer..."
+            placeholder="Search by sale number, customer, or product..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
