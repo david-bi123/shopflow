@@ -38,6 +38,7 @@ import {
 import { DataTable } from '@/components/shared/data-table'
 import { EmptyState } from '@/components/shared/empty-state'
 import { LoadingSkeleton } from '@/components/shared/loading-skeleton'
+import { DateFilter, useDateRange, isInDateRange, type DatePreset } from '@/components/shared/date-filter'
 import { getInvoices, deleteInvoice } from '@/lib/actions/invoice-actions'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { toast } from 'sonner'
@@ -69,7 +70,12 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [datePreset, setDatePreset] = useState<DatePreset>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+
+  const dateRange = useDateRange(datePreset, dateFrom, dateTo)
 
   useEffect(() => {
     let cancelled = false
@@ -105,11 +111,14 @@ export default function InvoicesPage() {
   }
 
   const filtered = invoices.filter((inv) => {
+    const q = search.toLowerCase()
     const matchesSearch =
-      inv.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-      inv.customerName.toLowerCase().includes(search.toLowerCase())
+      !q ||
+      inv.invoiceNumber.toLowerCase().includes(q) ||
+      inv.customerName.toLowerCase().includes(q)
     const matchesStatus = statusFilter === 'all' || inv.status === statusFilter
-    return matchesSearch && matchesStatus
+    const matchesDate = isInDateRange(inv as unknown as { [k: string]: unknown }, dateRange)
+    return matchesSearch && matchesStatus && matchesDate
   })
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
@@ -211,6 +220,24 @@ export default function InvoicesPage() {
             ))}
           </SelectContent>
         </Select>
+        <DateFilter
+          preset={datePreset}
+          from={dateFrom}
+          to={dateTo}
+          onPresetChange={(p) => {
+            setDatePreset(p)
+            setCurrentPage(1)
+          }}
+          onFromChange={(d) => {
+            setDateFrom(d)
+            setCurrentPage(1)
+          }}
+          onToChange={(d) => {
+            setDateTo(d)
+            setCurrentPage(1)
+          }}
+          accent="blue"
+        />
         <Button asChild className="h-10 shrink-0 rounded-full bg-blue-600 text-white shadow-md hover:bg-blue-700">
           <Link href="/invoices/new">
             <Plus className="mr-1.5 size-4" />

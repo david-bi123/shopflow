@@ -73,7 +73,12 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('all')
+  const [datePreset, setDatePreset] = useState<DatePreset>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+
+  const dateRange = useDateRange(datePreset, dateFrom, dateTo)
 
   useEffect(() => {
     let cancelled = false
@@ -115,7 +120,8 @@ export default function SalesPage() {
       sale.items.some((item) => item.name.toLowerCase().includes(q))
     const matchesPayment =
       paymentFilter === 'all' || sale.paymentMethod === paymentFilter
-    return matchesSearch && matchesPayment
+    const matchesDate = isInDateRange(sale as unknown as { [k: string]: unknown }, dateRange)
+    return matchesSearch && matchesPayment && matchesDate
   })
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
@@ -217,6 +223,24 @@ export default function SalesPage() {
             ))}
           </SelectContent>
         </Select>
+        <DateFilter
+          preset={datePreset}
+          from={dateFrom}
+          to={dateTo}
+          onPresetChange={(p) => {
+            setDatePreset(p)
+            setCurrentPage(1)
+          }}
+          onFromChange={(d) => {
+            setDateFrom(d)
+            setCurrentPage(1)
+          }}
+          onToChange={(d) => {
+            setDateTo(d)
+            setCurrentPage(1)
+          }}
+          accent="emerald"
+        />
         <Button asChild className="h-10 shrink-0 rounded-full bg-emerald-600 text-white shadow-md hover:bg-emerald-700">
           <Link href="/sales/new">
             <Plus className="mr-1.5 size-4" />
