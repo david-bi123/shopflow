@@ -11,15 +11,22 @@ import { getNextInvoiceNumber } from '@/lib/services/counter'
 import { createAuditLog } from '@/lib/services/audit'
 import { createNotification } from '@/lib/services/notification'
 import { createInvoiceSchema, updateInvoiceStatusSchema } from '@/lib/validations/invoice'
+import { actionHandler } from '@/lib/utils/action-handler'
+import { actionOk } from '@/lib/utils/action-result'
 import type { CreateInvoiceInput, InvoiceStatus, Invoice, TaxItem } from '@/lib/validations/invoice'
 
 export async function createInvoice(data: CreateInvoiceInput) {
-  const session = await auth()
-  if (!session?.user) return { error: 'Unauthorized' }
-  if (!hasPermission(session.user.role, PERMISSIONS.invoices.create)) return { error: 'Forbidden' }
+  return actionHandler('createInvoice', { data }, async () => {
+    const session = await auth()
+    if (!session?.user) return { error: 'Unauthorized' }
+    if (!hasPermission(session.user.role, PERMISSIONS.invoices.create)) return { error: 'Forbidden' }
 
-  const validated = createInvoiceSchema.safeParse(data)
-  if (!validated.success) return { error: validated.error.issues[0].message }
+    const validated = createInvoiceSchema.safeParse(data)
+    if (!validated.success) {
+      const first = validated.error.issues[0]
+      const path = (first.path ?? []).join('.')
+      return { error: path ? `${path}: ${first.message}` : first.message }
+    }
 
   const db = await dbConnect()
   const tenantId = toNum(session.user.tenantId!)
@@ -137,8 +144,9 @@ export async function createInvoice(data: CreateInvoiceInput) {
     link: `/invoices/${invoice.id}`,
   })
 
-  revalidatePath('/invoices')
-  return { success: true, invoice: serializeRow(invoice as unknown as Record<string, unknown>) as unknown as Invoice }
+    revalidatePath('/invoices')
+    return actionOk(serializeRow(invoice as unknown as Record<string, unknown>) as unknown as Invoice)
+  })
 }
 
 export async function getInvoices(page = 1, limit = 20, filters?: Record<string, string>) {
@@ -311,12 +319,17 @@ export async function getInvoiceById(id: string) {
 }
 
 export async function updateInvoiceStatus(id: string, status: string) {
-  const session = await auth()
-  if (!session?.user) return { error: 'Unauthorized' }
-  if (!hasPermission(session.user.role, PERMISSIONS.invoices.update)) return { error: 'Forbidden' }
+  return actionHandler('updateInvoiceStatus', { id, status }, async () => {
+    const session = await auth()
+    if (!session?.user) return { error: 'Unauthorized' }
+    if (!hasPermission(session.user.role, PERMISSIONS.invoices.update)) return { error: 'Forbidden' }
 
-  const validated = updateInvoiceStatusSchema.safeParse({ status })
-  if (!validated.success) return { error: validated.error.issues[0].message }
+    const validated = updateInvoiceStatusSchema.safeParse({ status })
+    if (!validated.success) {
+      const first = validated.error.issues[0]
+      const path = (first.path ?? []).join('.')
+      return { error: path ? `${path}: ${first.message}` : first.message }
+    }
 
   const db = await dbConnect()
   const tenantId = toNum(session.user.tenantId!)
@@ -346,17 +359,19 @@ export async function updateInvoiceStatus(id: string, status: string) {
   })
 
   revalidatePath('/invoices')
-  return { success: true, invoice: serializeRow(invoice as unknown as Record<string, unknown>) as unknown as Invoice }
+  return actionOk(serializeRow(invoice as unknown as Record<string, unknown>) as unknown as Invoice)
+  })
 }
 
 export async function deleteInvoice(id: string) {
-  const session = await auth()
-  if (!session?.user) return { error: 'Unauthorized' }
-  if (!hasPermission(session.user.role, PERMISSIONS.invoices.delete)) return { error: 'Forbidden' }
+  return actionHandler('deleteInvoice', { id }, async () => {
+    const session = await auth()
+    if (!session?.user) return { error: 'Unauthorized' }
+    if (!hasPermission(session.user.role, PERMISSIONS.invoices.delete)) return { error: 'Forbidden' }
 
-  const db = await dbConnect()
-  const tenantId = toNum(session.user.tenantId!)
-  const userId = toNum(session.user.id)
+    const db = await dbConnect()
+    const tenantId = toNum(session.user.tenantId!)
+    const userId = toNum(session.user.id)
   const invoiceId = toNum(id)
 
   const [invoice] = await db
@@ -397,7 +412,8 @@ export async function deleteInvoice(id: string) {
     .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)))
 
   revalidatePath('/invoices')
-  return { success: true }
+  return actionOk({})
+  })
 }
 
 /**
@@ -405,12 +421,17 @@ export async function deleteInvoice(id: string) {
  * and re-applies it from scratch based on the new amount paid.
  */
 export async function updateInvoice(id: string, data: CreateInvoiceInput) {
-  const session = await auth()
-  if (!session?.user) return { error: 'Unauthorized' }
-  if (!hasPermission(session.user.role, PERMISSIONS.invoices.update)) return { error: 'Forbidden' }
+  return actionHandler('updateInvoice', { id, data }, async () => {
+    const session = await auth()
+    if (!session?.user) return { error: 'Unauthorized' }
+    if (!hasPermission(session.user.role, PERMISSIONS.invoices.update)) return { error: 'Forbidden' }
 
-  const validated = createInvoiceSchema.safeParse(data)
-  if (!validated.success) return { error: validated.error.issues[0].message }
+    const validated = createInvoiceSchema.safeParse(data)
+    if (!validated.success) {
+      const first = validated.error.issues[0]
+      const path = (first.path ?? []).join('.')
+      return { error: path ? `${path}: ${first.message}` : first.message }
+    }
 
   const db = await dbConnect()
   const tenantId = toNum(session.user.tenantId!)
@@ -537,7 +558,8 @@ export async function updateInvoice(id: string, data: CreateInvoiceInput) {
 
   revalidatePath('/invoices')
   revalidatePath(`/invoices/${id}`)
-  return { success: true, id }
+  return actionOk({ id })
+  })
 }
 
 export async function getInvoiceByNumber(invoiceNumber: string) {

@@ -11,15 +11,22 @@ import { hasPermission, PERMISSIONS } from '@/lib/auth/roles'
 import { getNextSaleNumber } from '@/lib/services/counter'
 import { createAuditLog } from '@/lib/services/audit'
 import { createNotification } from '@/lib/services/notification'
+import { actionHandler } from '@/lib/utils/action-handler'
+import { actionOk } from '@/lib/utils/action-result'
 import type { CreateSaleInput } from '@/lib/validations/sale'
 
 export async function createSale(data: CreateSaleInput) {
-  const session = await auth()
-  if (!session?.user) return { error: 'Unauthorized' }
-  if (!hasPermission(session.user.role, PERMISSIONS.sales.create)) return { error: 'Forbidden' }
+  return actionHandler('createSale', { data }, async () => {
+    const session = await auth()
+    if (!session?.user) return { error: 'Unauthorized' }
+    if (!hasPermission(session.user.role, PERMISSIONS.sales.create)) return { error: 'Forbidden' }
 
-  const validated = createSaleSchema.safeParse(data)
-  if (!validated.success) return { error: validated.error.issues[0].message }
+    const validated = createSaleSchema.safeParse(data)
+    if (!validated.success) {
+      const first = validated.error.issues[0]
+      const path = (first.path ?? []).join('.')
+      return { error: path ? `${path}: ${first.message}` : first.message }
+    }
 
   const db = await dbConnect()
   const tenantId = toNum(session.user.tenantId!)
@@ -170,7 +177,8 @@ export async function createSale(data: CreateSaleInput) {
   })
 
   revalidatePath('/sales')
-  return { success: true, sale: serializeRow(sale) }
+  return actionOk(serializeRow(sale))
+  })
 }
 
 export async function getSales(page = 1, limit = 20, filters?: Record<string, string>) {
@@ -238,12 +246,17 @@ export async function getSaleById(id: string) {
  * and re-applies it from scratch based on the new amount paid.
  */
 export async function updateSale(id: string, data: CreateSaleInput) {
-  const session = await auth()
-  if (!session?.user) return { error: 'Unauthorized' }
-  if (!hasPermission(session.user.role, PERMISSIONS.sales.update)) return { error: 'Forbidden' }
+  return actionHandler('updateSale', { id, data }, async () => {
+    const session = await auth()
+    if (!session?.user) return { error: 'Unauthorized' }
+    if (!hasPermission(session.user.role, PERMISSIONS.sales.update)) return { error: 'Forbidden' }
 
-  const validated = createSaleSchema.safeParse(data)
-  if (!validated.success) return { error: validated.error.issues[0].message }
+    const validated = createSaleSchema.safeParse(data)
+    if (!validated.success) {
+      const first = validated.error.issues[0]
+      const path = (first.path ?? []).join('.')
+      return { error: path ? `${path}: ${first.message}` : first.message }
+    }
 
   const db = await dbConnect()
   const tenantId = toNum(session.user.tenantId!)
@@ -379,13 +392,15 @@ export async function updateSale(id: string, data: CreateSaleInput) {
 
   revalidatePath('/sales')
   revalidatePath(`/sales/${id}`)
-  return { success: true, id }
+  return actionOk({ id })
+  })
 }
 
 export async function deleteSale(id: string) {
-  const session = await auth()
-  if (!session?.user) return { error: 'Unauthorized' }
-  if (!hasPermission(session.user.role, PERMISSIONS.sales.delete)) return { error: 'Forbidden' }
+  return actionHandler('deleteSale', { id }, async () => {
+    const session = await auth()
+    if (!session?.user) return { error: 'Unauthorized' }
+    if (!hasPermission(session.user.role, PERMISSIONS.sales.delete)) return { error: 'Forbidden' }
 
   const db = await dbConnect()
   const tenantId = toNum(session.user.tenantId!)
@@ -440,7 +455,8 @@ export async function deleteSale(id: string) {
   })
 
   revalidatePath('/sales')
-  return { success: true }
+  return actionOk({})
+  })
 }
 
 export async function getSaleByNumber(saleNumber: string) {

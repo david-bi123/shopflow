@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
+import { FormError } from '@/components/shared/form-error'
 import { createSaleSchema, type CreateSaleInput, type TaxItem } from '@/lib/validations/sale'
 import { createSale } from '@/lib/actions/sale-actions'
 import { formatCurrency } from '@/lib/utils/format'
@@ -55,6 +56,7 @@ const DEFAULT_TAXES = [
 export default function NewSalePage() {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
   const [currency, setCurrency] = useState('GHS')
   const [storeInfo, setStoreInfo] = useState<{
     taxes: { name: string; rate: number; enabled: boolean }[]
@@ -153,7 +155,7 @@ export default function NewSalePage() {
         Math.min(calculatedTotal, Number(data.amountPaid ?? calculatedTotal) || 0)
       )
 
-      await createSale({
+      const result = await createSale({
         ...data,
         subtotal: calculatedSubtotal,
         discount: calculatedDiscount,
@@ -162,6 +164,12 @@ export default function NewSalePage() {
         total: calculatedTotal,
         amountPaid: safeAmountPaid,
       })
+      if ('error' in result && result.error) {
+        setServerError(result.error)
+        toast.error(result.error)
+        return
+      }
+      setServerError(null)
       const owed = Math.max(0, Math.round((calculatedTotal - safeAmountPaid) * 100) / 100)
       if (owed > 0) {
         toast.success(`Sale created \u2014 ${formatCurrency(owed, currency)} owed`)
@@ -169,8 +177,9 @@ export default function NewSalePage() {
         toast.success('Sale created successfully')
       }
       router.push('/sales')
-    } catch {
-      toast.error('Failed to create sale')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to create sale'
+      toast.error(msg)
     } finally {
       setSubmitting(false)
     }
@@ -566,6 +575,8 @@ export default function NewSalePage() {
             </div>
           </CardContent>
         </Card>
+
+        <FormError error={serverError} onDismiss={() => setServerError(null)} />
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" asChild>

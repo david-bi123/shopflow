@@ -1,15 +1,17 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { dbConnect } from '@/lib/db/connect'
 import { customers, debtLedger } from '@/lib/db/schema'
 import { and, desc, eq, sql } from 'drizzle-orm'
+import { dbConnect } from '@/lib/db/connect'
 import { toNum, serializeList } from '@/lib/db/helpers'
 import { debtPaymentSchema, type DebtPaymentInput } from '@/lib/validations/debt'
 import { auth } from '@/lib/auth/auth'
 import { hasPermission, PERMISSIONS } from '@/lib/auth/roles'
 import { createAuditLog } from '@/lib/services/audit'
 import { createNotification } from '@/lib/services/notification'
+import { actionHandler } from '@/lib/utils/action-handler'
+import { actionOk } from '@/lib/utils/action-result'
 
 /**
  * Record a manual payment against a customer's outstanding debt.
@@ -18,12 +20,17 @@ import { createNotification } from '@/lib/services/notification'
  * cached `customers.totalDebt` balance.
  */
 export async function recordDebtPayment(data: DebtPaymentInput) {
-  const session = await auth()
-  if (!session?.user) return { error: 'Unauthorized' }
-  if (!hasPermission(session.user.role, PERMISSIONS.customers.update)) return { error: 'Forbidden' }
+  return actionHandler('recordDebtPayment', { data }, async () => {
+    const session = await auth()
+    if (!session?.user) return { error: 'Unauthorized' }
+    if (!hasPermission(session.user.role, PERMISSIONS.customers.update)) return { error: 'Forbidden' }
 
-  const validated = debtPaymentSchema.safeParse(data)
-  if (!validated.success) return { error: validated.error.issues[0].message }
+    const validated = debtPaymentSchema.safeParse(data)
+    if (!validated.success) {
+      const first = validated.error.issues[0]
+      const path = (first.path ?? []).join('.')
+      return { error: path ? `${path}: ${first.message}` : first.message }
+    }
 
   const db = await dbConnect()
   const tenantId = toNum(session.user.tenantId!)
@@ -87,7 +94,8 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
 
   revalidatePath('/customers')
   revalidatePath(`/customers/${customerId}`)
-  return { success: true, entryId: (inserted as { id: number }).id, balanceAfter: newBalance }
+  return actionOk({ entryId: (inserted as { id: number }).id, balanceAfter: newBalance })
+  })
 }
 
 /**

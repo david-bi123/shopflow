@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth/auth'
 import { AppShell } from '@/components/layout/app-shell'
+import { GlobalErrorCatcher } from '@/components/shared/global-error-catcher'
 import type { Role } from '@/types'
 
 export default async function DashboardLayout({
@@ -23,8 +24,13 @@ export default async function DashboardLayout({
     name: session.user.name ?? null,
     email: session.user.email ?? null,
     role: (session.user as { role: Role }).role,
-    tenantId: (session.user as { tenantId?: string | null }).tenantId ?? null,
+    tenantId: (session.user as { role: Role; tenantId?: string | null }).tenantId ?? null,
   }
 
-  return <AppShell user={user}>{children}</AppShell>
+  return (
+    <>
+      <AppShell user={user}>{children}</AppShell>
+      <GlobalErrorCatcher />
+    </>
+  )
 }

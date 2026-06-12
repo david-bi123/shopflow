@@ -212,7 +212,8 @@ export default function CustomersPage() {
         toast.error(res.error)
         return
       }
-      toast.success(`Payment of ${formatCurrency(amount)} recorded. New balance: ${formatCurrency(res.balanceAfter ?? 0)}`)
+      const data = (res as { data?: { balanceAfter: number } }).data
+      toast.success(`Payment of ${formatCurrency(amount)} recorded. New balance: ${formatCurrency(data?.balanceAfter ?? 0)}`)
       setPayingCustomer(null)
       void refresh()
     } finally {
