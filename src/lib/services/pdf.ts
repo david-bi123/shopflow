@@ -1,6 +1,13 @@
 import PDFDocument from 'pdfkit'
 import type { TaxItem } from '@/lib/validations/sale'
 
+export interface SalePaymentHistoryEntry {
+  type: string
+  amount: number
+  notes?: string
+  createdAt: string
+}
+
 export interface SalePdfData {
   saleNumber: string
   customerName?: string
@@ -12,9 +19,14 @@ export interface SalePdfData {
   tax: number
   taxItems: TaxItem[]
   total: number
+  amountPaid: number
+  amountOwed: number
   paymentMethod: string
   notes?: string
   createdAt: string
+  updatedAt: string
+  /** Linked debt_ledger entries (oldest first). Drives the payment-history block. */
+  paymentHistory: SalePaymentHistoryEntry[]
 }
 
 export interface InvoicePdfData {
@@ -245,168 +257,224 @@ function drawTotals(opts: DrawTotalsOpts) {
 
 export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    // A5 width (148mm) for a thermal-receipt look
-    const doc = new PDFDocument({ size: [280, 700], margin: 10 })
+    const doc = new PDFDocument({ size: 'A4', margin: 50 })
     const chunks: Buffer[] = []
 
     doc.on('data', (chunk: Buffer) => chunks.push(chunk))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
-    const pageWidth = 280
-    const margin = 20
-    const contentWidth = pageWidth - margin * 2
+    drawA4Header(doc, store)
 
-    // --- Header (thermal receipt style with gradient bar) ---
-    doc.rect(0, 0, pageWidth, 64).fill(HEADER_COLOR)
-    doc.rect(0, 64, pageWidth, 3).fill(HEADER_ACCENT)
+    let y = 130
 
-    doc.fillColor('#ffffff').fontSize(13).font('Helvetica-Bold')
-    doc.text(store.name, margin, 10, { align: 'center', width: contentWidth })
+    // --- Title + sale number + payment status badge ---
+    doc.fontSize(24).font('Helvetica-Bold').fillColor(HEADER_COLOR)
+    doc.text('RECEIPT', 380, y, { align: 'right' })
+    y += 18
 
-    if (store.description) {
-      doc.fontSize(7).font('Helvetica-Oblique')
-      doc.text(store.description, margin, 26, { align: 'center', width: contentWidth })
+    doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
+    doc.text(`#${sale.saleNumber}`, 380, y, { align: 'right' })
+    y += 22
+
+    // Payment status badge — Paid (green), Partially Paid (amber), Unpaid (red)
+    const owed = Math.max(0, Math.round((sale.amountOwed ?? 0) * 100) / 100)
+    const paid = Math.max(0, Math.round((sale.amountPaid ?? 0) * 100) / 100)
+    let statusLabel: string
+    let statusColor: string
+    if (owed <= 0.005) {
+      statusLabel = 'Paid in Full'
+      statusColor = SUCCESS_GREEN
+    } else if (paid > 0.005) {
+      statusLabel = 'Partially Paid'
+      statusColor = '#d97706'
+    } else {
+      statusLabel = 'Unpaid'
+      statusColor = '#dc2626'
     }
+    const badgeWidth = statusLabel.length > 10 ? 110 : 90
+    doc.roundedRect(505 - badgeWidth, y - 2, badgeWidth, 20, 5).fill(statusColor)
+    doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold')
+    doc.text(statusLabel, 505 - badgeWidth, y + 2, { align: 'center', width: badgeWidth })
+    doc.fillColor(TEXT_PRIMARY)
+    y += 28
 
-    doc.fontSize(6).font('Helvetica')
-    let infoY = store.description ? 40 : 28
-    if (store.address) {
-      doc.text(store.address, margin, infoY, { align: 'center', width: contentWidth })
-      infoY += 7
-    }
-    if (store.phone) {
-      doc.text(`Tel: ${store.phone}`, margin, infoY, { align: 'center', width: contentWidth })
-      infoY += 7
+    // --- Customer + Date / Payment side-by-side ---
+    doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
+    doc.text('Customer:', 50, y)
+    y += 14
+    doc.fontSize(10).font('Helvetica').fillColor(TEXT_PRIMARY)
+    doc.text(sale.customerName || 'Walk-in customer', 50, y)
+    y += 12
+    if (sale.customerPhone) { doc.text(sale.customerPhone, 50, y); y += 11 }
+    y += 4
+
+    const rightStartX = 350
+    let detailY = 130
+    doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
+    doc.text('Receipt Date:', rightStartX, detailY)
+    doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+    doc.text(sale.createdAt, rightStartX + 100, detailY, { width: 145 })
+    detailY += 14
+    doc.fillColor(TEXT_MUTED).font('Helvetica')
+    doc.text('Payment Method:', rightStartX, detailY)
+    doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+    const methodLabel = sale.paymentMethod
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+    doc.text(methodLabel, rightStartX + 100, detailY, { width: 145 })
+    detailY += 14
+    if (sale.updatedAt && sale.updatedAt !== sale.createdAt) {
+      doc.fillColor(TEXT_MUTED).font('Helvetica')
+      doc.text('Last Updated:', rightStartX, detailY)
+      doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+      doc.text(sale.updatedAt, rightStartX + 100, detailY, { width: 145 })
+      detailY += 14
     }
     if (store.taxNumber) {
-      doc.text(`Tax ID: ${store.taxNumber}`, margin, infoY, { align: 'center', width: contentWidth })
+      doc.fillColor(TEXT_MUTED).font('Helvetica')
+      doc.text('Our Tax ID:', rightStartX, detailY)
+      doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+      doc.text(store.taxNumber, rightStartX + 100, detailY, { width: 145 })
     }
 
-    doc.fillColor(TEXT_PRIMARY)
-
-    let y = 76
-
-    // --- Receipt title ---
-    doc.fontSize(10).font('Helvetica-Bold').fillColor(HEADER_COLOR)
-    doc.text('RECEIPT', margin, y, { align: 'center', width: contentWidth })
+    if (detailY > y) y = detailY
     y += 14
 
-    doc.fontSize(7).font('Helvetica').fillColor(TEXT_MUTED)
-    doc.text(`#${sale.saleNumber}  \u2022  ${sale.createdAt}`, margin, y, { align: 'center', width: contentWidth })
-    y += 12
-
-    if (sale.customerName) {
-      doc.fillColor(TEXT_PRIMARY).fontSize(7).font('Helvetica')
-      doc.text(`Customer: ${sale.customerName}`, margin, y, { width: contentWidth })
-      y += 9
-      if (sale.customerPhone) {
-        doc.text(`Phone: ${sale.customerPhone}`, margin, y, { width: contentWidth })
-        y += 9
-      }
-    }
-
-    y += 4
-    doc.moveTo(margin, y).lineTo(pageWidth - margin, y).stroke(BORDER_COLOR)
-    y += 6
-
     // --- Items table ---
-    const colWidths = [contentWidth * 0.4, contentWidth * 0.18, contentWidth * 0.21, contentWidth * 0.21]
+    doc.moveTo(50, y).lineTo(545, y).stroke(BORDER_COLOR)
+    y += 8
+
+    const colWidths = [200, 70, 110, 115]
     const tableTotalWidth = colWidths.reduce((a, b) => a + b, 0)
 
-    doc.rect(margin, y - 2, tableTotalWidth, 16).fill(TABLE_HEADER_BG)
-    doc.fillColor('#ffffff').fontSize(6).font('Helvetica-Bold')
-    let hx = margin
-    ;['Item', 'Qty', 'Price', 'Total'].forEach((text, i) => {
-      const pad = 3
-      if (i === 0) doc.text(text, hx + pad, y + 1, { width: colWidths[i] - 6 })
-      else doc.text(text, hx + colWidths[i] - pad, y + 1, { width: colWidths[i] - 2, align: 'right' })
+    doc.rect(50, y - 3, tableTotalWidth, 22).fill(TABLE_HEADER_BG)
+    doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold')
+    let hx = 50
+    ;['Item', 'Quantity', 'Unit Price', 'Total'].forEach((text, i) => {
+      const pad = 8
+      if (i === 0) doc.text(text, hx + pad, y + 2, { width: colWidths[i] - 8 })
+      else doc.text(text, hx + colWidths[i] - pad, y + 2, { width: colWidths[i] - 4, align: 'right' })
       hx += colWidths[i]
     })
     doc.fillColor(TEXT_PRIMARY)
-    y += 16
+    y += 22
 
     sale.items.forEach((item, idx) => {
+      const rowHeight = 18
       const rowColor = idx % 2 === 0 ? ROW_EVEN : ROW_ODD
-      doc.rect(margin, y - 2, tableTotalWidth, 14).fill(rowColor)
-      doc.fillColor(TEXT_PRIMARY).fontSize(6).font('Helvetica')
+      doc.rect(50, y - 3, tableTotalWidth, rowHeight).fill(rowColor)
+      doc.fillColor(TEXT_PRIMARY).fontSize(9).font('Helvetica')
+      let rx = 50
       const values = [
-        item.name.substring(0, 24),
+        item.name,
         String(item.quantity),
         formatMoney(item.price, store),
         formatMoney(item.subtotal, store),
       ]
-      let rx = margin
       values.forEach((text, i) => {
-        const pad = 3
-        if (i === 0) doc.text(text, rx + pad, y, { width: colWidths[i] - 6 })
-        else doc.text(text, rx + colWidths[i] - pad, y, { width: colWidths[i] - 2, align: 'right' })
+        const pad = 8
+        if (i === 0) doc.text(text, rx + pad, y + 2, { width: colWidths[i] - 8 })
+        else doc.text(text, rx + colWidths[i] - pad, y + 2, { width: colWidths[i] - 4, align: 'right' })
         rx += colWidths[i]
       })
-      y += 14
+      y += rowHeight
     })
 
-    y += 4
-    doc.moveTo(margin, y).lineTo(pageWidth - margin, y).stroke(BORDER_COLOR)
+    y += 10
+
+    // --- Totals box on the right (subtotal, discount, tax) ---
+    drawTotals({
+      doc,
+      startX: 330,
+      width: 215,
+      subtotal: sale.subtotal,
+      discountPercent: sale.discountPercent,
+      discount: sale.discount,
+      taxItems: sale.taxItems,
+      tax: sale.tax,
+      total: sale.total,
+      store,
+    })
+
     y += 6
 
-    // --- Totals (discount, each tax, grand total) ---
-    doc.fontSize(7).font('Helvetica')
-    doc.text('Subtotal:', margin, y, { width: contentWidth - 70, continued: true })
-    doc.text(formatMoney(sale.subtotal, store), { align: 'right', width: 70 })
-    y += 11
+    // --- Payment summary (highlighted box) ---
+    const paymentBoxX = 330
+    const paymentBoxW = 215
+    const paymentBoxY = y
+    const paymentBoxH = owed > 0.005 ? 96 : 60
+    doc.roundedRect(paymentBoxX, paymentBoxY, paymentBoxW, paymentBoxH, 4).fillAndStroke('#f1f5f9', BORDER_COLOR)
+    let py = paymentBoxY + 10
+    doc.fontSize(8).font('Helvetica-Bold').fillColor(TEXT_MUTED)
+    doc.text('PAYMENT SUMMARY', paymentBoxX + 10, py, { width: paymentBoxW - 20 })
+    py += 14
 
-    if (sale.discount > 0) {
-      const label = sale.discountPercent > 0 ? `Discount (${sale.discountPercent}%):` : 'Discount:'
-      doc.fillColor(DISCOUNT_RED)
-      doc.text(label, margin, y, { width: contentWidth - 70, continued: true })
-      doc.text(`-${formatMoney(sale.discount, store)}`, { align: 'right', width: 70 })
-      doc.fillColor(TEXT_PRIMARY)
-      y += 11
-    }
+    doc.fontSize(9).font('Helvetica').fillColor(TEXT_PRIMARY)
+    doc.text('Total', paymentBoxX + 10, py, { width: 100 })
+    doc.text(formatMoney(sale.total, store), paymentBoxX + 10, py, { width: paymentBoxW - 20, align: 'right' })
+    py += 13
 
-    if (sale.taxItems.length > 0) {
-      for (const t of sale.taxItems) {
-        doc.text(`${t.name} (${t.rate}%):`, margin, y, { width: contentWidth - 70, continued: true })
-        doc.text(formatMoney(t.amount, store), { align: 'right', width: 70 })
-        y += 11
-      }
-    } else if (sale.tax > 0) {
-      doc.text('Tax:', margin, y, { width: contentWidth - 70, continued: true })
-      doc.text(formatMoney(sale.tax, store), { align: 'right', width: 70 })
-      y += 11
-    }
-
-    doc.moveTo(margin, y).lineTo(pageWidth - margin, y).stroke(BORDER_COLOR)
-    y += 5
-
-    doc.fontSize(10).font('Helvetica-Bold')
-    doc.text('TOTAL:', margin, y, { width: contentWidth - 70, continued: true })
-    doc.text(formatMoney(sale.total, store), { align: 'right', width: 70 })
-    y += 14
-
-    // --- Payment method + PAID stamp ---
-    doc.fontSize(7).font('Helvetica').fillColor(TEXT_MUTED)
-    doc.text(`Paid via ${sale.paymentMethod}`, margin, y, { align: 'center', width: contentWidth })
-    y += 12
-
-    const paidY = y
-    doc.rect(pageWidth - margin - 60, paidY, 60, 16).fill(SUCCESS_GREEN)
-    doc.fillColor('#ffffff').fontSize(7).font('Helvetica-Bold')
-    doc.text('PAID', pageWidth - margin - 60, paidY + 4, { align: 'center', width: 60 })
+    doc.text('Amount Paid', paymentBoxX + 10, py, { width: 100 })
+    doc.fillColor(SUCCESS_GREEN).text(formatMoney(paid, store), paymentBoxX + 10, py, { width: paymentBoxW - 20, align: 'right' })
     doc.fillColor(TEXT_PRIMARY)
+    py += 13
 
-    y += 18
+    if (owed > 0.005) {
+      doc.moveTo(paymentBoxX + 10, py - 2).lineTo(paymentBoxX + paymentBoxW - 10, py - 2).stroke(BORDER_COLOR)
+      py += 6
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('#dc2626')
+      doc.text('Balance Due', paymentBoxX + 10, py, { width: 120 })
+      doc.text(formatMoney(owed, store), paymentBoxX + 10, py, { width: paymentBoxW - 20, align: 'right' })
+      doc.fillColor(TEXT_PRIMARY)
+      py += 16
+    }
+
+    y = paymentBoxY + paymentBoxH + 10
+
+    // --- Payment history (if any linked debt_ledger entries) ---
+    const history = (sale.paymentHistory ?? []).filter((h) => h.type !== 'sale_created')
+    if (history.length > 0) {
+      doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
+      doc.text('Payment History', 50, y)
+      y += 14
+      doc.moveTo(50, y).lineTo(545, y).stroke(BORDER_COLOR)
+      y += 6
+      doc.fontSize(8).font('Helvetica').fillColor(TEXT_MUTED)
+      ;['Date', 'Type', 'Notes', 'Amount'].forEach((label, i) => {
+        const xs = [50, 160, 260, 480]
+        const ws = [100, 90, 210, 65]
+        if (i === 3) doc.text(label, xs[i], y, { width: ws[i], align: 'right' })
+        else doc.text(label, xs[i], y, { width: ws[i] })
+      })
+      y += 12
+      history.forEach((h, idx) => {
+        const rowColor = idx % 2 === 0 ? ROW_EVEN : ROW_ODD
+        doc.rect(50, y - 3, 495, 16).fill(rowColor)
+        doc.fontSize(8).font('Helvetica').fillColor(TEXT_PRIMARY)
+        const typeLabel = h.type === 'manual_payment' ? 'Payment' : h.type.replace(/_/g, ' ')
+        const amountStr = `${h.amount < 0 ? '-' : ''}${formatMoney(Math.abs(h.amount), store)}`
+        doc.text(h.createdAt, 50, y, { width: 100 })
+        doc.text(typeLabel, 160, y, { width: 90 })
+        doc.text(h.notes ?? '', 260, y, { width: 210 })
+        doc.text(amountStr, 480, y, { width: 65, align: 'right' })
+        y += 16
+      })
+      doc.fillColor(TEXT_PRIMARY)
+      y += 6
+    }
 
     if (sale.notes) {
-      doc.fillColor(TEXT_MUTED).fontSize(6).font('Helvetica-Oblique')
-      doc.text(sale.notes, margin, y, { align: 'center', width: contentWidth })
-      y += 10
+      doc.moveDown(1)
+      doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
+      doc.text('Notes:')
+      doc.moveDown(0.4)
+      doc.font('Helvetica').fillColor(TEXT_MUTED)
+      doc.text(sale.notes, { width: 280 })
     }
 
-    y += 6
-    doc.fillColor(TEXT_MUTED).fontSize(6).font('Helvetica')
-    doc.text(store.footer || 'Thank you for your purchase!', margin, y, { align: 'center', width: contentWidth })
+    drawA4Footer(doc, store)
 
     doc.end()
   })
@@ -512,11 +580,14 @@ export function generateInvoicePdf(invoice: InvoicePdfData, store: StoreInfo): P
       doc.rect(50, y - 3, tableTotalWidth, rowHeight).fill(rowColor)
       doc.fillColor(TEXT_PRIMARY).fontSize(9).font('Helvetica')
       let rx = 50
+      const lineTotal = (item.total && item.total > 0)
+        ? item.total
+        : Math.round((Number(item.quantity) || 0) * (Number(item.price) || 0) * 100) / 100
       const values = [
         item.description ? `${item.name}\n${item.description}` : item.name,
         String(item.quantity),
         formatMoney(item.price, store),
-        formatMoney(item.total, store),
+        formatMoney(lineTotal, store),
       ]
       values.forEach((text, i) => {
         const pad = 8

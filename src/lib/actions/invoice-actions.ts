@@ -36,9 +36,9 @@ export async function createInvoice(data: CreateInvoiceInput) {
 
   const items = validated.data.items.map(item => ({
     ...item,
-    subtotal: Math.round(item.quantity * item.price * 100) / 100,
+    total: Math.round(item.quantity * item.price * 100) / 100,
   }))
-  const calculatedSubtotal = items.reduce((sum, i) => sum + i.subtotal, 0)
+  const calculatedSubtotal = items.reduce((sum, i) => sum + i.total, 0)
 
   const discountPercent = validated.data.discountPercent ?? 0
   const calculatedDiscount = Math.round(calculatedSubtotal * discountPercent) / 100
@@ -450,9 +450,9 @@ export async function updateInvoice(id: string, data: CreateInvoiceInput) {
 
   const items = validated.data.items.map(item => ({
     ...item,
-    subtotal: Math.round(item.quantity * item.price * 100) / 100,
+    total: Math.round(item.quantity * item.price * 100) / 100,
   }))
-  const calculatedSubtotal = items.reduce((sum, i) => sum + i.subtotal, 0)
+  const calculatedSubtotal = items.reduce((sum, i) => sum + i.total, 0)
   const discountPercent = validated.data.discountPercent ?? 0
   const calculatedDiscount = Math.round(calculatedSubtotal * discountPercent) / 100
   const afterDiscount = Math.max(0, calculatedSubtotal - calculatedDiscount)

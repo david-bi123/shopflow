@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { dbConnect } from '@/lib/db/connect'
-import { sales, tenants, settings } from '@/lib/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { sales, tenants, settings, debtLedger } from '@/lib/db/schema'
+import { and, asc, eq } from 'drizzle-orm'
 import { generateSaleReceiptPdf } from '@/lib/services/pdf'
 import { verifyPublicToken } from '@/lib/services/public-token'
 import { getCurrencySymbol } from '@/lib/utils/constants'
@@ -51,6 +51,21 @@ export async function GET(
     const storeName = row.storeName || row.tenantName || 'Store'
     const currencyCode = row.currency || 'GHS'
 
+    const history = await db
+      .select({
+        type: debtLedger.type,
+        amount: debtLedger.amount,
+        notes: debtLedger.notes,
+        createdAt: debtLedger.createdAt,
+      })
+      .from(debtLedger)
+      .where(and(
+        eq(debtLedger.tenantId, payload.tn),
+        eq(debtLedger.referenceType, 'sale'),
+        eq(debtLedger.referenceId, payload.id),
+      ))
+      .orderBy(asc(debtLedger.createdAt), asc(debtLedger.id))
+
     const pdfBuffer = await generateSaleReceiptPdf(
       {
         saleNumber: s.saleNumber,
@@ -63,9 +78,18 @@ export async function GET(
         tax: s.tax,
         taxItems: (s.taxItems as Array<{ name: string; rate: number; amount: number }>) ?? [],
         total: s.total,
+        amountPaid: s.amountPaid,
+        amountOwed: s.amountOwed,
         paymentMethod: s.paymentMethod,
         notes: s.notes || undefined,
         createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+        paymentHistory: history.map((h) => ({
+          type: h.type,
+          amount: h.amount,
+          notes: h.notes ?? undefined,
+          createdAt: h.createdAt,
+        })),
       },
       {
         name: storeName,

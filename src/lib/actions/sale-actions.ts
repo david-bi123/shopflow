@@ -547,6 +547,11 @@ export async function getSaleByNumber(saleNumber: string) {
  * first (constant-time) and only then issue a single primary-key lookup.
  * If the HMAC doesn't match, the function returns `null` without ever
  * touching the database. Never throws.
+ *
+ * Also returns the payment history (debt_ledger entries linked to this
+ * sale) so the public receipt can show updated payment status after
+ * the customer pays toward their debt. All lookups are tenant-scoped
+ * using the verified token payload — no cross-tenant leakage.
  */
 export async function getSaleByPublicToken(token: string) {
   if (!token || typeof token !== 'string') return null
@@ -596,8 +601,26 @@ export async function getSaleByPublicToken(token: string) {
 
   if (!row) return null
 
+  const history = await db
+    .select({
+      id: debtLedger.id,
+      type: debtLedger.type,
+      amount: debtLedger.amount,
+      notes: debtLedger.notes,
+      balanceAfter: debtLedger.balanceAfter,
+      createdAt: debtLedger.createdAt,
+    })
+    .from(debtLedger)
+    .where(and(
+      eq(debtLedger.tenantId, payload.tn),
+      eq(debtLedger.referenceType, 'sale'),
+      eq(debtLedger.referenceId, payload.id),
+    ))
+    .orderBy(asc(debtLedger.createdAt), asc(debtLedger.id))
+
   return {
     ...(serializeRow(row as unknown as Record<string, unknown>) as Record<string, unknown>),
+    paymentHistory: serializeList(history as unknown as Record<string, unknown>[]),
     tenant: {
       name: row.storeName || row.tenantName || 'Store',
       slug: row.tenantSlug || '',

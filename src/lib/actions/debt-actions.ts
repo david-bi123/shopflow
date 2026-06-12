@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { customers, debtLedger } from '@/lib/db/schema'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { customers, debtLedger, sales, invoices } from '@/lib/db/schema'
+import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { dbConnect } from '@/lib/db/connect'
 import { toNum, serializeList } from '@/lib/db/helpers'
 import { debtPaymentSchema, type DebtPaymentInput } from '@/lib/validations/debt'
@@ -16,8 +16,20 @@ import { actionOk } from '@/lib/utils/action-result'
 /**
  * Record a manual payment against a customer's outstanding debt.
  *
- * Inserts a negative-amount entry into debt_ledger and decrements the
- * cached `customers.totalDebt` balance.
+ * The payment is distributed FIFO across the customer's open sales
+ * (oldest first) and then their open invoices (oldest first). Each
+ * distribution inserts a `manual_payment` debt_ledger entry linked to
+ * the specific sale/invoice and updates that row's `amountPaid` /
+ * `amountOwed`. This is what makes the public sale receipt able to
+ * show updated payment status after the customer pays toward their
+ * debt.
+ *
+ * If the payment exceeds total outstanding (overpayment), a single
+ * unlinked `manual_payment` entry is recorded as a credit.
+ *
+ * The whole sequence — including the customers.totalDebt update — is
+ * wrapped in a single transaction so the ledger and cached balance
+ * never drift.
  */
 export async function recordDebtPayment(data: DebtPaymentInput) {
   return actionHandler('recordDebtPayment', { data }, async () => {
@@ -36,15 +48,17 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
   const tenantId = toNum(session.user.tenantId!)
   const customerId = toNum(validated.data.customerId)
   const userId = toNum(session.user.id)
-  const amount = Math.round(validated.data.amount * 100) / 100
+  const paymentAmount = Math.round(validated.data.amount * 100) / 100
   const now = new Date().toISOString()
 
-  // Read the current balance + insert the payment entry + update the
-  // cached customer balance in a single transaction. Doing it as three
-  // separate queries can leave the ledger out of sync with the cached
-  // total if any step fails.
+  type DistributionEntry = {
+    kind: 'sale' | 'invoice' | 'credit'
+    referenceId: number | null
+    amount: number // portion of the original payment
+  }
+
   type TxResult =
-    | { ok: true; entryId: number; balanceAfter: number; customerName: string }
+    | { ok: true; balanceAfter: number; customerName: string; distributions: DistributionEntry[] }
     | { ok: false; error: string }
 
   const result: TxResult = await db.transaction(async (tx): Promise<TxResult> => {
@@ -53,35 +67,127 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
       .limit(1)
     if (!customer) return { ok: false, error: 'Customer not found' }
     if (customer.totalDebt < 0.01) return { ok: false, error: 'Customer has no outstanding debt' }
-    if (amount > customer.totalDebt + 0.001) {
-      return { ok: false, error: `Payment exceeds outstanding debt of \u20b5${customer.totalDebt.toFixed(2)}` }
+    if (paymentAmount > customer.totalDebt + 0.001) {
+      return { ok: false, error: `Payment exceeds outstanding debt of ${customer.totalDebt.toFixed(2)}` }
     }
 
-    const newBalance = Math.max(0, Math.round((customer.totalDebt - amount) * 100) / 100)
-    const [inserted] = await tx
-      .insert(debtLedger)
-      .values({
+    // FIFO across open sales (oldest first), then open invoices (oldest first).
+    const openSales = await tx
+      .select({
+        id: sales.id,
+        saleNumber: sales.saleNumber,
+        amountOwed: sales.amountOwed,
+        amountPaid: sales.amountPaid,
+        total: sales.total,
+      })
+      .from(sales)
+      .where(and(
+        eq(sales.tenantId, tenantId),
+        eq(sales.customerId, customerId),
+        sql`${sales.amountOwed} > 0`,
+      ))
+      .orderBy(asc(sales.createdAt), asc(sales.id))
+
+    const openInvoices = await tx
+      .select({
+        id: invoices.id,
+        invoiceNumber: invoices.invoiceNumber,
+        amountOwed: invoices.amountOwed,
+        amountPaid: invoices.amountPaid,
+        total: invoices.total,
+      })
+      .from(invoices)
+      .where(and(
+        eq(invoices.tenantId, tenantId),
+        eq(invoices.customerId, customerId),
+        sql`${invoices.amountOwed} > 0`,
+      ))
+      .orderBy(asc(invoices.createdAt), asc(invoices.id))
+
+    const paymentMethodLabel = validated.data.paymentMethod.replace('_', ' ')
+    const distributions: DistributionEntry[] = []
+    let runningBalance = customer.totalDebt
+    let remaining = paymentAmount
+    const lastPaymentAt = now
+
+    for (const sale of openSales) {
+      if (remaining <= 0.005) break
+      const owed = Math.round(sale.amountOwed * 100) / 100
+      const apply = Math.min(remaining, owed)
+      const newSalePaid = Math.round((sale.amountPaid + apply) * 100) / 100
+      const newSaleOwed = Math.max(0, Math.round((owed - apply) * 100) / 100)
+      await tx.update(sales)
+        .set({ amountPaid: newSalePaid, amountOwed: newSaleOwed, updatedAt: now })
+        .where(eq(sales.id, sale.id))
+      await tx.insert(debtLedger).values({
         tenantId,
         customerId,
-        amount: -amount, // negative = payment
+        amount: -apply,
+        type: 'manual_payment',
+        referenceType: 'sale',
+        referenceId: sale.id,
+        notes: `Payment toward ${sale.saleNumber} via ${paymentMethodLabel}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
+        balanceAfter: Math.max(0, Math.round((runningBalance - apply) * 100) / 100),
+        createdBy: userId,
+        createdAt: lastPaymentAt,
+      })
+      runningBalance = Math.max(0, Math.round((runningBalance - apply) * 100) / 100)
+      remaining = Math.max(0, Math.round((remaining - apply) * 100) / 100)
+      distributions.push({ kind: 'sale', referenceId: sale.id, amount: apply })
+    }
+
+    for (const inv of openInvoices) {
+      if (remaining <= 0.005) break
+      const owed = Math.round(inv.amountOwed * 100) / 100
+      const apply = Math.min(remaining, owed)
+      const newInvPaid = Math.round((inv.amountPaid + apply) * 100) / 100
+      const newInvOwed = Math.max(0, Math.round((owed - apply) * 100) / 100)
+      await tx.update(invoices)
+        .set({ amountPaid: newInvPaid, amountOwed: newInvOwed, updatedAt: now })
+        .where(eq(invoices.id, inv.id))
+      await tx.insert(debtLedger).values({
+        tenantId,
+        customerId,
+        amount: -apply,
+        type: 'manual_payment',
+        referenceType: 'invoice',
+        referenceId: inv.id,
+        notes: `Payment toward ${inv.invoiceNumber} via ${paymentMethodLabel}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
+        balanceAfter: Math.max(0, Math.round((runningBalance - apply) * 100) / 100),
+        createdBy: userId,
+        createdAt: lastPaymentAt,
+      })
+      runningBalance = Math.max(0, Math.round((runningBalance - apply) * 100) / 100)
+      remaining = Math.max(0, Math.round((remaining - apply) * 100) / 100)
+      distributions.push({ kind: 'invoice', referenceId: inv.id, amount: apply })
+    }
+
+    if (remaining > 0.005) {
+      // Overpayment — record as unlinked credit.
+      await tx.insert(debtLedger).values({
+        tenantId,
+        customerId,
+        amount: -remaining,
         type: 'manual_payment',
         referenceType: null,
         referenceId: null,
-        notes: validated.data.notes || `Cash payment via ${validated.data.paymentMethod.replace('_', ' ')}`,
-        balanceAfter: newBalance,
+        notes: `Credit from overpayment via ${paymentMethodLabel}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
+        balanceAfter: Math.max(0, Math.round((runningBalance - remaining) * 100) / 100),
         createdBy: userId,
-        createdAt: now,
+        createdAt: lastPaymentAt,
       })
-      .$returningId()
+      runningBalance = Math.max(0, Math.round((runningBalance - remaining) * 100) / 100)
+      distributions.push({ kind: 'credit', referenceId: null, amount: remaining })
+    }
 
     await tx.update(customers)
       .set({
-        totalDebt: newBalance,
+        totalDebt: runningBalance,
         lastDebtActivityAt: now,
       })
       .where(eq(customers.id, customerId))
 
-    return { ok: true, entryId: (inserted as { id: number }).id, balanceAfter: newBalance, customerName: customer.name }
+    return { ok: true, balanceAfter: runningBalance, customerName: customer.name, distributions }
   })
 
   if (!result.ok) {
@@ -95,7 +201,7 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
     entityId: String(customerId),
     performedBy: userId,
     performedByName: session.user.name || 'Unknown',
-    details: { amount, paymentMethod: validated.data.paymentMethod, balanceAfter: result.balanceAfter },
+    details: { amount: paymentAmount, paymentMethod: validated.data.paymentMethod, balanceAfter: result.balanceAfter, distributions: result.distributions },
   })
 
   await createNotification({
@@ -103,13 +209,16 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
     userId,
     type: 'debt.paid',
     title: 'Debt Payment Received',
-    message: `${result.customerName} paid \u20b5${amount.toFixed(2)} toward their debt. Balance: \u20b5${result.balanceAfter.toFixed(2)}.`,
+    message: `${result.customerName} paid ${paymentAmount.toFixed(2)} toward their debt. Balance: ${result.balanceAfter.toFixed(2)}.`,
     link: `/customers/${customerId}`,
   })
 
   revalidatePath('/customers')
   revalidatePath(`/customers/${customerId}`)
-  return actionOk({ entryId: result.entryId, balanceAfter: result.balanceAfter })
+  // Receipt pages must reflect the new payment status immediately.
+  revalidatePath(`/r/[token]`, 'page')
+  revalidatePath(`/i/[token]`, 'page')
+  return actionOk({ balanceAfter: result.balanceAfter, distributions: result.distributions })
   })
 }
 
@@ -231,5 +340,3 @@ export async function getDebtors() {
 
   return { debtors }
 }
-
-import { sales, invoices } from '@/lib/db/schema'

@@ -1,9 +1,33 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Store, ArrowLeft, CheckCircle2, Calendar, Hash, User, Phone, CreditCard, FileText, MapPin } from 'lucide-react'
+import {
+  Store,
+  ArrowLeft,
+  CheckCircle2,
+  AlertTriangle,
+  CircleDot,
+  Calendar,
+  Hash,
+  FileText,
+  Phone,
+  CreditCard,
+  MapPin,
+  Receipt,
+  Wallet,
+  ClipboardList,
+} from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { getSaleByPublicToken } from '@/lib/actions/sale-actions'
 import { PublicActions } from '@/components/shared/public-actions'
+
+type PaymentHistoryEntry = {
+  id?: string | number
+  type: string
+  amount: number
+  notes?: string | null
+  balanceAfter?: number
+  createdAt: string
+}
 
 export default async function PublicReceiptPage({
   params,
@@ -15,18 +39,31 @@ export default async function PublicReceiptPage({
     saleNumber: string
     customerName?: string | null
     customerPhone?: string | null
+    customerEmail?: string | null
     items: Array<{ name: string; quantity: number; price: number; subtotal: number }>
     subtotal: number
     discount: number
     tax: number
     total: number
+    amountPaid: number
+    amountOwed: number
     paymentMethod: string
     notes?: string | null
     createdAt: string
+    updatedAt: string
     currency?: string
     discountPercent?: number
     taxItems?: Array<{ name: string; rate: number; amount: number }>
-    tenant?: { name: string; slug: string; phone?: string; email?: string; address?: string; description?: string; taxNumber?: string }
+    paymentHistory?: PaymentHistoryEntry[]
+    tenant?: {
+      name: string
+      slug: string
+      phone?: string
+      email?: string
+      address?: string
+      description?: string
+      taxNumber?: string
+    }
   }) | null
 
   if (!sale) {
@@ -38,18 +75,50 @@ export default async function PublicReceiptPage({
 
   const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/r/${token}`
   const pdfUrl = `/api/r/${token}/pdf`
-  const whatsappMessage = `Sale ${sale.saleNumber} - ${sale.customerName || 'Customer'} - Total: ${formatCurrency(sale.total, currency)}`
+  const whatsappMessage = `Receipt ${sale.saleNumber} - ${sale.customerName || 'Customer'} - Total: ${formatCurrency(sale.total, currency)}`
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}%0A${receiptUrl}`
 
-  const paymentLabel = sale.paymentMethod
+  const paymentMethodLabel = (sale.paymentMethod || 'cash')
     .split('_')
     .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ')
 
+  const owed = Math.max(0, Math.round((sale.amountOwed ?? 0) * 100) / 100)
+  const paid = Math.max(0, Math.round((sale.amountPaid ?? 0) * 100) / 100)
+
+  const status: 'paid' | 'partial' | 'unpaid' =
+    owed <= 0.005 ? 'paid' : paid > 0.005 ? 'partial' : 'unpaid'
+
+  const statusConfig = {
+    paid: {
+      label: 'Paid in Full',
+      Icon: CheckCircle2,
+      className: 'text-emerald-700 dark:text-emerald-300',
+      bgClass: 'bg-emerald-50 ring-emerald-200/60 dark:bg-emerald-950/60 dark:ring-emerald-800/40',
+    },
+    partial: {
+      label: 'Partially Paid',
+      Icon: CircleDot,
+      className: 'text-amber-700 dark:text-amber-300',
+      bgClass: 'bg-amber-50 ring-amber-200/60 dark:bg-amber-950/60 dark:ring-amber-800/40',
+    },
+    unpaid: {
+      label: 'Unpaid',
+      Icon: AlertTriangle,
+      className: 'text-red-700 dark:text-red-300',
+      bgClass: 'bg-red-50 ring-red-200/60 dark:bg-red-950/60 dark:ring-red-800/40',
+    },
+  }[status]
+
+  const StatusIcon = statusConfig.Icon
+
+  const history = (sale.paymentHistory ?? []).filter((h) => h.type !== 'sale_created')
+  const isUpdated = sale.updatedAt && sale.updatedAt !== sale.createdAt
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 py-6 dark:from-black dark:via-zinc-950 dark:to-emerald-950/20 sm:py-12">
-      <div className="mx-auto max-w-md px-4">
-        <div className="mb-5 flex items-center justify-between sm:mb-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 py-6 dark:from-black dark:via-zinc-950 dark:to-emerald-950/20 sm:py-12 print:bg-white print:py-0">
+      <div className="mx-auto max-w-3xl px-4">
+        <div className="mb-5 flex items-center justify-between print:hidden sm:mb-6">
           <Link
             href="/"
             className="group inline-flex items-center gap-1.5 rounded-full bg-white/60 px-3 py-1.5 text-sm font-medium text-muted-foreground shadow-sm ring-1 ring-border backdrop-blur transition-all hover:bg-white hover:text-foreground hover:shadow dark:bg-zinc-900/60"
@@ -60,119 +129,158 @@ export default async function PublicReceiptPage({
           <PublicActions pdfUrl={pdfUrl} pageUrl={receiptUrl} whatsappUrl={whatsappUrl} />
         </div>
 
-        <div className="mb-4 overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-4 text-white shadow-lg shadow-emerald-500/20 sm:p-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30 backdrop-blur">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white sm:text-base">Payment Confirmed</p>
-              <p className="text-xs text-emerald-50/90">Thank you for your purchase</p>
-            </div>
-          </div>
-        </div>
-
         <div
-          className="overflow-hidden rounded-2xl border border-border/60 bg-white shadow-xl shadow-slate-200/50 dark:bg-card dark:shadow-black/20 print:shadow-none"
+          className="overflow-hidden rounded-2xl border border-border/60 bg-white shadow-xl shadow-slate-200/50 dark:bg-card dark:shadow-black/20 print:shadow-none print:border-0 print:rounded-none"
           id="receipt"
         >
-          <div className="relative border-b border-border/60 bg-gradient-to-br from-slate-50/80 to-white px-5 py-6 dark:from-zinc-900/50 dark:to-card sm:px-6">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-chart-2 to-chart-3" />
-            <div className="text-center">
-              <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/20">
-                <Store className="h-6 w-6 text-primary" />
+          {/* Header */}
+          <div className="relative bg-gradient-to-br from-slate-50/80 via-white to-white px-5 py-7 sm:px-10 sm:py-8 dark:from-zinc-900/50 dark:via-card dark:to-card">
+            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary via-chart-2 to-chart-3" />
+
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/20">
+                  <Store className="h-6 w-6 text-primary" />
+                </div>
+                <h1 className="text-xl font-bold tracking-tight text-foreground">{tenant.name}</h1>
+                {tenant.description && (
+                  <p className="mt-1 text-xs italic text-muted-foreground">
+                    {tenant.description}
+                  </p>
+                )}
+                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {tenant.address && (
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span>{tenant.address}</span>
+                    </div>
+                  )}
+                  {tenant.phone && (
+                    <div className="flex items-center gap-1.5">
+                      <Phone className="h-3 w-3 shrink-0" />
+                      <span>{tenant.phone}</span>
+                    </div>
+                  )}
+                  {tenant.email && (
+                    <div className="flex items-center gap-1.5">
+                      <span>{tenant.email}</span>
+                    </div>
+                  )}
+                  {tenant.taxNumber && (
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium">
+                      <span>Tax ID: {tenant.taxNumber}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <h1 className="text-lg font-bold tracking-tight text-foreground">{tenant.name}</h1>
-              {tenant.description && (
-                <p className="mt-0.5 text-[11px] italic text-muted-foreground">
-                  {tenant.description}
+
+              <div className="text-left sm:text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  Receipt
                 </p>
-              )}
-              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                Official Receipt
-              </p>
-              <div className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
-                {tenant.address && (
-                  <p className="flex items-center justify-center gap-1">
-                    <MapPin className="h-3 w-3" /> {tenant.address}
-                  </p>
-                )}
-                {tenant.phone && (
-                  <p className="flex items-center justify-center gap-1">
-                    <Phone className="h-3 w-3" /> {tenant.phone}
-                  </p>
-                )}
-                {tenant.taxNumber && (
-                  <p className="flex items-center justify-center gap-1 text-[10px] font-medium">
-                    Tax ID: {tenant.taxNumber}
-                  </p>
-                )}
+                <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  #{sale.saleNumber}
+                </h2>
+                <div
+                  className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusConfig.bgClass} ${statusConfig.className}`}
+                >
+                  <StatusIcon className="h-3.5 w-3.5" />
+                  {statusConfig.label}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-px border-b border-border/60 bg-border/40">
-            <div className="bg-white px-4 py-3 dark:bg-card sm:px-5 sm:py-3.5">
-              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <Hash className="h-3 w-3" />
-                Receipt
-              </div>
-              <p className="truncate text-sm font-semibold text-foreground">{sale.saleNumber}</p>
-            </div>
-            <div className="bg-white px-4 py-3 dark:bg-card sm:px-5 sm:py-3.5">
-              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                Date
-              </div>
-              <p className="text-sm font-semibold text-foreground">{formatDate(sale.createdAt)}</p>
-            </div>
-          </div>
-
-          {sale.customerName && (
-            <div className="border-b border-border/60 px-5 py-4 sm:px-6">
+          {/* Customer + Date / Payment */}
+          <div className="grid grid-cols-1 gap-px border-y border-border/60 bg-border/40 sm:grid-cols-2">
+            <div className="bg-white px-5 py-4 dark:bg-card sm:px-6 sm:py-5">
               <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <User className="h-3 w-3" />
+                <Hash className="h-3 w-3" />
                 Customer
               </div>
-              <p className="text-sm font-semibold text-foreground">{sale.customerName}</p>
-              {sale.customerPhone && (
-                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Phone className="h-3 w-3" /> {sale.customerPhone}
-                </p>
-              )}
+              <p className="text-base font-semibold text-foreground">
+                {sale.customerName || 'Walk-in customer'}
+              </p>
+              <div className="mt-1.5 space-y-1 text-xs text-muted-foreground">
+                {sale.customerPhone && <p>{sale.customerPhone}</p>}
+                {sale.customerEmail && <p>{sale.customerEmail}</p>}
+              </div>
             </div>
-          )}
+            <div className="bg-white px-5 py-4 dark:bg-card sm:px-6 sm:py-5">
+              <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <Calendar className="h-3 w-3" />
+                Receipt Date
+              </div>
+              <p className="text-base font-semibold tabular-nums text-foreground">
+                {formatDate(sale.createdAt, 'long')}
+              </p>
+              <div className="mt-2 space-y-1.5 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-muted-foreground">Payment method</span>
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
+                    <CreditCard className="h-3 w-3" />
+                    {paymentMethodLabel}
+                  </span>
+                </div>
+                {isUpdated && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-muted-foreground">Last updated</span>
+                    <span className="text-xs font-medium tabular-nums text-foreground">
+                      {formatDate(sale.updatedAt, 'long')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
-          <div className="px-5 py-4 sm:px-6 sm:py-5">
+          {/* Items */}
+          <div className="px-5 py-5 sm:px-10 sm:py-6">
             <div className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               <FileText className="h-3 w-3" />
               Items
             </div>
-            <div className="space-y-2.5">
-              {sale.items.map((item: { name: string; quantity: number; price: number; subtotal: number }, idx: number) => (
-                <div
-                  key={idx}
-                  className="flex items-start justify-between gap-3 rounded-lg bg-slate-50/60 px-3 py-2.5 dark:bg-zinc-900/50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {item.quantity} × {formatCurrency(item.price, currency)}
-                    </p>
+            <div className="overflow-hidden rounded-xl border border-border/60">
+              <div className="hidden border-b border-border/60 bg-slate-50/70 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-12 sm:px-4 sm:py-2.5 dark:bg-zinc-900/50">
+                <div className="sm:col-span-6">Item</div>
+                <div className="text-right sm:col-span-2">Quantity</div>
+                <div className="text-right sm:col-span-2">Unit Price</div>
+                <div className="text-right sm:col-span-2">Total</div>
+              </div>
+              <div className="divide-y divide-border/60">
+                {sale.items.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="grid grid-cols-12 gap-2 px-3 py-3 text-sm transition-colors hover:bg-slate-50/40 sm:px-4 sm:py-3.5 dark:hover:bg-zinc-900/30"
+                  >
+                    <div className="col-span-12 sm:col-span-6">
+                      <p className="font-medium text-foreground">{item.name}</p>
+                    </div>
+                    <div className="col-span-4 text-right tabular-nums text-muted-foreground sm:col-span-2">
+                      <span className="text-[10px] uppercase tracking-wider sm:hidden">Qty </span>
+                      {item.quantity}
+                    </div>
+                    <div className="col-span-4 text-right tabular-nums text-muted-foreground sm:col-span-2">
+                      <span className="text-[10px] uppercase tracking-wider sm:hidden">Price </span>
+                      {formatCurrency(item.price, currency)}
+                    </div>
+                    <div className="col-span-4 text-right tabular-nums font-semibold text-foreground sm:col-span-2">
+                      <span className="text-[10px] uppercase tracking-wider sm:hidden">Total </span>
+                      {formatCurrency(item.subtotal, currency)}
+                    </div>
                   </div>
-                  <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
-                    {formatCurrency(item.subtotal, currency)}
-                  </p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="space-y-2 border-t border-border/60 bg-slate-50/50 px-5 py-4 text-sm dark:bg-zinc-900/30 sm:px-6">
-            <div className="flex justify-between text-muted-foreground">
-              <span>Subtotal</span>
-              <span className="tabular-nums">{formatCurrency(sale.subtotal, currency)}</span>
-            </div>
+          {/* Totals + Payment Summary */}
+          <div className="flex justify-end border-t border-border/60 bg-slate-50/40 px-5 py-4 dark:bg-zinc-900/30 sm:px-10 sm:py-5">
+            <div className="w-full max-w-xs space-y-2 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatCurrency(sale.subtotal, currency)}</span>
+              </div>
               {sale.discount > 0 && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>
@@ -183,75 +291,158 @@ export default async function PublicReceiptPage({
                   </span>
                 </div>
               )}
-            {sale.taxItems && sale.taxItems.length > 0 ? (
-              sale.taxItems.map((t) => (
-                <div key={t.name} className="flex justify-between text-muted-foreground">
-                  <span>
-                    {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
-                  </span>
-                  <span className="tabular-nums">{formatCurrency(t.amount, currency)}</span>
+              {sale.taxItems && sale.taxItems.length > 0 ? (
+                sale.taxItems.map((t) => (
+                  <div key={t.name} className="flex justify-between text-muted-foreground">
+                    <span>
+                      {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
+                    </span>
+                    <span className="tabular-nums">{formatCurrency(t.amount, currency)}</span>
+                  </div>
+                ))
+              ) : (
+                sale.tax > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Tax</span>
+                    <span className="tabular-nums">{formatCurrency(sale.tax, currency)}</span>
+                  </div>
+                )
+              )}
+              <div className="flex items-baseline justify-between border-t border-border/60 pt-2.5">
+                <span className="text-sm font-semibold text-foreground">Total</span>
+                <span className="text-lg font-bold tabular-nums text-foreground">
+                  {formatCurrency(sale.total, currency)}
+                </span>
+              </div>
+
+              {/* Payment Summary card */}
+              <div
+                className={`mt-3 overflow-hidden rounded-xl ring-1 ring-inset ${
+                  status === 'paid'
+                    ? 'bg-emerald-50/70 ring-emerald-200/60 dark:bg-emerald-950/20 dark:ring-emerald-800/40'
+                    : status === 'partial'
+                      ? 'bg-amber-50/70 ring-amber-200/60 dark:bg-amber-950/20 dark:ring-amber-800/40'
+                      : 'bg-red-50/70 ring-red-200/60 dark:bg-red-950/20 dark:ring-red-800/40'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 border-b border-border/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Wallet className="h-3 w-3" />
+                  Payment Summary
                 </div>
-              ))
-            ) : (
-              sale.tax > 0 && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Tax</span>
-                  <span className="tabular-nums">{formatCurrency(sale.tax, currency)}</span>
+                <div className="space-y-1.5 px-3 py-2.5 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Amount Paid</span>
+                    <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                      {formatCurrency(paid, currency)}
+                    </span>
+                  </div>
+                  {owed > 0.005 && (
+                    <div className="flex items-baseline justify-between border-t border-border/40 pt-2">
+                      <span className="text-sm font-semibold text-foreground">Balance Due</span>
+                      <span className="text-lg font-bold tabular-nums text-red-700 dark:text-red-400">
+                        {formatCurrency(owed, currency)}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )
-            )}
-            <div className="flex items-baseline justify-between border-t border-border/60 pt-2.5">
-              <span className="text-sm font-semibold text-foreground">Total</span>
-              <span className="text-xl font-bold tabular-nums text-foreground sm:text-2xl">
-                {formatCurrency(sale.total, currency)}
-              </span>
+              </div>
             </div>
           </div>
 
-          <div className="border-t border-border/60 px-5 py-3 sm:px-6 sm:py-3.5">
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-              <CreditCard className="h-3.5 w-3.5" />
-              <span>Paid via {paymentLabel}</span>
-            </div>
-          </div>
-
-          {sale.notes && (
-            <div className="border-t border-border/60 bg-amber-50/40 px-5 py-3 text-center text-xs italic text-muted-foreground dark:bg-amber-950/20 sm:px-6 sm:py-3.5">
-              {sale.notes}
+          {/* Payment History */}
+          {history.length > 0 && (
+            <div className="border-t border-border/60 px-5 py-5 sm:px-10 sm:py-6">
+              <div className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <ClipboardList className="h-3 w-3" />
+                Payment History
+              </div>
+              <div className="overflow-hidden rounded-xl border border-border/60">
+                <div className="hidden border-b border-border/60 bg-slate-50/70 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-12 sm:px-4 sm:py-2.5 dark:bg-zinc-900/50">
+                  <div className="sm:col-span-3">Date</div>
+                  <div className="sm:col-span-2">Type</div>
+                  <div className="sm:col-span-5">Notes</div>
+                  <div className="text-right sm:col-span-2">Amount</div>
+                </div>
+                <div className="divide-y divide-border/60">
+                  {history.map((h, idx) => {
+                    const isPayment = h.amount < 0 || h.type === 'manual_payment'
+                    return (
+                      <div
+                        key={String(h.id ?? idx)}
+                        className="grid grid-cols-12 gap-2 px-3 py-3 text-sm transition-colors hover:bg-slate-50/40 sm:px-4 sm:py-3 dark:hover:bg-zinc-900/30"
+                      >
+                        <div className="col-span-12 tabular-nums text-muted-foreground sm:col-span-3">
+                          <span className="text-[10px] uppercase tracking-wider sm:hidden">Date </span>
+                          {formatDate(h.createdAt, 'datetime')}
+                        </div>
+                        <div className="col-span-6 sm:col-span-2">
+                          <span className="text-[10px] uppercase tracking-wider sm:hidden">Type </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:bg-zinc-800 dark:text-slate-300">
+                            {isPayment ? 'Payment' : h.type.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <div className="col-span-12 text-xs text-muted-foreground sm:col-span-5">
+                          <span className="text-[10px] uppercase tracking-wider sm:hidden">Notes </span>
+                          {h.notes || '—'}
+                        </div>
+                        <div className="col-span-6 text-right tabular-nums font-semibold text-emerald-700 dark:text-emerald-400 sm:col-span-2">
+                          <span className="text-[10px] uppercase tracking-wider sm:hidden">Amount </span>
+                          {formatCurrency(Math.abs(h.amount), currency)}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="border-t border-border/60 bg-gradient-to-b from-white to-slate-50/50 px-5 py-5 dark:from-card dark:to-zinc-900/30 sm:px-6 sm:py-6">
-            <div className="flex flex-col items-center gap-2">
-              <div className="rounded-xl border border-border/60 bg-white p-2.5 shadow-sm">
-                <div className="flex h-20 w-20 items-center justify-center">
-                  <svg viewBox="0 0 33 33" className="h-20 w-20">
-                    <rect width="33" height="33" fill="white" />
-                    <g fill="black">
-                      {Array.from({ length: 9 }).map((_, row) =>
-                        Array.from({ length: 9 }).map((_, col) => {
-                          if ((row + col) % 3 === 0 || row === 4 || col === 4)
-                            return (
-                              <rect key={`${row}-${col}`} x={col * 3 + 3} y={row * 3 + 3} width={3} height={3} />
-                            )
-                          return null
-                        })
-                      )}
-                    </g>
-                  </svg>
-                </div>
-              </div>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Scan to verify
+          {/* Notes */}
+          {sale.notes && (
+            <div className="border-t border-border/60 bg-amber-50/30 px-5 py-4 sm:px-10 dark:bg-amber-950/10">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Notes
               </p>
+              <p className="mt-1 text-sm italic text-foreground">{sale.notes}</p>
             </div>
-          </div>
+          )}
 
-          <div className="border-t border-border/60 bg-slate-50/50 px-5 py-3.5 text-center dark:bg-zinc-900/30">
-            <p className="text-xs font-medium text-foreground">Thank you for your purchase!</p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">
-              Generated by {tenant.name} · Powered by IndFlow
-            </p>
+          {/* Footer */}
+          <div className="border-t border-border/60 bg-gradient-to-b from-white to-slate-50/50 px-5 py-5 dark:from-card dark:to-zinc-900/30 sm:px-10 sm:py-6">
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+              <div className="order-2 text-center sm:order-1 sm:text-left">
+                <p className="text-sm font-semibold text-foreground">
+                  <Receipt className="mr-1.5 inline-block h-3.5 w-3.5 text-primary" />
+                  Thank you for your purchase!
+                </p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  Generated by {tenant.name} · Powered by IndFlow
+                </p>
+              </div>
+              <div className="order-1 sm:order-2">
+                <div className="rounded-xl border border-border/60 bg-white p-2.5 shadow-sm">
+                  <div className="flex h-16 w-16 items-center justify-center sm:h-20 sm:w-20">
+                    <svg viewBox="0 0 33 33" className="h-16 w-16 sm:h-20 sm:w-20">
+                      <rect width="33" height="33" fill="white" />
+                      <g fill="black">
+                        {Array.from({ length: 9 }).map((_, row) =>
+                          Array.from({ length: 9 }).map((_, col) => {
+                            if ((row + col) % 3 === 0 || row === 4 || col === 4)
+                              return (
+                                <rect key={`${row}-${col}`} x={col * 3 + 3} y={row * 3 + 3} width={3} height={3} />
+                              )
+                            return null
+                          })
+                        )}
+                      </g>
+                    </svg>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Scan to verify
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

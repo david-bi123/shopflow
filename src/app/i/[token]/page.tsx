@@ -189,7 +189,11 @@ export default async function PublicInvoicePage({
                 <div className="text-right sm:col-span-2">Total</div>
               </div>
               <div className="divide-y divide-border/60">
-                {invoice.items.map((item, idx) => (
+                {invoice.items.map((item, idx) => {
+                  const lineTotal = (item.total && item.total > 0)
+                    ? item.total
+                    : Math.round((Number(item.quantity) || 0) * (Number(item.price) || 0) * 100) / 100
+                  return (
                   <div
                     key={idx}
                     className="grid grid-cols-12 gap-2 px-3 py-3 text-sm transition-colors hover:bg-slate-50/40 sm:px-4 sm:py-3.5 dark:hover:bg-zinc-900/30"
@@ -212,10 +216,11 @@ export default async function PublicInvoicePage({
                     </div>
                     <div className="col-span-4 text-right tabular-nums font-semibold text-foreground sm:col-span-2">
                       <span className="text-[10px] uppercase tracking-wider sm:hidden">Total </span>
-                      {formatCurrency(item.total, currency)}
+                      {formatCurrency(lineTotal, currency)}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </div>
