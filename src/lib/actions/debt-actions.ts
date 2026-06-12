@@ -5,7 +5,7 @@ import { customers, debtLedger, sales, invoices } from '@/lib/db/schema'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { dbConnect } from '@/lib/db/connect'
 import { toNum, serializeList } from '@/lib/db/helpers'
-import { debtPaymentSchema, type DebtPaymentInput } from '@/lib/validations/debt'
+import { debtPaymentSchema, salePaymentSchema, type DebtPaymentInput, type SalePaymentInput } from '@/lib/validations/debt'
 import { auth } from '@/lib/auth/auth'
 import { hasPermission, PERMISSIONS } from '@/lib/auth/roles'
 import { createAuditLog } from '@/lib/services/audit'
@@ -339,4 +339,166 @@ export async function getDebtors() {
     .orderBy(desc(customers.totalDebt))
 
   return { debtors }
+}
+
+/**
+ * Record a payment against ONE specific sale from the sale-detail page.
+ *
+ * Unlike `recordDebtPayment` (which distributes FIFO across all of the
+ * customer's open sales + invoices), this pays a targeted sale in full
+ * or in part. It is the action that backs the "Record Payment" button
+ * on the dashboard sale detail page.
+ *
+ * The whole sequence — sale.amountPaid/amountOwed update, debt_ledger
+ * insert, and customers.totalDebt decrement — is wrapped in a single
+ * transaction so the ledger stays reconciled with the cached balance.
+ * Re-validates both the dashboard and the public receipt pages so the
+ * new state shows up immediately.
+ */
+export async function recordSalePayment(saleId: string, data: SalePaymentInput) {
+  return actionHandler('recordSalePayment', { saleId, data }, async () => {
+    const session = await auth()
+    if (!session?.user) return { error: 'Unauthorized' }
+    if (!hasPermission(session.user.role, PERMISSIONS.sales.update)) return { error: 'Forbidden' }
+
+    const validated = salePaymentSchema.safeParse(data)
+    if (!validated.success) {
+      const first = validated.error.issues[0]
+      const path = (first.path ?? []).join('.')
+      return { error: path ? `${path}: ${first.message}` : first.message }
+    }
+
+  const db = await dbConnect()
+  const tenantId = toNum(session.user.tenantId!)
+  const userId = toNum(session.user.id)
+  const numericSaleId = toNum(saleId)
+  const paymentAmount = Math.round(validated.data.amount * 100) / 100
+  const now = new Date().toISOString()
+
+  type TxResult =
+    | { ok: true; balanceAfter: number; amountPaid: number; amountOwed: number; customerName: string; saleNumber: string }
+    | { ok: false; error: string }
+
+  const result: TxResult = await db.transaction(async (tx): Promise<TxResult> => {
+    const [sale] = await tx
+      .select()
+      .from(sales)
+      .where(and(eq(sales.id, numericSaleId), eq(sales.tenantId, tenantId)))
+      .limit(1)
+    if (!sale) return { ok: false, error: 'Sale not found' }
+    if (!sale.customerId) return { ok: false, error: 'This sale has no linked customer. Add the customer first.' }
+    const owed = Math.round((sale.amountOwed ?? 0) * 100) / 100
+    if (owed <= 0.005) return { ok: false, error: 'This sale is already fully paid' }
+    if (paymentAmount > owed + 0.001) {
+      return { ok: false, error: `Payment exceeds outstanding balance of ${owed.toFixed(2)}` }
+    }
+
+    const [customer] = await tx
+      .select({ id: customers.id, name: customers.name, totalDebt: customers.totalDebt })
+      .from(customers)
+      .where(and(eq(customers.id, sale.customerId), eq(customers.tenantId, tenantId)))
+      .limit(1)
+    if (!customer) return { ok: false, error: 'Customer not found' }
+
+    const newSalePaid = Math.round((sale.amountPaid + paymentAmount) * 100) / 100
+    const newSaleOwed = Math.max(0, Math.round((owed - paymentAmount) * 100) / 100)
+    const newCustomerDebt = Math.max(0, Math.round((customer.totalDebt - paymentAmount) * 100) / 100)
+    const paymentMethodLabel = validated.data.paymentMethod.replace('_', ' ')
+
+    await tx.update(sales)
+      .set({ amountPaid: newSalePaid, amountOwed: newSaleOwed, updatedAt: now })
+      .where(eq(sales.id, numericSaleId))
+
+    await tx.insert(debtLedger).values({
+      tenantId,
+      customerId: customer.id,
+      amount: -paymentAmount,
+      type: 'manual_payment',
+      referenceType: 'sale',
+      referenceId: numericSaleId,
+      notes: `Payment toward ${sale.saleNumber} via ${paymentMethodLabel}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
+      balanceAfter: newCustomerDebt,
+      createdBy: userId,
+      createdAt: now,
+    })
+
+    await tx.update(customers)
+      .set({ totalDebt: newCustomerDebt, lastDebtActivityAt: now })
+      .where(eq(customers.id, customer.id))
+
+    return {
+      ok: true,
+      balanceAfter: newCustomerDebt,
+      amountPaid: newSalePaid,
+      amountOwed: newSaleOwed,
+      customerName: customer.name,
+      saleNumber: sale.saleNumber,
+    }
+  })
+
+  if (!result.ok) {
+    return { error: result.error }
+  }
+
+  await createAuditLog({
+    tenantId,
+    action: 'sale.payment_recorded',
+    entity: 'Sale',
+    entityId: String(numericSaleId),
+    performedBy: userId,
+    performedByName: session.user.name || 'Unknown',
+    details: { amount: paymentAmount, paymentMethod: validated.data.paymentMethod, balanceAfter: result.balanceAfter },
+  })
+
+  await createNotification({
+    tenantId,
+    userId,
+    type: 'sale.payment_recorded',
+    title: 'Payment Recorded',
+    message: `${result.customerName} paid ${paymentAmount.toFixed(2)} toward ${result.saleNumber}. Balance: ${result.amountOwed.toFixed(2)}.`,
+    link: `/sales/${numericSaleId}`,
+  })
+
+  revalidatePath(`/sales/${numericSaleId}`)
+  revalidatePath('/sales')
+  revalidatePath('/customers')
+  // Receipt pages must reflect the new payment status immediately.
+  revalidatePath(`/r/[token]`, 'page')
+  revalidatePath(`/i/[token]`, 'page')
+  return actionOk({ amountPaid: result.amountPaid, amountOwed: result.amountOwed, balanceAfter: result.balanceAfter })
+  })
+}
+
+/**
+ * Linked debt_ledger history for a single sale, oldest first. Backed
+ * by the `debt_ledger.referenceType='sale' + referenceId` index, scoped
+ * to the verified tenant. Powers the "Payment History" table on the
+ * dashboard sale detail page and the public receipt.
+ */
+export async function getSalePaymentHistory(saleId: string) {
+  const session = await auth()
+  if (!session?.user) return { error: 'Unauthorized' }
+
+  const db = await dbConnect()
+  const tenantId = toNum(session.user.tenantId!)
+  const numericSaleId = toNum(saleId)
+
+  const entries = await db
+    .select({
+      id: debtLedger.id,
+      type: debtLedger.type,
+      amount: debtLedger.amount,
+      notes: debtLedger.notes,
+      balanceAfter: debtLedger.balanceAfter,
+      createdAt: debtLedger.createdAt,
+    })
+    .from(debtLedger)
+    .where(and(
+      eq(debtLedger.tenantId, tenantId),
+      eq(debtLedger.referenceType, 'sale'),
+      eq(debtLedger.referenceId, numericSaleId),
+    ))
+    .orderBy(asc(debtLedger.createdAt), asc(debtLedger.id))
+
+  return { history: serializeList(entries as unknown as Record<string, unknown>[]) }
 }

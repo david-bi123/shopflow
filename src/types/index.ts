@@ -11,6 +11,7 @@ export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
 export type NotificationType =
   | 'sale.created'
   | 'sale.deleted'
+  | 'sale.payment_recorded'
   | 'invoice.created'
   | 'invoice.paid'
   | 'invoice.overdue'

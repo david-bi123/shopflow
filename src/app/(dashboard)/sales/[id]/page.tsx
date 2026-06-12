@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   HandCoins,
   Pencil,
+  ClipboardList,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,8 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getSaleById, deleteSale } from '@/lib/actions/sale-actions'
+import { getSalePaymentHistory } from '@/lib/actions/debt-actions'
+import { RecordPaymentDialog } from './record-payment-dialog'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -81,23 +84,40 @@ export default function SaleDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [paymentHistory, setPaymentHistory] = useState<
+    Array<{
+      id?: string | number
+      type: string
+      amount: number
+      notes?: string | null
+      balanceAfter?: number
+      createdAt: string
+    }>
+  >([])
+  const [paymentOpen, setPaymentOpen] = useState(false)
+
+  const load = async () => {
+    try {
+      const data = await getSaleById(params.id as string)
+      if ('error' in data) {
+        setError(data.error ?? 'Sale not found')
+        return
+      }
+      setSale((data as unknown as { sale: Sale }).sale)
+      const hist = await getSalePaymentHistory(params.id as string)
+      if (hist && 'history' in hist && Array.isArray(hist.history)) {
+        setPaymentHistory(hist.history as typeof paymentHistory)
+      }
+    } catch {
+      setError('Failed to load sale')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await getSaleById(params.id as string)
-        if ('error' in data) {
-          setError(data.error ?? 'Sale not found')
-          return
-        }
-        setSale((data as unknown as { sale: Sale }).sale)
-      } catch {
-        setError('Failed to load sale')
-      } finally {
-        setLoading(false)
-      }
-    }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id])
 
   const handleDelete = async () => {
@@ -458,11 +478,27 @@ export default function SaleDetailPage() {
               </span>
             </div>
             {(sale.amountOwed ?? 0) > 0.005 && (
-              <div className="flex items-baseline justify-between rounded-xl bg-red-50/60 p-3 ring-1 ring-inset ring-red-200/60 dark:bg-red-950/30 dark:ring-red-800/40">
-                <span className="text-sm font-semibold text-red-700 dark:text-red-300">Outstanding</span>
-                <span className="text-xl font-bold tabular-nums text-red-700 dark:text-red-300">
-                  {formatCurrency(sale.amountOwed)}
-                </span>
+              <>
+                <div className="flex items-baseline justify-between rounded-xl bg-red-50/60 p-3 ring-1 ring-inset ring-red-200/60 dark:bg-red-950/30 dark:ring-red-800/40">
+                  <span className="text-sm font-semibold text-red-700 dark:text-red-300">Outstanding</span>
+                  <span className="text-xl font-bold tabular-nums text-red-700 dark:text-red-300">
+                    {formatCurrency(sale.amountOwed)}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => setPaymentOpen(true)}
+                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 shadow-md shadow-emerald-500/20 transition-all hover:shadow-lg hover:shadow-emerald-500/30"
+                >
+                  <HandCoins className="mr-2 size-4" />
+                  Record Payment
+                </Button>
+              </>
+            )}
+            {(sale.amountOwed ?? 0) <= 0.005 && (
+              <div className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-50/70 p-3 text-sm font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800/40">
+                <CircleCheck className="size-4" />
+                Paid in full
               </div>
             )}
           </CardContent>
@@ -482,6 +518,97 @@ export default function SaleDetailPage() {
             <p className="text-sm italic text-muted-foreground">{sale.notes}</p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Payment History */}
+      <Card>
+        <CardHeader className="border-b border-border/60">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ClipboardList className="size-4 text-primary" />
+              Payment History
+            </CardTitle>
+            <span className="text-xs text-muted-foreground">
+              {paymentHistory.filter((h) => h.type !== 'sale_created').length} {paymentHistory.filter((h) => h.type !== 'sale_created').length === 1 ? 'entry' : 'entries'}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {paymentHistory.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 ring-1 ring-border/60">
+                <ClipboardList className="size-4 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">No payment entries yet.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 bg-slate-50/70 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:bg-zinc-900/50">
+                    <th className="px-5 py-2.5 text-left sm:px-6">Date</th>
+                    <th className="px-2 py-2.5 text-left">Type</th>
+                    <th className="px-2 py-2.5 text-left">Notes</th>
+                    <th className="px-5 py-2.5 text-right sm:px-6">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {paymentHistory.map((h, idx) => {
+                    const isPayment = h.amount < 0 || h.type === 'manual_payment'
+                    const isCreation = h.type === 'sale_created'
+                    return (
+                      <tr
+                        key={String(h.id ?? idx)}
+                        className="transition-colors hover:bg-slate-50/40 dark:hover:bg-zinc-900/30"
+                      >
+                        <td className="whitespace-nowrap px-5 py-3 sm:px-6 tabular-nums text-muted-foreground">
+                          {formatDate(h.createdAt, 'datetime')}
+                        </td>
+                        <td className="px-2 py-3">
+                          <span
+                            className={
+                              isCreation
+                                ? 'inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 ring-1 ring-blue-200/60 dark:bg-blue-950/60 dark:text-blue-300 dark:ring-blue-800/40'
+                                : 'inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800/40'
+                            }
+                          >
+                            {isCreation ? 'Sale Created' : 'Payment'}
+                          </span>
+                        </td>
+                        <td className="px-2 py-3 text-xs text-muted-foreground">
+                          {h.notes || '—'}
+                        </td>
+                        <td
+                          className={
+                            isPayment
+                              ? 'whitespace-nowrap px-5 py-3 text-right tabular-nums font-semibold text-emerald-700 sm:px-6 dark:text-emerald-400'
+                              : 'whitespace-nowrap px-5 py-3 text-right tabular-nums font-semibold text-foreground sm:px-6'
+                          }
+                        >
+                          {isPayment ? '−' : '+'}
+                          {formatCurrency(Math.abs(h.amount))}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Record Payment Dialog */}
+      {sale && (
+        <RecordPaymentDialog
+          open={paymentOpen}
+          onOpenChange={setPaymentOpen}
+          saleId={String(sale.id)}
+          saleNumber={sale.saleNumber}
+          customerName={sale.customerName ?? ''}
+          balanceDue={Math.max(0, Math.round((sale.amountOwed ?? 0) * 100) / 100)}
+          onSuccess={load}
+        />
       )}
     </div>
   )
