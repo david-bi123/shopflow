@@ -61,7 +61,7 @@ export async function createInvoice(data: CreateInvoiceInput) {
     tenantId,
     invoiceNumber,
     customerId: debtorCustomerId,
-    customerName: data.customerName,
+      customerName: (data.customerName as string | undefined) ?? '',
     customerEmail: data.customerEmail || null,
     customerPhone: data.customerPhone || null,
     customerAddress: data.customerAddress || null,
@@ -497,7 +497,7 @@ export async function updateInvoice(id: string, data: CreateInvoiceInput) {
     .update(invoices)
     .set({
       customerId: debtorCustomerId,
-      customerName: data.customerName,
+    customerName: (data.customerName as string | undefined) ?? '',
       customerEmail: (data.customerEmail as string | undefined) ?? null,
       customerPhone: (data.customerPhone as string | undefined) ?? null,
       customerAddress: (data.customerAddress as string | undefined) ?? null,

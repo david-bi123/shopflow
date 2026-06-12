@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const saleItemSchema = z.object({
-  name: z.string().min(1, 'Item name is required').max(200),
+  name: z.string().max(200).default('Item'),
   quantity: z.number().int().min(1, 'Quantity must be at least 1'),
   price: z.number().min(0, 'Price must be non-negative'),
   subtotal: z.number().min(0, 'Subtotal must be non-negative'),

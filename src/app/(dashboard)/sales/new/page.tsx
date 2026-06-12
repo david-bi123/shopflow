@@ -36,6 +36,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
 import { FormError } from '@/components/shared/form-error'
+import { FormErrorSummary, flattenErrors } from '@/components/shared/form-error-summary'
 import { createSaleSchema, type CreateSaleInput, type TaxItem } from '@/lib/validations/sale'
 import { createSale } from '@/lib/actions/sale-actions'
 import { formatCurrency } from '@/lib/utils/format'
@@ -99,7 +100,19 @@ export default function NewSalePage() {
     },
   })
 
-  const { register, control, handleSubmit, formState: { errors }, watch, setValue } = form
+  const { register, control, handleSubmit, formState: { errors }, watch, setValue, clearErrors } = form
+  const formErrors = flattenErrors(errors as Record<string, unknown> | undefined)
+
+  const onInvalid = (errs: Record<string, unknown>) => {
+    const flat = flattenErrors(errs)
+    if (flat.length > 0) {
+      toast.error(`Please fix ${flat.length} field${flat.length > 1 ? 's' : ''} below`)
+      requestAnimationFrame(() => {
+        const el = document.querySelector('[role="alert"]')
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    }
+  }
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
   const items = watch('items')
   const discountPercent = watch('discountPercent') || 0
@@ -231,7 +244,15 @@ export default function NewSalePage() {
         </Button>
       </PageHeader>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6" noValidate>
+        <FormErrorSummary
+          errors={formErrors}
+          serverError={serverError}
+          onDismiss={() => {
+            setServerError(null)
+            clearErrors()
+          }}
+        />
         <Card className="overflow-hidden border-0 shadow-md">
           <CardHeader className="border-b bg-gradient-to-r from-blue-500/5 to-transparent pb-4">
             <div className="flex items-center gap-3">
@@ -575,8 +596,6 @@ export default function NewSalePage() {
             </div>
           </CardContent>
         </Card>
-
-        <FormError error={serverError} onDismiss={() => setServerError(null)} />
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" asChild>
