@@ -343,6 +343,12 @@ export default function InvoiceDetailPage() {
               <Printer className="mr-2 size-4" />
               Print
             </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/invoices/${invoice.id}/edit`}>
+                <Pencil className="mr-2 size-4" />
+                Edit
+              </Link>
+            </Button>
             <Button variant="destructive" size="sm" onClick={handleDelete}>
               <Trash2 className="mr-2 size-4" />
               Delete

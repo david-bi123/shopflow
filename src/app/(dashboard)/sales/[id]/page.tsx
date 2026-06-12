@@ -22,6 +22,7 @@ import {
   Check,
   AlertTriangle,
   HandCoins,
+  Pencil,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -246,6 +247,12 @@ export default function SaleDetailPage() {
             >
               <Printer className="mr-2 size-4" />
               Print
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/sales/${sale.id}/edit`}>
+                <Pencil className="mr-2 size-4" />
+                Edit
+              </Link>
             </Button>
             <Button variant="destructive" size="sm" onClick={handleDelete}>
               <Trash2 className="mr-2 size-4" />

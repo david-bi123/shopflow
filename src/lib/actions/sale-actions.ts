@@ -233,28 +233,208 @@ export async function getSaleById(id: string) {
   return { sale: serializeRow(sale) }
 }
 
+/**
+ * Update an existing sale. Reverses the old debt attribution (if any)
+ * and re-applies it from scratch based on the new amount paid.
+ */
+export async function updateSale(id: string, data: CreateSaleInput) {
+  const session = await auth()
+  if (!session?.user) return { error: 'Unauthorized' }
+  if (!hasPermission(session.user.role, PERMISSIONS.sales.update)) return { error: 'Forbidden' }
+
+  const validated = createSaleSchema.safeParse(data)
+  if (!validated.success) return { error: validated.error.issues[0].message }
+
+  const db = await dbConnect()
+  const tenantId = toNum(session.user.tenantId!)
+  const userId = toNum(session.user.id)
+  const saleId = toNum(id)
+
+  // Recompute totals
+  const items = validated.data.items.map(item => ({
+    ...item,
+    subtotal: Math.round(item.quantity * item.price * 100) / 100,
+  }))
+  const calculatedSubtotal = items.reduce((sum, i) => sum + i.subtotal, 0)
+  const discountPercent = validated.data.discountPercent ?? 0
+  const calculatedDiscount = Math.round(calculatedSubtotal * discountPercent) / 100
+  const afterDiscount = Math.max(0, calculatedSubtotal - calculatedDiscount)
+  const taxItems: TaxItem[] = (validated.data.taxItems ?? []).map(t => ({
+    name: t.name,
+    rate: t.rate,
+    amount: Math.round(afterDiscount * t.rate) / 100,
+  }))
+  const calculatedTax = Math.round(taxItems.reduce((sum, t) => sum + t.amount, 0) * 100) / 100
+  const calculatedTotal = Math.round((afterDiscount + calculatedTax) * 100) / 100
+  const amountPaid = Math.max(0, Math.min(calculatedTotal, validated.data.amountPaid ?? calculatedTotal))
+  const amountOwed = Math.max(0, Math.round((calculatedTotal - amountPaid) * 100) / 100)
+  const now = new Date().toISOString()
+
+  // Load the old sale to capture the old debt attribution
+  const [oldSale] = await db
+    .select()
+    .from(sales)
+    .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
+    .limit(1)
+  if (!oldSale) return { error: 'Sale not found' }
+
+  // Resolve the debtor customer: prefer explicit id, fall back to name lookup
+  let debtorCustomerId: number | null = (oldSale.customerId as number | null) ?? null
+  if (validated.data.customerId) {
+    debtorCustomerId = toNum(validated.data.customerId)
+  } else if (validated.data.customerName) {
+    const [existing] = await db.select().from(customers)
+      .where(and(eq(customers.tenantId, tenantId), eq(customers.name, validated.data.customerName)))
+      .limit(1)
+    if (existing) debtorCustomerId = existing.id
+  }
+
+  // 1) Reverse the old debt attribution
+  if ((oldSale.amountOwed ?? 0) > 0.01 && oldSale.customerId) {
+    const [custRow] = await db
+      .select({ totalDebt: customers.totalDebt })
+      .from(customers)
+      .where(eq(customers.id, oldSale.customerId))
+      .limit(1)
+    const previousBalance = custRow?.totalDebt ?? 0
+    const reversedBalance = Math.max(0, Math.round((previousBalance - (oldSale.amountOwed ?? 0)) * 100) / 100)
+    await db.insert(debtLedger).values({
+      tenantId,
+      customerId: oldSale.customerId,
+      amount: -Math.abs(oldSale.amountOwed ?? 0),
+      type: 'sale_voided',
+      referenceType: 'sale',
+      referenceId: saleId,
+      notes: `Reversal: edited ${oldSale.saleNumber} (was owing ${oldSale.amountOwed?.toFixed(2)})`,
+      balanceAfter: reversedBalance,
+      createdBy: userId,
+      createdAt: now,
+    })
+    await db.update(customers)
+      .set({ totalDebt: reversedBalance, lastDebtActivityAt: now })
+      .where(eq(customers.id, oldSale.customerId))
+  }
+
+  // 2) Update the sale row
+  await db
+    .update(sales)
+    .set({
+      customerName: (validated.data.customerName as string | undefined) ?? null,
+      customerPhone: (validated.data.customerPhone as string | undefined) ?? null,
+      customerId: debtorCustomerId as number | undefined,
+      items,
+      subtotal: calculatedSubtotal,
+      discountPercent,
+      discount: calculatedDiscount,
+      tax: calculatedTax,
+      taxItems,
+      total: calculatedTotal,
+      amountPaid,
+      amountOwed,
+      paymentMethod: validated.data.paymentMethod as 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other',
+      notes: (validated.data.notes as string | undefined) ?? null,
+      updatedAt: now,
+    })
+    .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
+
+  // 3) Apply the new debt attribution
+  if (amountOwed > 0.01 && debtorCustomerId) {
+    const [custRow] = await db
+      .select({ totalDebt: customers.totalDebt })
+      .from(customers)
+      .where(eq(customers.id, debtorCustomerId))
+      .limit(1)
+    const previousBalance = custRow?.totalDebt ?? 0
+    const newBalance = Math.round((previousBalance + amountOwed) * 100) / 100
+    await db.insert(debtLedger).values({
+      tenantId,
+      customerId: debtorCustomerId,
+      amount: amountOwed,
+      type: 'sale_created',
+      referenceType: 'sale',
+      referenceId: saleId,
+      notes: `Edit: ${oldSale.saleNumber} \u2014 paid ${amountPaid} of ${calculatedTotal}`,
+      balanceAfter: newBalance,
+      createdBy: userId,
+      createdAt: now,
+    })
+    await db.update(customers)
+      .set({
+        totalDebt: newBalance,
+        firstDebtAt: sql`COALESCE(${customers.firstDebtAt}, ${now})`,
+        lastDebtActivityAt: now,
+      })
+      .where(eq(customers.id, debtorCustomerId))
+  }
+
+  await createAuditLog({
+    tenantId,
+    action: 'sale.updated',
+    entity: 'Sale',
+    entityId: id,
+    performedBy: userId,
+    performedByName: session.user.name || 'Unknown',
+    details: { saleNumber: oldSale.saleNumber, total: calculatedTotal, amountPaid, amountOwed },
+  })
+
+  revalidatePath('/sales')
+  revalidatePath(`/sales/${id}`)
+  return { success: true, id }
+}
+
 export async function deleteSale(id: string) {
   const session = await auth()
   if (!session?.user) return { error: 'Unauthorized' }
   if (!hasPermission(session.user.role, PERMISSIONS.sales.delete)) return { error: 'Forbidden' }
 
   const db = await dbConnect()
+  const tenantId = toNum(session.user.tenantId!)
+  const userId = toNum(session.user.id)
+  const saleId = toNum(id)
 
   const [sale] = await db.select().from(sales).where(
-    and(eq(sales.id, toNum(id)), eq(sales.tenantId, toNum(session.user.tenantId!)))
+    and(eq(sales.id, saleId), eq(sales.tenantId, tenantId))
   )
-  await db.delete(sales).where(
-    and(eq(sales.id, toNum(id)), eq(sales.tenantId, toNum(session.user.tenantId!)))
-  )
-
   if (!sale) return { error: 'Sale not found' }
 
+  // If the sale had outstanding debt, write a reversal entry and update
+  // the customer's cached balance.
+  if ((sale.amountOwed ?? 0) > 0.01 && sale.customerId) {
+    const [custRow] = await db
+      .select({ totalDebt: customers.totalDebt })
+      .from(customers)
+      .where(eq(customers.id, sale.customerId))
+      .limit(1)
+    const previousBalance = custRow?.totalDebt ?? 0
+    const reversed = Math.max(0, Math.round((previousBalance - (sale.amountOwed ?? 0)) * 100) / 100)
+    const now = new Date().toISOString()
+    await db.insert(debtLedger).values({
+      tenantId,
+      customerId: sale.customerId,
+      amount: -Math.abs(sale.amountOwed ?? 0),
+      type: 'sale_voided',
+      referenceType: 'sale',
+      referenceId: saleId,
+      notes: `Reversal: deleted ${sale.saleNumber} (was owing ${sale.amountOwed?.toFixed(2)})`,
+      balanceAfter: reversed,
+      createdBy: userId,
+      createdAt: now,
+    })
+    await db.update(customers)
+      .set({ totalDebt: reversed, lastDebtActivityAt: now })
+      .where(eq(customers.id, sale.customerId))
+  }
+
+  await db.delete(sales).where(
+    and(eq(sales.id, saleId), eq(sales.tenantId, tenantId))
+  )
+
   await createAuditLog({
-    tenantId: toNum(session.user.tenantId!),
+    tenantId,
     action: 'sale.deleted',
     entity: 'Sale',
     entityId: id,
-    performedBy: toNum(session.user.id),
+    performedBy: userId,
     performedByName: session.user.name || 'Unknown',
     details: { saleNumber: sale.saleNumber },
   })
