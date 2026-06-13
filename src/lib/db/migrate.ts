@@ -63,6 +63,9 @@ const alters: Alter[] = [
   { table: 'customers', column: 'first_debt_at', ddl: 'ALTER TABLE `customers` ADD COLUMN `first_debt_at` VARCHAR(50)' },
   { table: 'customers', column: 'last_debt_activity_at', ddl: 'ALTER TABLE `customers` ADD COLUMN `last_debt_activity_at` VARCHAR(50)' },
 
+  // Customers: soft-delete tombstone (PII anonymization + right-to-erasure)
+  { table: 'customers', column: 'deleted_at', ddl: 'ALTER TABLE `customers` ADD COLUMN `deleted_at` VARCHAR(50)' },
+
   // Audit log: capture client IP / user-agent (added for SOC2-style auditing)
   { table: 'audit_logs', column: 'ip', ddl: 'ALTER TABLE `audit_logs` ADD COLUMN `ip` TEXT' },
   { table: 'audit_logs', column: 'user_agent', ddl: 'ALTER TABLE `audit_logs` ADD COLUMN `user_agent` TEXT' },
@@ -127,11 +130,13 @@ const createTableStatements: { name: string; ddl: string }[] = [
         \`created_by\` INT NOT NULL,
         \`created_at\` VARCHAR(50) NOT NULL,
         \`updated_at\` VARCHAR(50) NOT NULL,
+        \`deleted_at\` VARCHAR(50),
         PRIMARY KEY (\`id\`),
         INDEX \`customer_tenant_name_idx\` (\`tenant_id\`, \`name\`),
         INDEX \`customer_tenant_phone_idx\` (\`tenant_id\`, \`phone\`),
         INDEX \`customer_tenant_email_idx\` (\`tenant_id\`, \`email\`),
-        INDEX \`customer_tenant_debt_idx\` (\`tenant_id\`, \`total_debt\`)
+        INDEX \`customer_tenant_debt_idx\` (\`tenant_id\`, \`total_debt\`),
+        INDEX \`customer_tenant_deleted_idx\` (\`tenant_id\`, \`deleted_at\`)
       )
     `,
   },
@@ -343,6 +348,23 @@ const createTableStatements: { name: string; ddl: string }[] = [
       )
     `,
   },
+  {
+    name: 'password_reset_tokens',
+    ddl: `
+      CREATE TABLE IF NOT EXISTS \`password_reset_tokens\` (
+        \`id\` INT NOT NULL AUTO_INCREMENT,
+        \`user_id\` INT NOT NULL,
+        \`token_hash\` VARCHAR(64) NOT NULL,
+        \`expires_at\` VARCHAR(50) NOT NULL,
+        \`used_at\` VARCHAR(50),
+        \`created_at\` VARCHAR(50) NOT NULL,
+        PRIMARY KEY (\`id\`),
+        UNIQUE INDEX \`password_reset_token_hash_idx\` (\`token_hash\`),
+        INDEX \`password_reset_user_idx\` (\`user_id\`),
+        INDEX \`password_reset_expires_idx\` (\`expires_at\`)
+      )
+    `,
+  },
 ]
 
 function isAlreadyExists(err: unknown): boolean {
@@ -397,6 +419,13 @@ async function migrate() {
   await db.execute(sql`UPDATE \`sales\` SET \`tax_items\` = JSON_ARRAY() WHERE \`tax_items\` IS NULL OR JSON_LENGTH(\`tax_items\`) IS NULL`)
   await db.execute(sql`UPDATE \`invoices\` SET \`tax_items\` = JSON_ARRAY() WHERE \`tax_items\` IS NULL OR JSON_LENGTH(\`tax_items\`) IS NULL`)
   await db.execute(sql`UPDATE \`settings\` SET \`taxes\` = JSON_ARRAY() WHERE \`taxes\` IS NULL OR JSON_LENGTH(\`taxes\`) IS NULL`)
+
+  console.log('\n--- Step 4: System tenant (sentinel for orphan audit rows) ---')
+  // tenant_id=0 is the "no real tenant" sentinel. The audit_logs
+  // table is NOT NULL on tenant_id, so failed-login audits that have
+  // no real user-to-tenant mapping (e.g. attempts against a non-existent
+  // email) get attributed to this row. INSERT IGNORE keeps it idempotent.
+  await db.execute(sql`INSERT IGNORE INTO \`tenants\` (\`id\`, \`name\`, \`slug\`, \`status\`, \`subscription_status\`, \`created_at\`, \`updated_at\`) VALUES (0, '__system__', '__system__', 'active', 'active', ${new Date().toISOString()}, ${new Date().toISOString()})`)
 
   console.log('\n--- Migration complete ---')
   process.exit(0)

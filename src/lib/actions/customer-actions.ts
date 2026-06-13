@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
 import { customers, sales, invoices } from '@/lib/db/schema'
-import { eq, and, or, like, desc, count, isNotNull, ne } from 'drizzle-orm'
+import { eq, and, or, like, desc, count, isNotNull, isNull, ne } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
 import { createCustomerSchema, updateCustomerSchema } from '@/lib/validations/customer'
 import { auth } from '@/lib/auth/auth'
@@ -79,7 +79,7 @@ export async function getCustomers(page = 1, limit = 20, search?: string) {
   const db = await dbConnect()
 
   const tenantId = toNum(session.user.tenantId!)
-  const conditions = [eq(customers.tenantId, tenantId)]
+  const conditions = [eq(customers.tenantId, tenantId), isNull(customers.deletedAt)]
 
   if (search) {
     const trimmed = search.trim()
@@ -121,7 +121,11 @@ export async function getCustomerById(id: string) {
   const customerId = toNum(id)
 
   const [customer] = await db.select().from(customers)
-    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+    .where(and(
+      eq(customers.id, customerId),
+      eq(customers.tenantId, tenantId),
+      isNull(customers.deletedAt),
+    ))
     .limit(1)
 
   if (!customer) return { error: 'Customer not found' }
@@ -226,15 +230,44 @@ export async function deleteCustomer(id: string) {
     const tenantId = toNum(session.user.tenantId!)
     const customerId = toNum(id)
 
-    const [customer] = await db.select().from(customers)
-      .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+  const [customer] = await db.select().from(customers)
+    .where(and(
+      eq(customers.id, customerId),
+      eq(customers.tenantId, tenantId),
+      isNull(customers.deletedAt),
+    ))
 
-    if (!customer) return { error: 'Customer not found' }
+  if (!customer) return { error: 'Customer not found' }
 
-    await db.delete(customers)
-      .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+  // Soft-delete + PII anonymization. We:
+  //  1. Set `deletedAt` so all read queries (filtered by `deletedAt IS NULL`) hide the row.
+  //  2. Anonymize name/email/phone/address/notes so historical sales/invoices
+  //     that still reference this customer via `customerName`/etc. don't leak
+  //     PII, and so a future "right to erasure" request is honored at the
+  //     source of truth.
+  //  3. Zero out financial aggregates so the row is no longer meaningful
+  //     for reporting.
+  // We do NOT touch historical sales/invoice rows — those keep their own
+  // snapshots of the customer details and remain valid business records.
+  const deletedAt = new Date().toISOString()
+  await db.update(customers)
+    .set({
+      deletedAt,
+      name: `Deleted customer #${customerId}`,
+      email: null,
+      phone: null,
+      address: null,
+      notes: null,
+      totalSales: 0,
+      totalRevenue: 0,
+      totalDebt: 0,
+      firstDebtAt: null,
+      lastDebtActivityAt: null,
+      updatedAt: deletedAt,
+    })
+    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
 
-    revalidatePath('/customers')
-    return actionOk({})
+  revalidatePath('/customers')
+  return actionOk({})
   })
 }

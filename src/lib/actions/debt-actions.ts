@@ -405,9 +405,26 @@ export async function recordSalePayment(saleId: string, data: SalePaymentInput) 
     const newCustomerDebt = Math.max(0, Math.round((customer.totalDebt - paymentAmount) * 100) / 100)
     const paymentMethodLabel = validated.data.paymentMethod.replace('_', ' ')
 
-    await tx.update(sales)
+    // Race-safe update: only succeed if the sale STILL has at least
+    // `paymentAmount` outstanding. The WHERE-clause guard is what stops
+    // two concurrent payments from both passing the read-then-write
+    // window above and double-crediting the customer. If 0 rows are
+    // affected, another transaction won the race and we abort.
+    const updateResult = await tx
+      .update(sales)
       .set({ amountPaid: newSalePaid, amountOwed: newSaleOwed, updatedAt: now })
-      .where(eq(sales.id, numericSaleId))
+      .where(and(
+        eq(sales.id, numericSaleId),
+        sql`${sales.amountOwed} >= ${paymentAmount}`,
+      ))
+
+    // mysql2 returns OkPacket with affectedRows; if 0, another caller
+    // paid between our SELECT and our UPDATE.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const affected = (updateResult as any)?.affectedRows ?? (updateResult as any)?.[0]?.affectedRows ?? 0
+    if (affected === 0) {
+      return { ok: false, error: 'Payment could not be applied — the balance changed. Please retry.' }
+    }
 
     await tx.insert(debtLedger).values({
       tenantId,

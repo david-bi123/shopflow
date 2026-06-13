@@ -105,17 +105,3 @@ export async function updateSettings(data: UpdateSettingsInput) {
   revalidatePath('/settings')
   return { success: true, settings: serializeRow(settings) }
 }
-
-export async function getStoreInfo(tenantId?: string) {
-  if (!tenantId) return null
-
-  const db = await dbConnect()
-
-  const [settings] = await db.select().from(settingsTable)
-    .where(eq(settingsTable.tenantId, toNum(tenantId)))
-    .limit(1)
-
-  if (!settings) return null
-
-  return serializeRow(settings)
-}

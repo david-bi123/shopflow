@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs'
 import { dbConnect } from '@/lib/db/connect'
 import { users, tenants } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { rateLimit } from '@/lib/utils/rate-limit'
+import { writeFailedLoginAudit, writeSuccessLoginAudit } from '@/lib/services/audit-login'
 import type { Role } from '@/types'
 import type { User } from 'next-auth'
 
@@ -44,18 +46,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
 
+        const email = String(credentials.email).toLowerCase().trim()
+
+        // Per-email throttling. The rate limiter is per-process, so on
+        // Vercel the effective floor is `limit × instances`; that still
+        // slows down a credential-stuffing attacker. For a strict global
+        // limit, swap this for Upstash Redis.
+        const rl = rateLimit(`login:${email}`, { limit: 10, windowSeconds: 60 })
+        if (!rl.allowed) {
+          await writeFailedLoginAudit({ email, reason: 'rate_limited' })
+          return null
+        }
+
         const db = await dbConnect()
 
-        const [user] = await db.select().from(users).where(eq(users.email, credentials.email as string)).limit(1)
+        const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
 
-        if (!user) return null
+        if (!user) {
+          // Constant-time-ish: do a fake bcrypt compare so the timing of
+          // a "user not found" branch doesn't trivially disclose whether
+          // the email exists.
+          await bcrypt.compare(String(credentials.password), '$2a$10$invalidsaltinvalidsaltinvalidsaltinvalidsaltinvalid')
+          await writeFailedLoginAudit({ email, reason: 'no_user' })
+          return null
+        }
 
-        const isValid = await bcrypt.compare(credentials.password as string, user.password)
-        if (!isValid) return null
+        const isValid = await bcrypt.compare(String(credentials.password), user.password)
+        if (!isValid) {
+          await writeFailedLoginAudit({ email, reason: 'bad_password', userId: user.id })
+          return null
+        }
 
-        if (user.status === 'suspended') return null
+        if (user.status === 'suspended') {
+          await writeFailedLoginAudit({ email, reason: 'suspended', userId: user.id })
+          return null
+        }
 
         await db.update(users).set({ lastLogin: new Date().toISOString() }).where(eq(users.id, user.id))
+        await writeSuccessLoginAudit({ email, userId: user.id })
 
         return {
           id: String(user.id),

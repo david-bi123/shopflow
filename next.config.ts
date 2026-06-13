@@ -20,8 +20,11 @@ const csp = [
   `default-src 'self'`,
   // Next.js boots a few inline scripts and styles. `'unsafe-inline'` is
   // required for first-party styles; nonce-based CSPs are a larger refactor
-  // and out of scope for this pass.
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
+  // and out of scope for this pass. `'unsafe-eval'` is dev-only: Next.js
+  // uses eval() for HMR and stack-trace mapping, but production builds
+  // never need it. We always allow it in development so `next dev` keeps
+  // working, and strip it in production.
+  `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"}`,
   `style-src 'self' 'unsafe-inline'`,
   // PDFKit and the QR generator use data: URIs for images/fonts.
   `img-src 'self' data: blob: https://res.cloudinary.com`,

@@ -52,11 +52,14 @@ export const customers = mysqlTable('customers', {
   createdBy: int('created_by').notNull().references(() => users.id),
   createdAt: varchar('created_at', { length: 50 }).notNull(),
   updatedAt: varchar('updated_at', { length: 50 }).notNull(),
+  /** Soft-delete tombstone. NULL = active. Non-null = anonymized + hidden. */
+  deletedAt: varchar('deleted_at', { length: 50 }),
 }, (table) => [
   index('customer_tenant_name_idx').on(table.tenantId, table.name),
   index('customer_tenant_phone_idx').on(table.tenantId, table.phone),
   index('customer_tenant_email_idx').on(table.tenantId, table.email),
   index('customer_tenant_debt_idx').on(table.tenantId, table.totalDebt),
+  index('customer_tenant_deleted_idx').on(table.tenantId, table.deletedAt),
 ])
 
 /**
@@ -284,4 +287,24 @@ export const announcements = mysqlTable('announcements', {
   updatedAt: varchar('updated_at', { length: 50 }).notNull(),
 }, (table) => [
   index('announcement_active_created_idx').on(table.active, table.createdAt),
+])
+
+/**
+ * One-time, single-use tokens for the forgot-password flow. The token is
+ * a 32-byte URL-safe random string; the row's `usedAt` and `expiresAt`
+ * columns make the token un-replayable. The token is NOT HMAC-signed
+ * because it's not a public-facing identifier — the lookup is by random
+ * token, which is already 256 bits of entropy.
+ */
+export const passwordResetTokens = mysqlTable('password_reset_tokens', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').notNull().references(() => users.id),
+  tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+  expiresAt: varchar('expires_at', { length: 50 }).notNull(),
+  usedAt: varchar('used_at', { length: 50 }),
+  createdAt: varchar('created_at', { length: 50 }).notNull(),
+}, (table) => [
+  uniqueIndex('password_reset_token_hash_idx').on(table.tokenHash),
+  index('password_reset_user_idx').on(table.userId),
+  index('password_reset_expires_idx').on(table.expiresAt),
 ])

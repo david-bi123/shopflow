@@ -5,35 +5,38 @@ import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Mail, ArrowRight, Loader2, ArrowLeft, Sparkles, Lock, CheckCircle, Sun, Moon, ShieldCheck, Inbox, RotateCcw } from 'lucide-react'
+import { Lock, ArrowRight, Loader2, ArrowLeft, Sun, Moon, ShieldCheck, CheckCircle, Sparkles } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { requestPasswordReset } from '@/lib/actions/auth-actions'
+import { resetPassword } from '@/lib/actions/auth-actions'
 
-export function ForgotPasswordForm() {
+export function ResetPasswordForm({ token }: { token: string }) {
   const [isPending, startTransition] = useTransition()
-  const [sent, setSent] = useState(false)
-  const [email, setEmail] = useState('')
+  const [done, setDone] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const { theme, setTheme } = useTheme()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!email.trim()) {
-      toast.error('Please enter your email address')
+    if (password !== confirm) {
+      toast.error('Passwords do not match')
       return
     }
     const fd = new FormData()
-    fd.set('email', email.trim())
+    fd.set('token', token)
+    fd.set('newPassword', password)
+    fd.set('confirmPassword', confirm)
     startTransition(async () => {
-      const result = await requestPasswordReset(fd)
+      const result = await resetPassword(fd)
       if (result?.error) {
         toast.error(result.error)
         return
       }
-      setSent(true)
-      toast.success("If an account exists, you'll receive a reset link.")
+      setDone(true)
+      toast.success('Password updated. You can now sign in.')
     })
   }
 
@@ -66,16 +69,16 @@ export function ForgotPasswordForm() {
           >
             <Sparkles className="h-10 w-10 text-primary-foreground" />
           </motion.div>
-          <h1 className="mb-4 text-4xl font-bold tracking-tight">Forgot password?</h1>
+          <h1 className="mb-4 text-4xl font-bold tracking-tight">Set a new password</h1>
           <p className="mb-10 text-lg text-muted-foreground">
-            No worries — we&apos;ll email you instructions to reset your password.
+            Choose a strong password you don&apos;t use anywhere else.
           </p>
 
           <div className="space-y-3 text-left">
             {[
-              { icon: Mail, text: 'Enter your registered email' },
-              { icon: Inbox, text: 'Check your inbox for the reset link' },
-              { icon: ShieldCheck, text: 'Create a new strong password' },
+              { icon: Lock, text: 'At least 8 characters' },
+              { icon: ShieldCheck, text: 'Uppercase, lowercase, and a number' },
+              { icon: CheckCircle, text: 'Used once — old links are invalidated' },
             ].map((step, i) => (
               <motion.div
                 key={i}
@@ -111,7 +114,7 @@ export function ForgotPasswordForm() {
                 transition={{ delay: 0.15, type: 'spring', stiffness: 200, damping: 14 }}
                 className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/5"
               >
-                {sent ? (
+                {done ? (
                   <CheckCircle className="h-6 w-6 text-emerald-600" />
                 ) : (
                   <Lock className="h-6 w-6 text-primary" />
@@ -119,29 +122,47 @@ export function ForgotPasswordForm() {
               </motion.div>
               <CardTitle className="text-2xl">Reset Password</CardTitle>
               <CardDescription>
-                {sent
-                  ? 'Check your email for the reset link'
-                  : "Enter your email and we'll send you a reset link"}
+                {done ? 'Your password has been updated' : 'Enter a new password below'}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {!sent ? (
+              {!done ? (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="newPassword">New password</Label>
                     <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        placeholder="name@example.com"
+                        id="newPassword"
+                        name="newPassword"
+                        type="password"
+                        placeholder="••••••••"
                         className="pl-10 transition-all"
                         required
+                        minLength={8}
                         disabled={isPending}
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        autoComplete="email"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm new password</Label>
+                    <div className="relative">
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-10 transition-all"
+                        required
+                        minLength={8}
+                        disabled={isPending}
+                        value={confirm}
+                        onChange={(e) => setConfirm(e.target.value)}
+                        autoComplete="new-password"
                       />
                     </div>
                   </div>
@@ -154,45 +175,45 @@ export function ForgotPasswordForm() {
                     {isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Sending...
+                        Updating...
                       </>
                     ) : (
                       <>
                         <ShieldCheck className="mr-2 h-4 w-4" />
-                        Send Reset Link
+                        Update password
                         <ArrowRight className="ml-1 h-4 w-4" />
                       </>
                     )}
                   </Button>
                 </form>
               ) : (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="space-y-4"
-                >
+                <div className="space-y-4">
                   <div className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-5 text-center">
                     <CheckCircle className="mx-auto mb-2 h-9 w-9 text-emerald-600" />
-                    <p className="text-sm font-semibold text-emerald-700">Reset link sent</p>
+                    <p className="text-sm font-semibold text-emerald-700">All set</p>
                     <p className="mt-1 text-xs text-emerald-600/80">
-                      If <span className="font-mono">{email}</span> matches an account, you&apos;ll get an email shortly.
+                      You can now sign in with your new password.
                     </p>
                   </div>
-                  <Button variant="outline" className="w-full" onClick={() => setSent(false)}>
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Send another link
-                  </Button>
-                </motion.div>
+                  <Link href="/login" className="block">
+                    <Button variant="outline" className="w-full">
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                      Go to sign in
+                    </Button>
+                  </Link>
+                </div>
               )}
-              <p className="mt-5 text-center text-sm text-muted-foreground">
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  <ArrowLeft className="h-3 w-3" />
-                  Back to login
-                </Link>
-              </p>
+              {!done && (
+                <p className="mt-5 text-center text-sm text-muted-foreground">
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    <ArrowLeft className="h-3 w-3" />
+                    Back to login
+                  </Link>
+                </p>
+              )}
             </CardContent>
           </Card>
         </motion.div>

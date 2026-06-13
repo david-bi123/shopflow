@@ -9,7 +9,9 @@
     "lint": "eslint",
     "migrate": "tsx src/lib/db/migrate.ts",
     "seed": "tsx src/lib/db/seed.ts",
-    "db:reset": "tsx src/lib/db/migrate.ts && tsx src/lib/db/seed.ts"
+    "db:reset": "tsx src/lib/db/migrate.ts && tsx src/lib/db/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -40,7 +42,6 @@
     "next-auth": "^5.0.0-beta.31",
     "next-themes": "^0.4.6",
     "pdfkit": "^0.19.0",
-    "posthog-js": "^1.383.3",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",
@@ -68,6 +69,7 @@
     "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.9"
   }
 }
