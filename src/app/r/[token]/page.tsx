@@ -231,11 +231,11 @@ export default async function PublicReceiptPage({
               Items
             </div>
             <div className="overflow-hidden rounded-xl border border-border/60">
-              <div className="hidden border-b border-border/60 bg-slate-50/70 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-12 sm:px-4 sm:py-2.5 dark:bg-zinc-900/50">
-                <div className="sm:col-span-6">Item</div>
-                <div className="text-right sm:col-span-2">Quantity</div>
-                <div className="text-right sm:col-span-2">Unit Price</div>
-                <div className="text-right sm:col-span-2">Total</div>
+              <div className="grid grid-cols-12 gap-2 border-b border-border/60 bg-slate-50/70 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:px-4 sm:py-2.5 dark:bg-zinc-900/50">
+                <div className="col-span-12 sm:col-span-6">Item</div>
+                <div className="col-span-4 text-right sm:col-span-2">Quantity</div>
+                <div className="col-span-4 text-right sm:col-span-2">Unit Price</div>
+                <div className="col-span-4 text-right sm:col-span-2">Total</div>
               </div>
               <div className="divide-y divide-border/60">
                 {sale.items.map((item, idx) => (
@@ -247,15 +247,12 @@ export default async function PublicReceiptPage({
                       <p className="font-medium text-foreground">{item.name}</p>
                     </div>
                     <div className="col-span-4 text-right tabular-nums text-muted-foreground sm:col-span-2">
-                      <span className="text-[10px] uppercase tracking-wider sm:hidden">Qty </span>
                       {item.quantity}
                     </div>
                     <div className="col-span-4 text-right tabular-nums text-muted-foreground sm:col-span-2">
-                      <span className="text-[10px] uppercase tracking-wider sm:hidden">Price </span>
                       {formatCurrency(item.price, currency)}
                     </div>
                     <div className="col-span-4 text-right tabular-nums font-semibold text-foreground sm:col-span-2">
-                      <span className="text-[10px] uppercase tracking-wider sm:hidden">Total </span>
                       {formatCurrency(item.subtotal, currency)}
                     </div>
                   </div>

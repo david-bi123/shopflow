@@ -314,25 +314,34 @@ export default function SaleDetailPage() {
               {sale.items.length} {sale.items.length === 1 ? 'item' : 'items'}
             </span>
           </div>
-          <div className="divide-y divide-border/60">
-            {sale.items.map((item, index) => (
-              <div key={index} className="flex items-center justify-between gap-4 py-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60 text-[10px] font-semibold text-muted-foreground ring-1 ring-border/60">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.quantity} × {formatCurrency(item.price)}
-                    </p>
+          <div className="overflow-hidden rounded-xl border border-border/60">
+            <div className="grid grid-cols-12 gap-2 border-b border-border/60 bg-slate-50/70 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:px-4 sm:py-2.5 dark:bg-zinc-900/50">
+              <div className="col-span-12 sm:col-span-6">Item</div>
+              <div className="col-span-4 text-right sm:col-span-2">Quantity</div>
+              <div className="col-span-4 text-right sm:col-span-2">Unit Price</div>
+              <div className="col-span-4 text-right sm:col-span-2">Total</div>
+            </div>
+            <div className="divide-y divide-border/60">
+              {sale.items.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="grid grid-cols-12 gap-2 px-3 py-3 text-sm transition-colors hover:bg-slate-50/40 sm:px-4 sm:py-3.5 dark:hover:bg-zinc-900/30"
+                >
+                  <div className="col-span-12 sm:col-span-6">
+                    <p className="font-medium text-foreground">{item.name}</p>
+                  </div>
+                  <div className="col-span-4 text-right tabular-nums text-muted-foreground sm:col-span-2">
+                    {item.quantity}
+                  </div>
+                  <div className="col-span-4 text-right tabular-nums text-muted-foreground sm:col-span-2">
+                    {formatCurrency(item.price)}
+                  </div>
+                  <div className="col-span-4 text-right tabular-nums font-semibold text-foreground sm:col-span-2">
+                    {formatCurrency(item.subtotal)}
                   </div>
                 </div>
-                <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
-                  {formatCurrency(item.subtotal)}
-                </span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
 
