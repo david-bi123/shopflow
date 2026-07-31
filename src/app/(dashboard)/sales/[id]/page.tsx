@@ -28,12 +28,6 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getSaleById, deleteSale } from '@/lib/actions/sale-actions'
@@ -44,36 +38,31 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import type { Sale } from '@/lib/validations/sale'
 
-const PAYMENT_META: Record<string, { label: string; icon: React.ElementType; className: string; bgClass: string }> = {
+const PAYMENT_META: Record<string, { label: string; icon: React.ElementType; className: string }> = {
   cash: {
     label: 'Cash',
     icon: Banknote,
     className: 'text-emerald-700 dark:text-emerald-300',
-    bgClass: 'bg-emerald-50 ring-emerald-200/60 dark:bg-emerald-950/60 dark:ring-emerald-800/40',
   },
   card: {
     label: 'Card',
     icon: CreditCard,
     className: 'text-blue-700 dark:text-blue-300',
-    bgClass: 'bg-blue-50 ring-blue-200/60 dark:bg-blue-950/60 dark:ring-blue-800/40',
   },
   mobile_money: {
     label: 'Mobile Money',
     icon: Phone,
     className: 'text-violet-700 dark:text-violet-300',
-    bgClass: 'bg-violet-50 ring-violet-200/60 dark:bg-violet-950/60 dark:ring-violet-800/40',
   },
   bank_transfer: {
     label: 'Bank Transfer',
     icon: ReceiptText,
     className: 'text-amber-700 dark:text-amber-300',
-    bgClass: 'bg-amber-50 ring-amber-200/60 dark:bg-amber-950/60 dark:ring-amber-800/40',
   },
   other: {
     label: 'Other',
     icon: CircleCheck,
     className: 'text-slate-700 dark:text-slate-300',
-    bgClass: 'bg-slate-100 ring-slate-200/60 dark:bg-slate-900/60 dark:ring-slate-800/40',
   },
 }
 
@@ -144,15 +133,28 @@ export default function SaleDetailPage() {
     }
   }
 
+  const handleShareWhatsApp = () => {
+    if (!sale) return
+    const token = (sale as { publicToken?: string }).publicToken ?? sale.saleNumber
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(
+        `Sale ${sale.saleNumber} - Customer: ${sale.customerName} - Total: ${formatCurrency(sale.total)}`
+      )}%0A${window.location.origin}/r/${token}`,
+      '_blank'
+    )
+  }
+
+  const handleDownloadPdf = () => {
+    if (!sale) return
+    const token = (sale as { publicToken?: string }).publicToken ?? sale.saleNumber
+    window.open(`/api/r/${token}/pdf`, '_blank')
+  }
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-12 w-64" />
-        <div className="grid gap-4 md:grid-cols-2">
-          <Skeleton className="h-48 rounded-2xl" />
-          <Skeleton className="h-48 rounded-2xl" />
-        </div>
-        <Skeleton className="h-64 rounded-2xl" />
+      <div className="mx-auto max-w-2xl space-y-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-96 w-full" />
       </div>
     )
   }
@@ -181,260 +183,176 @@ export default function SaleDetailPage() {
   const payment = PAYMENT_META[paymentKey] ?? PAYMENT_META.other
   const PaymentIcon = payment.icon
 
+  const paidHistory = paymentHistory.filter((h) => h.type !== 'sale_created')
+
   return (
-    <div className="space-y-6">
-      {/* Hero header */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 via-card to-chart-2/5 p-6 shadow-sm">
-        <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-chart-2/10 blur-3xl" />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-4">
-            <Button variant="outline" size="icon" asChild className="shrink-0 bg-white/80 dark:bg-zinc-900/60">
-              <Link href="/sales">
-                <ArrowLeft className="size-4" />
-              </Link>
-            </Button>
-            <div>
-              <div className="mb-1 flex items-center gap-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                  Sale Receipt
-                </p>
+    <div className="mx-auto max-w-2xl space-y-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button variant="outline" size="icon" asChild className="shrink-0">
+            <Link href="/sales" aria-label="Back to sales">
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-xl font-bold tracking-tight text-foreground">
+                {sale.saleNumber}
+              </h1>
+              {(sale.amountOwed ?? 0) > 0.005 ? (
+                <Badge className="bg-red-100 text-red-700 ring-1 ring-red-200/60 dark:bg-red-950/60 dark:text-red-300 dark:ring-red-800/40">
+                  <AlertTriangle className="mr-1 size-3" />
+                  Owes {formatCurrency(sale.amountOwed)}
+                </Badge>
+              ) : (
                 <Badge className="bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800/40">
                   <CircleCheck className="mr-1 size-3" />
-                  Completed
+                  Paid
                 </Badge>
-                {(sale.amountOwed ?? 0) > 0.005 && (
-                  <Badge className="bg-red-100 text-red-700 ring-1 ring-red-200/60 dark:bg-red-950/60 dark:text-red-300 dark:ring-red-800/40">
-                    <AlertTriangle className="mr-1 size-3" />
-                    Owes {formatCurrency(sale.amountOwed)}
-                  </Badge>
-                )}
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">{sale.saleNumber}</h1>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <Calendar className="size-3" />
-                  {formatDate(sale.createdAt)}
-                </span>
-                <span className="text-border">•</span>
-                <span className="inline-flex items-center gap-1">
-                  <Hash className="size-3" />
-                  {sale.items.length} {sale.items.length === 1 ? 'item' : 'items'}
-                </span>
-              </div>
+              )}
             </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              <Calendar className="mr-1 inline size-3" />
+              {formatDate(sale.createdAt, 'long')}
+              <span className="mx-1.5 text-border">•</span>
+              <Hash className="mr-1 inline size-3" />
+              {sale.items.length} {sale.items.length === 1 ? 'item' : 'items'}
+            </p>
           </div>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopyLink}
-              className="bg-white/80 dark:bg-zinc-900/60"
-            >
-              {copied ? <Check className="mr-2 size-4 text-emerald-500" /> : <Copy className="mr-2 size-4" />}
-              {copied ? 'Copied' : 'Copy Link'}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const token = (sale as { publicToken?: string }).publicToken ?? sale.saleNumber
-                window.open(
-                  `https://wa.me/?text=${encodeURIComponent(
-                    `Sale ${sale.saleNumber} - Customer: ${sale.customerName} - Total: ${formatCurrency(sale.total)}`
-                  )}%0A${window.location.origin}/r/${token}`,
-                  '_blank'
-                )
-              }}
-              className="bg-white/80 dark:bg-zinc-900/60"
-            >
-              <Share2 className="mr-2 size-4" />
-              WhatsApp
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const token = (sale as { publicToken?: string }).publicToken ?? sale.saleNumber
-                window.open(`/api/r/${token}/pdf`, '_blank')
-              }}
-              className="bg-white/80 dark:bg-zinc-900/60"
-            >
-              <Download className="mr-2 size-4" />
-              PDF
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.print()}
-              className="bg-white/80 dark:bg-zinc-900/60"
-            >
-              <Printer className="mr-2 size-4" />
-              Print
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/sales/${sale.id}/edit`}>
-                <Pencil className="mr-2 size-4" />
-                Edit
-              </Link>
-            </Button>
-            <Button variant="destructive" size="sm" onClick={handleDelete}>
-              <Trash2 className="mr-2 size-4" />
-              Delete
-            </Button>
-          </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button variant="outline" size="sm" onClick={handleCopyLink}>
+            {copied ? <Check className="mr-1.5 size-3.5 text-emerald-500" /> : <Copy className="mr-1.5 size-3.5" />}
+            {copied ? 'Copied' : 'Link'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleShareWhatsApp}>
+            <Share2 className="mr-1.5 size-3.5" />
+            WhatsApp
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
+            <Download className="mr-1.5 size-3.5" />
+            PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="mr-1.5 size-3.5" />
+            Print
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/sales/${sale.id}/edit`}>
+              <Pencil className="mr-1.5 size-3.5" />
+              Edit
+            </Link>
+          </Button>
+          <Button variant="destructive" size="sm" onClick={handleDelete}>
+            <Trash2 className="mr-1.5 size-3.5" />
+            Delete
+          </Button>
         </div>
       </div>
 
-      {/* Quick info grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="overflow-hidden">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/20">
-                <User className="size-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Customer
-                </p>
-                <p className="truncate text-sm font-semibold text-foreground">
-                  {sale.customerName || 'Walk-in Customer'}
-                </p>
-              </div>
+      {/* Single vertical receipt-style card */}
+      <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
+        {/* Details */}
+        <section className="px-5 py-5 sm:px-6">
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <FileText className="size-4 text-primary" />
+            Details
+          </h2>
+          <dl className="space-y-3 text-sm">
+            <div className="flex items-start justify-between gap-4">
+              <dt className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                <User className="size-4" />
+                Customer
+              </dt>
+              <dd className="text-right font-medium text-foreground">
+                {sale.customerName || 'Walk-in Customer'}
+              </dd>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-chart-2/10 ring-1 ring-inset ring-chart-2/20">
-                <Phone className="size-4 text-chart-2" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Phone
-                </p>
-                <p className="truncate text-sm font-semibold text-foreground">
-                  {sale.customerPhone || '—'}
-                </p>
-              </div>
+            <div className="flex items-start justify-between gap-4">
+              <dt className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                <Phone className="size-4" />
+                Phone
+              </dt>
+              <dd className="text-right font-medium text-foreground">
+                {sale.customerPhone || '—'}
+              </dd>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-inset ${payment.bgClass}`}
-              >
-                <PaymentIcon className={`size-4 ${payment.className}`} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Payment
-                </p>
-                <p className="truncate text-sm font-semibold text-foreground">{payment.label}</p>
-              </div>
+            <div className="flex items-start justify-between gap-4">
+              <dt className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                <CreditCard className="size-4" />
+                Payment
+              </dt>
+              <dd className="flex items-center gap-1.5 text-right font-medium text-foreground">
+                <PaymentIcon className={`size-3.5 ${payment.className}`} />
+                {payment.label}
+              </dd>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden bg-gradient-to-br from-primary/5 to-chart-2/5">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/20">
-                <Receipt className="size-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Total
-                </p>
-                <p className="truncate text-base font-bold tabular-nums text-foreground">
-                  {formatCurrency(sale.total)}
-                </p>
-              </div>
+            <div className="flex items-start justify-between gap-4">
+              <dt className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                <Calendar className="size-4" />
+                Date
+              </dt>
+              <dd className="text-right font-medium tabular-nums text-foreground">
+                {formatDate(sale.createdAt, 'long')}
+              </dd>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </dl>
+        </section>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+        <Separator />
+
         {/* Items */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="border-b border-border/60">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <FileText className="size-4 text-primary" />
-                Items Purchased
-              </CardTitle>
-              <span className="text-xs text-muted-foreground">
-                {sale.items.length} {sale.items.length === 1 ? 'item' : 'items'}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/60 bg-slate-50/70 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:bg-zinc-900/50">
-                    <th className="px-5 py-2.5 text-left sm:px-6">Item</th>
-                    <th className="px-2 py-2.5 text-right">Quantity</th>
-                    <th className="px-2 py-2.5 text-right">Unit Price</th>
-                    <th className="px-5 py-2.5 text-right sm:px-6">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {sale.items.map((item, index) => (
-                    <tr
-                      key={index}
-                      className="transition-colors hover:bg-slate-50/40 dark:hover:bg-zinc-900/30"
-                    >
-                      <td className="px-5 py-3.5 sm:px-6">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60 text-[10px] font-semibold text-muted-foreground ring-1 ring-border/60">
-                            {String(index + 1).padStart(2, '0')}
-                          </div>
-                          <span className="truncate font-medium text-foreground">{item.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-2 py-3.5 text-right tabular-nums text-muted-foreground">
-                        {item.quantity}
-                      </td>
-                      <td className="px-2 py-3.5 text-right tabular-nums text-muted-foreground">
-                        {formatCurrency(item.price)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right tabular-nums font-semibold text-foreground sm:px-6">
-                        {formatCurrency(item.subtotal)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <section className="px-5 py-5 sm:px-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <Receipt className="size-4 text-primary" />
+              Items
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {sale.items.length} {sale.items.length === 1 ? 'item' : 'items'}
+            </span>
+          </div>
+          <div className="divide-y divide-border/60">
+            {sale.items.map((item, index) => (
+              <div key={index} className="flex items-center justify-between gap-4 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60 text-[10px] font-semibold text-muted-foreground ring-1 ring-border/60">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.quantity} × {formatCurrency(item.price)}
+                    </p>
+                  </div>
+                </div>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
+                  {formatCurrency(item.subtotal)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
 
-        {/* Summary */}
-        <Card>
-          <CardHeader className="border-b border-border/60">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ReceiptText className="size-4 text-primary" />
-              Payment Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 p-5">
-            <div className="flex items-center justify-between text-sm">
+        <Separator />
+
+        {/* Payment summary */}
+        <section className="px-5 py-5 sm:px-6">
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <ReceiptText className="size-4 text-primary" />
+            Payment Summary
+          </h2>
+          <div className="space-y-2.5 text-sm">
+            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Subtotal</span>
               <span className="font-medium tabular-nums text-foreground">
                 {formatCurrency(sale.subtotal)}
               </span>
             </div>
             {sale.discount > 0 && (
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">
                   Discount{sale.discountPercent > 0 ? ` (${sale.discountPercent.toFixed(2)}%)` : ''}
                 </span>
@@ -445,7 +363,7 @@ export default function SaleDetailPage() {
             )}
             {sale.taxItems && sale.taxItems.length > 0 ? (
               sale.taxItems.map((t) => (
-                <div key={t.name} className="flex items-center justify-between text-sm">
+                <div key={t.name} className="flex items-center justify-between">
                   <span className="text-muted-foreground">
                     {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
                   </span>
@@ -456,7 +374,7 @@ export default function SaleDetailPage() {
               ))
             ) : (
               sale.tax > 0 && (
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Tax</span>
                   <span className="font-medium tabular-nums text-foreground">
                     +{formatCurrency(sale.tax)}
@@ -464,23 +382,22 @@ export default function SaleDetailPage() {
                 </div>
               )
             )}
-            <Separator className="my-2" />
-            <div className="flex items-baseline justify-between rounded-xl bg-primary/5 p-3 ring-1 ring-inset ring-primary/10">
-              <span className="text-sm font-semibold text-foreground">Total</span>
+            <div className="flex items-baseline justify-between border-t border-border/60 pt-3">
+              <span className="text-base font-semibold text-foreground">Total</span>
               <span className="text-2xl font-bold tabular-nums text-foreground">
                 {formatCurrency(sale.total)}
               </span>
             </div>
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Amount Paid</span>
               <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                 {formatCurrency(sale.amountPaid ?? sale.total)}
               </span>
             </div>
-            {(sale.amountOwed ?? 0) > 0.005 && (
+            {(sale.amountOwed ?? 0) > 0.005 ? (
               <>
-                <div className="flex items-baseline justify-between rounded-xl bg-red-50/60 p-3 ring-1 ring-inset ring-red-200/60 dark:bg-red-950/30 dark:ring-red-800/40">
-                  <span className="text-sm font-semibold text-red-700 dark:text-red-300">Outstanding</span>
+                <div className="flex items-baseline justify-between">
+                  <span className="font-semibold text-red-700 dark:text-red-300">Outstanding</span>
                   <span className="text-xl font-bold tabular-nums text-red-700 dark:text-red-300">
                     {formatCurrency(sale.amountOwed)}
                   </span>
@@ -488,115 +405,82 @@ export default function SaleDetailPage() {
                 <Button
                   type="button"
                   onClick={() => setPaymentOpen(true)}
-                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 shadow-md shadow-emerald-500/20 transition-all hover:shadow-lg hover:shadow-emerald-500/30"
+                  className="mt-2 w-full"
                 >
                   <HandCoins className="mr-2 size-4" />
                   Record Payment
                 </Button>
               </>
-            )}
-            {(sale.amountOwed ?? 0) <= 0.005 && (
-              <div className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-50/70 p-3 text-sm font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800/40">
+            ) : (
+              <div className="mt-2 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-50/70 p-3 text-sm font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800/40">
                 <CircleCheck className="size-4" />
                 Paid in full
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Notes */}
-      {sale.notes && (
-        <Card>
-          <CardHeader className="border-b border-border/60">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="size-4 text-primary" />
-              Notes
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-5">
-            <p className="text-sm italic text-muted-foreground">{sale.notes}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Payment History */}
-      <Card>
-        <CardHeader className="border-b border-border/60">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ClipboardList className="size-4 text-primary" />
-              Payment History
-            </CardTitle>
-            <span className="text-xs text-muted-foreground">
-              {paymentHistory.filter((h) => h.type !== 'sale_created').length} {paymentHistory.filter((h) => h.type !== 'sale_created').length === 1 ? 'entry' : 'entries'}
-            </span>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {paymentHistory.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 ring-1 ring-border/60">
-                <ClipboardList className="size-4 text-muted-foreground" />
+        </section>
+
+        {/* Notes */}
+        {sale.notes && (
+          <>
+            <Separator />
+            <section className="px-5 py-5 sm:px-6">
+              <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                <FileText className="size-4 text-primary" />
+                Notes
+              </h2>
+              <p className="text-sm italic text-muted-foreground">{sale.notes}</p>
+            </section>
+          </>
+        )}
+
+        {/* Payment history */}
+        {paymentHistory.length > 0 && (
+          <>
+            <Separator />
+            <section className="px-5 py-5 sm:px-6">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  <ClipboardList className="size-4 text-primary" />
+                  Payment History
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                  {paidHistory.length} {paidHistory.length === 1 ? 'entry' : 'entries'}
+                </span>
               </div>
-              <p className="text-sm text-muted-foreground">No payment entries yet.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/60 bg-slate-50/70 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:bg-zinc-900/50">
-                    <th className="px-5 py-2.5 text-left sm:px-6">Date</th>
-                    <th className="px-2 py-2.5 text-left">Type</th>
-                    <th className="px-2 py-2.5 text-left">Notes</th>
-                    <th className="px-5 py-2.5 text-right sm:px-6">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {paymentHistory.map((h, idx) => {
-                    const isPayment = h.amount < 0 || h.type === 'manual_payment'
-                    const isCreation = h.type === 'sale_created'
-                    return (
-                      <tr
-                        key={String(h.id ?? idx)}
-                        className="transition-colors hover:bg-slate-50/40 dark:hover:bg-zinc-900/30"
-                      >
-                        <td className="whitespace-nowrap px-5 py-3 sm:px-6 tabular-nums text-muted-foreground">
+              <div className="divide-y divide-border/60">
+                {paymentHistory.map((h, idx) => {
+                  const isPayment = h.amount < 0 || h.type === 'manual_payment'
+                  const isCreation = h.type === 'sale_created'
+                  return (
+                    <div key={String(h.id ?? idx)} className="flex items-center justify-between gap-4 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {isCreation ? 'Sale Created' : 'Payment'}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
                           {formatDate(h.createdAt, 'datetime')}
-                        </td>
-                        <td className="px-2 py-3">
-                          <span
-                            className={
-                              isCreation
-                                ? 'inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 ring-1 ring-blue-200/60 dark:bg-blue-950/60 dark:text-blue-300 dark:ring-blue-800/40'
-                                : 'inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800/40'
-                            }
-                          >
-                            {isCreation ? 'Sale Created' : 'Payment'}
-                          </span>
-                        </td>
-                        <td className="px-2 py-3 text-xs text-muted-foreground">
-                          {h.notes || '—'}
-                        </td>
-                        <td
-                          className={
-                            isPayment
-                              ? 'whitespace-nowrap px-5 py-3 text-right tabular-nums font-semibold text-emerald-700 sm:px-6 dark:text-emerald-400'
-                              : 'whitespace-nowrap px-5 py-3 text-right tabular-nums font-semibold text-foreground sm:px-6'
-                          }
-                        >
-                          {isPayment ? '−' : '+'}
-                          {formatCurrency(Math.abs(h.amount))}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                          {h.notes ? ` · ${h.notes}` : ''}
+                        </p>
+                      </div>
+                      <span
+                        className={
+                          isPayment
+                            ? 'shrink-0 text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400'
+                            : 'shrink-0 text-sm font-semibold tabular-nums text-foreground'
+                        }
+                      >
+                        {isPayment ? '−' : '+'}
+                        {formatCurrency(Math.abs(h.amount))}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          </>
+        )}
+      </div>
 
       {/* Record Payment Dialog */}
       {sale && (
