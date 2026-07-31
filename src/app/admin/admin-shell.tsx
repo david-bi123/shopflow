@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Store,
   BarChart3,
   Megaphone,
   LogOut,
@@ -13,6 +12,8 @@ import {
   LayoutDashboard,
   Menu,
   X,
+  Plus,
+  Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Button } from '@/components/ui/button'
@@ -20,7 +21,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { logoutAction } from '@/lib/actions/auth-actions'
 
 const adminNavItems = [
-  { label: 'Dashboard', href: '/admin/shops', icon: Store },
+  { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { label: 'Shops', href: '/admin/shops', icon: Building2 },
   { label: 'Statistics', href: '/admin/stats', icon: BarChart3 },
   { label: 'Announcements', href: '/admin/announcements', icon: Megaphone },
 ]
@@ -86,6 +88,12 @@ export function AdminShell({ user, children }: AdminShellProps) {
         </div>
 
         <nav className="flex-1 space-y-1 p-3">
+          <Button asChild className="mb-3 w-full justify-start shadow-lg shadow-primary/20" size="sm">
+            <Link href="/admin/shops?create=1" onClick={() => setSidebarOpen(false)}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Create Shop
+            </Link>
+          </Button>
           {adminNavItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/')

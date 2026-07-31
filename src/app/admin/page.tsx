@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   Store,
-  CheckCircle2,
   Clock,
   ShoppingCart,
   FileText,
@@ -237,6 +236,15 @@ export default function AdminDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 p-3">
+            <Button asChild className="w-full justify-between shadow-lg shadow-primary/20">
+              <Link href="/admin/shops?create=1">
+                <span className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Create New Shop
+                </span>
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </Button>
             <Button asChild variant="outline" className="w-full justify-between">
               <Link href="/admin/shops">
                 <span className="flex items-center gap-2">

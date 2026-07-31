@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { ErrorFallback } from '@/components/shared/error-fallback'
 
 /**
@@ -87,7 +88,7 @@ export default function GlobalError({
             >
               Try again
             </button>
-            <a
+            <Link
               href="/"
               style={{
                 padding: '8px 16px',
@@ -101,7 +102,7 @@ export default function GlobalError({
               }}
             >
               Go home
-            </a>
+            </Link>
           </div>
         </div>
       </body>

@@ -1,11 +1,23 @@
 'use server'
 
+import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
-import { tenants, users, sales, invoices, announcements, auditLogs } from '@/lib/db/schema'
+import {
+  tenants,
+  users,
+  sales,
+  invoices,
+  announcements,
+  auditLogs,
+  settings as settingsTable,
+  subscriptions,
+} from '@/lib/db/schema'
 import { eq, desc, count } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
+import { slugify } from '@/lib/utils/format'
+import { createShopSchema } from '@/lib/validations/admin'
 
 export async function getTenants(page = 1, limit = 20, status?: string) {
   const session = await auth()
@@ -50,6 +62,113 @@ export async function updateTenantStatus(id: string, status: 'pending' | 'active
 
   revalidatePath('/admin/shops')
   return { success: true, tenant: serializeRow(tenant) }
+}
+
+/**
+ * Create a brand-new shop directly from the super admin dashboard.
+ *
+ * The super admin supplies the shop name plus the default owner
+ * credentials (email + password). A tenant row, its settings and
+ * subscription are created, and the owner account is active
+ * immediately — no pending-approval step, because an admin is the
+ * one creating it. The owner can then sign in and manage the shop.
+ */
+export async function createTenant(data: { shopName: string; ownerEmail: string; ownerPassword: string }) {
+  const session = await auth()
+  if (session?.user?.role !== 'super_admin') return { error: 'Unauthorized' }
+
+  const validated = createShopSchema.safeParse(data)
+  if (!validated.success) {
+    return { error: validated.error.issues[0]?.message ?? 'Invalid input' }
+  }
+
+  const db = await dbConnect()
+
+  const email = validated.data.ownerEmail.toLowerCase().trim()
+
+  const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1)
+  if (existingUser.length > 0) {
+    return { error: 'An account with this email already exists' }
+  }
+
+  const slug = slugify(validated.data.shopName)
+  const existingSlug = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1)
+  if (existingSlug.length > 0) {
+    return { error: 'A shop with this name already exists' }
+  }
+
+  const hashedPassword = await bcrypt.hash(validated.data.ownerPassword, 12)
+  const now = new Date().toISOString()
+  const ownerName = displayNameFromEmail(email)
+
+  await db.transaction(async (tx) => {
+    const [inserted] = await tx.insert(tenants).values({
+      name: validated.data.shopName,
+      slug,
+      status: 'active',
+      subscriptionStatus: 'active',
+      subscriptionPlan: 'business',
+      createdAt: now,
+      updatedAt: now,
+    }).$returningId()
+
+    const tenantId = inserted?.id
+    if (!tenantId) throw new Error('Failed to create shop')
+
+    await tx.insert(users).values({
+      tenantId,
+      name: ownerName,
+      email,
+      password: hashedPassword,
+      role: 'owner',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    await tx.insert(settingsTable).values({
+      tenantId,
+      storeName: validated.data.shopName,
+      currency: 'GHS',
+      timezone: 'Africa/Accra',
+      receiptFooter: 'Thank you for your purchase!',
+      defaultPaymentMethods: ['cash', 'card', 'mobile_money'],
+      taxes: [],
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    await tx.insert(subscriptions).values({
+      tenantId,
+      plan: 'business',
+      status: 'active',
+      currentPeriodStart: now,
+      currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    await tx.insert(auditLogs).values({
+      tenantId,
+      action: 'tenant.created',
+      entity: 'Tenant',
+      entityId: String(tenantId),
+      performedBy: toNum(session.user.id),
+      performedByName: session.user.name ?? session.user.email ?? 'Super Admin',
+      details: { shopName: validated.data.shopName, slug, ownerEmail: email },
+      createdAt: now,
+    })
+  })
+
+  revalidatePath('/admin/shops')
+  return { success: true, slug }
+}
+
+function displayNameFromEmail(email: string): string {
+  const local = email.split('@')[0] ?? ''
+  const parts = local.split(/[._-]+/).filter(Boolean)
+  const name = parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ')
+  return name || 'Shop Owner'
 }
 
 export async function getPlatformStats() {

@@ -8,7 +8,7 @@ export default function NotFound() {
         <p className="font-mono text-sm font-semibold tracking-widest text-muted-foreground">404</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Page not found</h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved. If you followed a link, the
+          The page you&apos;re looking for doesn&apos;t exist or has been moved. If you followed a link, the
           resource may have been deleted.
         </p>
         <div className="mt-6 flex flex-col-reverse items-center justify-center gap-2 sm:flex-row">

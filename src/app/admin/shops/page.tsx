@@ -19,11 +19,16 @@ import {
   Tag,
   Building2,
   ShieldCheck,
+  UserPlus,
+  Plus,
+  Mail,
+  Lock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/shared/data-table'
 import { PageHeader } from '@/components/shared/page-header'
@@ -84,6 +89,10 @@ export default function AdminShopsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [detailTarget, setDetailTarget] = useState<TenantDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+  const [createErrors, setCreateErrors] = useState<{ shopName?: string; ownerEmail?: string; ownerPassword?: string }>({})
 
   const [stats, setStats] = useState({ total: 0, active: 0, pending: 0 })
 
@@ -165,6 +174,12 @@ export default function AdminShopsPage() {
     fetchStats()
   }, [])
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('create') === '1') {
+      setCreateOpen(true)
+    }
+  }, [])
+
   async function handleStatusChange(id: string, status: 'pending' | 'active' | 'suspended' | 'rejected') {
     setActionLoading(id)
     try {
@@ -200,6 +215,50 @@ export default function AdminShopsPage() {
       toast.error('Failed to delete shop')
     } finally {
       setDeleteLoading(false)
+    }
+  }
+
+  async function handleCreateShop(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setCreateErrors({})
+
+    const formData = new FormData(e.currentTarget)
+    const shopName = (formData.get('shopName') as string) ?? ''
+    const ownerEmail = (formData.get('ownerEmail') as string) ?? ''
+    const ownerPassword = (formData.get('ownerPassword') as string) ?? ''
+
+    const errors: { shopName?: string; ownerEmail?: string; ownerPassword?: string } = {}
+    if (!shopName.trim()) errors.shopName = 'Shop name is required'
+    else if (shopName.trim().length < 2) errors.shopName = 'Shop name must be at least 2 characters'
+    if (!ownerEmail.trim()) errors.ownerEmail = 'Owner email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) errors.ownerEmail = 'Invalid email address'
+    if (!ownerPassword) errors.ownerPassword = 'Password is required'
+    else if (ownerPassword.length < 8) errors.ownerPassword = 'Password must be at least 8 characters'
+    else if (!/[A-Z]/.test(ownerPassword) || !/[a-z]/.test(ownerPassword) || !/[0-9]/.test(ownerPassword)) {
+      errors.ownerPassword = 'Password must contain uppercase, lowercase, and a number'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setCreateErrors(errors)
+      return
+    }
+
+    setCreateLoading(true)
+    try {
+      const { createTenant } = await import('@/lib/actions/admin-actions')
+      const result = await createTenant({ shopName: shopName.trim(), ownerEmail, ownerPassword })
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Shop created successfully. Owner can now sign in.')
+      setCreateOpen(false)
+      e.currentTarget.reset()
+      fetchTenants()
+    } catch {
+      toast.error('Failed to create shop')
+    } finally {
+      setCreateLoading(false)
     }
   }
 
@@ -366,14 +425,20 @@ export default function AdminShopsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Shops" description="Manage all shops on the platform">
-        <div className="relative w-full sm:w-60">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search shops..."
-            className="w-full pl-8"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="relative w-full sm:w-60">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search shops..."
+              className="w-full pl-8"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Button onClick={() => setCreateOpen(true)} className="w-full sm:w-auto">
+            <Plus className="mr-1.5 h-4 w-4" />
+            Create Shop
+          </Button>
         </div>
       </PageHeader>
 
@@ -493,6 +558,83 @@ export default function AdminShopsPage() {
           )}
         </>
       )}
+
+      <Dialog open={createOpen} onOpenChange={(open) => !open && setCreateOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <UserPlus className="h-4 w-4 text-primary" />
+              </div>
+              Create New Shop
+            </DialogTitle>
+            <DialogDescription>
+              Create a shop and its default owner login. The owner can sign in immediately and
+              manage the shop from their dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateShop} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="shopName">Shop Name</Label>
+              <Input
+                id="shopName"
+                name="shopName"
+                placeholder="My Store"
+                disabled={createLoading}
+                className={createErrors.shopName ? 'border-destructive' : ''}
+              />
+              {createErrors.shopName && <p className="text-xs text-destructive">{createErrors.shopName}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ownerEmail">Owner Email</Label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="ownerEmail"
+                  name="ownerEmail"
+                  type="email"
+                  placeholder="owner@shop.com"
+                  autoComplete="off"
+                  disabled={createLoading}
+                  className={createErrors.ownerEmail ? 'border-destructive pl-10' : 'pl-10'}
+                />
+              </div>
+              {createErrors.ownerEmail && <p className="text-xs text-destructive">{createErrors.ownerEmail}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ownerPassword">Password</Label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="ownerPassword"
+                  name="ownerPassword"
+                  type="password"
+                  placeholder="Min. 8 characters"
+                  autoComplete="new-password"
+                  disabled={createLoading}
+                  className={createErrors.ownerPassword ? 'border-destructive pl-10' : 'pl-10'}
+                />
+              </div>
+              {createErrors.ownerPassword ? (
+                <p className="text-xs text-destructive">{createErrors.ownerPassword}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  At least 8 characters with uppercase, lowercase, and a number
+                </p>
+              )}
+            </div>
+            <DialogFooter className="gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={createLoading}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createLoading} className="shadow-lg shadow-primary/20">
+                {createLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <UserPlus className="mr-1.5 h-4 w-4" />}
+                {createLoading ? 'Creating...' : 'Create Shop'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-md">
