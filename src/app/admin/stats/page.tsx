@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Clock,
   ShoppingCart,
-  FileText,
   DollarSign,
   Loader2,
   AlertCircle,
@@ -24,7 +23,6 @@ interface PlatformStats {
   activeTenants: number
   pendingTenants: number
   totalSales: number
-  totalInvoices: number
   totalRevenue: number
 }
 
@@ -116,14 +114,6 @@ export default function AdminStatsPage() {
       gradient: 'from-violet-500/10 to-violet-500/5',
       iconBg: 'bg-violet-500/10',
       iconColor: 'text-violet-600',
-    },
-    {
-      title: 'Total Invoices',
-      value: formatNumber(stats?.totalInvoices ?? 0),
-      icon: FileText,
-      gradient: 'from-indigo-500/10 to-indigo-500/5',
-      iconBg: 'bg-indigo-500/10',
-      iconColor: 'text-indigo-600',
     },
     {
       title: 'Total Revenue',

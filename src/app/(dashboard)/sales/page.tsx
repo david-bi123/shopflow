@@ -73,6 +73,7 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('all')
+  const [customerFilter, setCustomerFilter] = useState('all')
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -120,9 +121,15 @@ export default function SalesPage() {
       sale.items.some((item) => item.name.toLowerCase().includes(q))
     const matchesPayment =
       paymentFilter === 'all' || sale.paymentMethod === paymentFilter
+    const matchesCustomer =
+      customerFilter === 'all' || (sale.customerName ?? '') === customerFilter
     const matchesDate = isInDateRange(sale as unknown as { [k: string]: unknown }, dateRange)
-    return matchesSearch && matchesPayment && matchesDate
+    return matchesSearch && matchesPayment && matchesCustomer && matchesDate
   })
+
+  const customerOptions = Array.from(
+    new Set(sales.map((s) => s.customerName).filter(Boolean) as string[])
+  ).sort((a, b) => a.localeCompare(b))
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
   const paginated = filtered.slice(
@@ -219,6 +226,25 @@ export default function SalesPage() {
             {PAYMENT_METHODS.map((m) => (
               <SelectItem key={m.value} value={m.value}>
                 {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={customerFilter}
+          onValueChange={(v) => {
+            setCustomerFilter(v)
+            setCurrentPage(1)
+          }}
+        >
+          <SelectTrigger className="h-10 w-full rounded-full border border-input/60 bg-card shadow-sm sm:w-44 focus:ring-2 focus:ring-emerald-500/20">
+            <SelectValue placeholder="All customers" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Customers</SelectItem>
+            {customerOptions.map((name) => (
+              <SelectItem key={name} value={name}>
+                {name}
               </SelectItem>
             ))}
           </SelectContent>

@@ -9,13 +9,13 @@ import {
   Loader2,
   AlertCircle,
   ShoppingCart,
-  FileText,
   UserCog,
   Settings,
   AlertTriangle,
   Info,
   Receipt,
   Store,
+  Megaphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -36,7 +36,6 @@ interface Notification {
 
 const typeIcons: Record<string, React.ElementType> = {
   sale: ShoppingCart,
-  invoice: FileText,
   staff: UserCog,
   settings: Settings,
   warning: AlertTriangle,
@@ -47,7 +46,6 @@ const typeIcons: Record<string, React.ElementType> = {
 
 const typeColors: Record<string, string> = {
   sale: 'text-emerald-600 bg-emerald-100',
-  invoice: 'text-blue-600 bg-blue-100',
   staff: 'text-amber-600 bg-amber-100',
   settings: 'text-gray-600 bg-gray-100',
   warning: 'text-rose-600 bg-rose-100',
@@ -58,9 +56,18 @@ const typeColors: Record<string, string> = {
 
 const ITEMS_PER_PAGE = 20
 
+interface Announcement {
+  id: string
+  title: string
+  message: string
+  priority: 'low' | 'medium' | 'high'
+  createdAt: string
+}
+
 export default function NotificationsPage() {
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -98,7 +105,17 @@ export default function NotificationsPage() {
   useEffect(() => {
     async function init() {
       try {
-        await Promise.all([fetchNotifications(1), fetchUnread()])
+        const { getAnnouncements } = await import('@/lib/actions/admin-actions')
+        const [annResult] = await Promise.all([
+          getAnnouncements(),
+          fetchNotifications(1),
+          fetchUnread(),
+        ])
+        if (!annResult || 'error' in annResult) {
+          setAnnouncements([])
+        } else {
+          setAnnouncements(annResult as unknown as Announcement[])
+        }
       } catch {
         setError('Failed to load notifications')
       } finally {
@@ -237,6 +254,60 @@ export default function NotificationsPage() {
           </Button>
         )}
       </div>
+
+      {announcements.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Megaphone className="size-4 text-primary" />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Announcements
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {announcements.map((a) => {
+              const isHigh = a.priority === 'high'
+              return (
+                <div
+                  key={a.id}
+                  className={cn(
+                    'rounded-2xl border p-4 shadow-sm',
+                    isHigh
+                      ? 'border-amber-300/60 bg-gradient-to-r from-amber-50 to-transparent dark:border-amber-800/50 dark:from-amber-950/30'
+                      : 'border-border/60 bg-card'
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                        isHigh ? 'bg-amber-100 text-amber-600' : 'bg-primary/10 text-primary'
+                      )}
+                    >
+                      <Megaphone className="size-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold">{a.title}</p>
+                        {isHigh && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                            Important
+                          </span>
+                        )}
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {formatDate(a.createdAt)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+                        {a.message}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         {notifications.length === 0 ? (

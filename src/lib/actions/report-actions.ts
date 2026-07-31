@@ -1,7 +1,7 @@
 'use server'
 
 import { dbConnect } from '@/lib/db/connect'
-import { sales, invoices, users, customers, auditLogs, settings } from '@/lib/db/schema'
+import { sales, users, customers, auditLogs, settings } from '@/lib/db/schema'
 import { eq, and, inArray, desc, asc, gte, lte, count, sql } from 'drizzle-orm'
 import { toNum, serializeList } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
@@ -52,12 +52,7 @@ export async function getDashboardStats() {
     .where(eq(sales.tenantId, tenantId))
 
   // The remaining KPIs in parallel — they live in different tables.
-  const [invoiceCount, customerCount, staffCount, shopSettings] = await Promise.all([
-    db
-      .select({ total: count() })
-      .from(invoices)
-      .where(eq(invoices.tenantId, tenantId))
-      .then((rows) => rows[0]?.total ?? 0),
+  const [customerCount, staffCount, shopSettings] = await Promise.all([
     db
       .select({ total: count() })
       .from(customers)
@@ -117,7 +112,6 @@ export async function getDashboardStats() {
     averageSale: totalSalesCount > 0 ? allTimeRevenue / totalSalesCount : 0,
     firstSaleAt: aggregates?.firstSaleAt ?? null,
     lastSaleAt: aggregates?.lastSaleAt ?? null,
-    totalInvoices: invoiceCount,
     totalCustomers: customerCount,
     totalStaff: staffCount,
     topProducts,

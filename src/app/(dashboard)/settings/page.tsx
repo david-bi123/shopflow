@@ -199,7 +199,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <CardTitle className="text-base">Store Information</CardTitle>
-              <p className="text-xs text-muted-foreground">Public details shown on receipts and invoices</p>
+              <p className="text-xs text-muted-foreground">Public details shown on receipts</p>
             </div>
           </div>
         </CardHeader>
@@ -222,7 +222,7 @@ export default function SettingsPage() {
                 onChange={(e) => setSettings({ ...settings, taxNumber: e.target.value })}
                 placeholder="TIN-0001234567"
               />
-              <p className="text-[11px] text-muted-foreground">Printed on every invoice</p>
+              <p className="text-[11px] text-muted-foreground">Printed on every receipt</p>
             </div>
           </div>
           <div className="space-y-2">

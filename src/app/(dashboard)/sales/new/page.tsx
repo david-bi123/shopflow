@@ -59,6 +59,8 @@ export default function NewSalePage() {
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [currency, setCurrency] = useState('GHS')
+  const [customers, setCustomers] = useState<Array<{ id: string; name: string; phone?: string | null }>>([])
+  const [customerMode, setCustomerMode] = useState<'new' | 'existing'>('new')
   const [storeInfo, setStoreInfo] = useState<{
     taxes: { name: string; rate: number; enabled: boolean }[]
     storeName: string
@@ -84,12 +86,28 @@ export default function NewSalePage() {
     loadSettings()
   }, [])
 
+  useEffect(() => {
+    async function loadCustomers() {
+      try {
+        const { getCustomers } = await import('@/lib/actions/customer-actions')
+        const result = await getCustomers(1, 500)
+        if (!('error' in result) && result.customers) {
+          setCustomers(result.customers as unknown as Array<{ id: string; name: string; phone?: string | null }>)
+        }
+      } catch {
+        // customers stay empty
+      }
+    }
+    loadCustomers()
+  }, [])
+
   const form = useForm<FormValues>({
     resolver: zodResolver(createSaleSchema) as never,
     defaultValues: {
       customerName: '',
       customerPhone: '',
       customerId: '',
+      receiptNumber: '',
       items: [{ ...defaultItem }],
       discountPercent: 0,
       tax: 0,
@@ -263,22 +281,87 @@ export default function NewSalePage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4 pt-5">
-            <div className="space-y-2">
-              <Label htmlFor="customerName">Customer Name</Label>
-              <Input
-                id="customerName"
-                {...register('customerName')}
-                placeholder="Enter customer name (optional)"
-              />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="customerMode">Customer</Label>
+                <div className="flex rounded-lg border border-border/60 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setCustomerMode('new')}
+                    className={cn(
+                      'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                      customerMode === 'new'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    New Customer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomerMode('existing')}
+                    className={cn(
+                      'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                      customerMode === 'existing'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    Saved Customer
+                  </button>
+                </div>
+              </div>
+              {customerMode === 'existing' && (
+                <div className="w-full space-y-2 sm:w-64">
+                  <Label htmlFor="customerId">Saved Customer *</Label>
+                  <Select
+                    onValueChange={(v) => {
+                      const picked = customers.find((c) => c.id === v)
+                      form.setValue('customerId', v)
+                      form.setValue('customerName', picked?.name ?? '')
+                      form.setValue('customerPhone', picked?.phone ?? '')
+                    }}
+                  >
+                    <SelectTrigger id="customerId">
+                      <SelectValue placeholder="Select a customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                          {c.phone ? ` \u00b7 ${c.phone}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="customerPhone">Phone (optional)</Label>
-              <Input
-                id="customerPhone"
-                {...register('customerPhone')}
-                placeholder="Enter phone number"
-              />
-            </div>
+
+            {customerMode === 'new' ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="customerName">Customer Name</Label>
+                  <Input
+                    id="customerName"
+                    {...register('customerName')}
+                    placeholder="Enter customer name (optional)"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customerPhone">Phone (optional)</Label>
+                  <Input
+                    id="customerPhone"
+                    {...register('customerPhone')}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                The selected customer&apos;s name and phone are attached to this sale automatically.
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -378,6 +461,21 @@ export default function NewSalePage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-5 pt-5">
+            <div className="space-y-2">
+              <Label htmlFor="receiptNumber" className="flex items-center gap-1.5">
+                <Receipt className="size-3.5 text-muted-foreground" />
+                Receipt / Invoice Number
+              </Label>
+              <Input
+                id="receiptNumber"
+                {...register('receiptNumber')}
+                placeholder="Optional \u2014 auto-generated if left blank"
+              />
+              <p className="text-xs text-muted-foreground">
+                Use your own number (e.g. from a paper receipt book). If left blank, the shop assigns one automatically.
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment Method *</Label>
               <Select

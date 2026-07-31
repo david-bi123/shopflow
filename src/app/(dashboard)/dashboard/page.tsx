@@ -7,7 +7,6 @@ import {
   DollarSign,
   ShoppingCart,
   Users,
-  FileText,
   TrendingUp,
   AlertCircle,
   Store,
@@ -47,7 +46,6 @@ interface DashboardStats {
   averageSale: number
   firstSaleAt: string | null
   lastSaleAt: string | null
-  totalInvoices: number
   totalCustomers: number
   totalStaff: number
   topProducts: Array<{ name: string; total: number; revenue: number }>
@@ -77,7 +75,6 @@ function formatShortDate(d: string) {
 
 const ACTIVITY_ICON: Record<string, React.ElementType> = {
   sale: ShoppingCart,
-  invoice: FileText,
   customer: Users,
   staff: Users,
   default: Receipt,
@@ -85,7 +82,6 @@ const ACTIVITY_ICON: Record<string, React.ElementType> = {
 
 const ACTIVITY_COLOR: Record<string, string> = {
   sale: 'bg-emerald-100 text-emerald-700 ring-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800/40',
-  invoice: 'bg-blue-100 text-blue-700 ring-blue-200/60 dark:bg-blue-950/60 dark:text-blue-300 dark:ring-blue-800/40',
   customer: 'bg-violet-100 text-violet-700 ring-violet-200/60 dark:bg-violet-950/60 dark:text-violet-300 dark:ring-violet-800/40',
   staff: 'bg-amber-100 text-amber-700 ring-amber-200/60 dark:bg-amber-950/60 dark:text-amber-300 dark:ring-amber-800/40',
   default: 'bg-slate-100 text-slate-700 ring-slate-200/60 dark:bg-slate-900/60 dark:text-slate-300 dark:ring-slate-800/40',
@@ -203,12 +199,6 @@ export default function DashboardPage() {
               <Link href="/sales/new">
                 <Receipt className="mr-2 size-4" />
                 New Sale
-              </Link>
-            </Button>
-            <Button size="sm" asChild>
-              <Link href="/invoices/new">
-                <FileText className="mr-2 size-4" />
-                New Invoice
               </Link>
             </Button>
           </div>
@@ -384,25 +374,6 @@ export default function DashboardPage() {
                 </p>
                 <p className="text-xl font-bold tabular-nums text-foreground">
                   {stats?.totalSalesCount ?? 0}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Invoices */}
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-chart-2/10 ring-1 ring-inset ring-chart-2/20">
-                <FileText className="size-4 text-chart-2" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Invoices
-                </p>
-                <p className="text-xl font-bold tabular-nums text-foreground">
-                  {stats?.totalInvoices ?? 0}
                 </p>
               </div>
             </div>

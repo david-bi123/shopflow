@@ -9,7 +9,6 @@ import {
   Bell,
   ChevronLeft,
   LayoutDashboard,
-  FileText,
   LogOut,
   Menu,
   Receipt,
@@ -57,7 +56,6 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Sales', href: '/sales', icon: Receipt },
-  { label: 'Invoices', href: '/invoices', icon: FileText },
   { label: 'Customers', href: '/customers', icon: Users },
   {
     label: 'Staff',

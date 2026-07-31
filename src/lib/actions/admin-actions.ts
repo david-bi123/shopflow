@@ -7,7 +7,6 @@ import {
   tenants,
   users,
   sales,
-  invoices,
   announcements,
   auditLogs,
   settings as settingsTable,
@@ -177,14 +176,13 @@ export async function getPlatformStats() {
 
   const db = await dbConnect()
 
-  const [totalTenants, activeTenants, pendingTenants, suspendedTenants, totalSales, totalInvoices, totalUsers] =
+  const [totalTenants, activeTenants, pendingTenants, suspendedTenants, totalSales, totalUsers] =
     await Promise.all([
       db.select({ total: count() }).from(tenants).then(r => r[0]?.total ?? 0),
       db.select({ total: count() }).from(tenants).where(eq(tenants.status, 'active')).then(r => r[0]?.total ?? 0),
       db.select({ total: count() }).from(tenants).where(eq(tenants.status, 'pending')).then(r => r[0]?.total ?? 0),
       db.select({ total: count() }).from(tenants).where(eq(tenants.status, 'suspended')).then(r => r[0]?.total ?? 0),
       db.select({ total: count() }).from(sales).then(r => r[0]?.total ?? 0),
-      db.select({ total: count() }).from(invoices).then(r => r[0]?.total ?? 0),
       db.select({ total: count() }).from(users).then(r => r[0]?.total ?? 0),
     ])
 
@@ -197,7 +195,6 @@ export async function getPlatformStats() {
     pendingTenants,
     suspendedTenants,
     totalSales,
-    totalInvoices,
     totalRevenue,
     totalUsers,
   }
@@ -254,7 +251,7 @@ export async function getTenantDetails(id: string) {
   }).from(users).where(eq(users.tenantId, toNum(id)))
 
   return {
-    tenant: serializeRow(tenant),
+    ...serializeRow(tenant),
     users: serializeList(tenantUsers),
   }
 }

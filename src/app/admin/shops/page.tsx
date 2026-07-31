@@ -175,8 +175,15 @@ export default function AdminShopsPage() {
   }, [])
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('create') === '1') {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('create') === '1') {
       setCreateOpen(true)
+    }
+    const status = params.get('status')
+    if (status && statusOptions.some((opt) => opt !== 'All' && opt.toLowerCase() === status)) {
+      prevStatusFilter.current = status
+      setStatusFilter(status)
     }
   }, [])
 

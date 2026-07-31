@@ -62,7 +62,24 @@ export async function createSale(data: CreateSaleInput) {
   const amountOwed = Math.max(0, Math.round((calculatedTotal - amountPaid) * 100) / 100)
   const now = new Date().toISOString()
 
-  const saleNumber = await getNextSaleNumber(tenantId)
+  // Optional manual receipt/invoice number. When the user types one in
+  // the sale form we honour it as the sale number, but only if it doesn't
+  // collide with an existing number in this shop. Otherwise auto-generate.
+  const manualNumber = (validated.data.receiptNumber ?? '').trim()
+  let saleNumber: string
+  if (manualNumber) {
+    const [collision] = await db
+      .select({ id: sales.id })
+      .from(sales)
+      .where(and(eq(sales.tenantId, tenantId), eq(sales.saleNumber, manualNumber)))
+      .limit(1)
+    if (collision) {
+      return { error: `A receipt with number "${manualNumber}" already exists` }
+    }
+    saleNumber = manualNumber
+  } else {
+    saleNumber = await getNextSaleNumber(tenantId)
+  }
   const userId = toNum(session.user.id)
 
   // The sale row, debt ledger, and cached customer balance must be
@@ -318,6 +335,22 @@ export async function updateSale(id: string, data: CreateSaleInput) {
     .limit(1)
   if (!oldSale) return { error: 'Sale not found' }
 
+  // Optional manual receipt/invoice number. On edit, only honour a change
+  // if it doesn't collide with another sale in this shop.
+  const manualNumber = (validated.data.receiptNumber ?? '').trim()
+  let saleNumber = oldSale.saleNumber
+  if (manualNumber && manualNumber !== oldSale.saleNumber) {
+    const [collision] = await db
+      .select({ id: sales.id })
+      .from(sales)
+      .where(and(eq(sales.tenantId, tenantId), eq(sales.saleNumber, manualNumber)))
+      .limit(1)
+    if (collision) {
+      return { error: `A receipt with number "${manualNumber}" already exists` }
+    }
+    saleNumber = manualNumber
+  }
+
   // Resolve the debtor customer: prefer explicit id, fall back to name lookup
   let debtorCustomerId: number | null = (oldSale.customerId as number | null) ?? null
   if (validated.data.customerId) {
@@ -367,6 +400,7 @@ export async function updateSale(id: string, data: CreateSaleInput) {
     await tx
       .update(sales)
       .set({
+        saleNumber,
         customerName: (validated.data.customerName as string | undefined) ?? null,
         customerPhone: (validated.data.customerPhone as string | undefined) ?? null,
         customerId: debtorCustomerId as number | undefined,
@@ -384,6 +418,24 @@ export async function updateSale(id: string, data: CreateSaleInput) {
         updatedAt: now,
       })
       .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
+
+    // 2.5) A new customer name entered on edit gets saved as a real
+    // customer (same behaviour as creating a sale), so the debt can be
+    // attributed to it and future sales can pick it from the picker.
+    if (!debtorCustomerId && validated.data.customerName) {
+      const ins = await tx.insert(customers).values({
+        tenantId,
+        name: validated.data.customerName,
+        phone: validated.data.customerPhone || null,
+        createdBy: userId,
+        createdAt: now,
+        updatedAt: now,
+      }).$returningId()
+      debtorCustomerId = ins[0].id
+      await tx.update(sales)
+        .set({ customerId: debtorCustomerId })
+        .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
+    }
 
     // 3) Apply the new debt attribution
     if (amountOwed > 0.01 && debtorCustomerId) {

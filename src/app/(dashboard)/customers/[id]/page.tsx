@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import {
   ArrowLeft,
   Loader2,
@@ -16,7 +16,6 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   History,
-  FileText,
   Receipt,
   TrendingUp,
   AlertTriangle,
@@ -70,14 +69,13 @@ interface OpenSale {
   createdAt: string
 }
 
-interface OpenInvoice {
+interface SaleHistoryItem {
   id: string
-  invoiceNumber: string
+  saleNumber: string
   total: number
   amountPaid: number
   amountOwed: number
-  status: string
-  dueDate: string
+  paymentMethod: string
   createdAt: string
 }
 
@@ -99,11 +97,6 @@ const TYPE_META: Record<string, { label: string; color: string; icon: typeof Arr
     color: 'text-red-700 bg-red-50 ring-red-200/60 dark:text-red-300 dark:bg-red-950/60 dark:ring-red-800/40',
     icon: ArrowUpCircle,
   },
-  invoice_created: {
-    label: 'Invoice created',
-    color: 'text-red-700 bg-red-50 ring-red-200/60 dark:text-red-300 dark:bg-red-950/60 dark:ring-red-800/40',
-    icon: ArrowUpCircle,
-  },
   manual_payment: {
     label: 'Payment received',
     color: 'text-emerald-700 bg-emerald-50 ring-emerald-200/60 dark:text-emerald-300 dark:bg-emerald-950/60 dark:ring-emerald-800/40',
@@ -114,21 +107,15 @@ const TYPE_META: Record<string, { label: string; color: string; icon: typeof Arr
     color: 'text-slate-700 bg-slate-50 ring-slate-200/60 dark:text-slate-300 dark:bg-slate-900/60 dark:ring-slate-800/40',
     icon: ArrowDownCircle,
   },
-  invoice_voided: {
-    label: 'Invoice reversed',
-    color: 'text-slate-700 bg-slate-50 ring-slate-200/60 dark:text-slate-300 dark:bg-slate-900/60 dark:ring-slate-800/40',
-    icon: ArrowDownCircle,
-  },
 }
 
 export default function CustomerDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const id = params.id as string
   const [summary, setSummary] = useState<CustomerSummary | null>(null)
   const [ledger, setLedger] = useState<LedgerEntry[]>([])
   const [openSales, setOpenSales] = useState<OpenSale[]>([])
-  const [openInvoices, setOpenInvoices] = useState<OpenInvoice[]>([])
+  const [allSales, setAllSales] = useState<SaleHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [payOpen, setPayOpen] = useState(false)
@@ -147,11 +134,11 @@ export default function CustomerDetailPage() {
         setError(res.error)
         return
       }
-      const data = res as unknown as { customer: CustomerSummary; ledger: LedgerEntry[]; openSales: OpenSale[]; openInvoices: OpenInvoice[] }
+      const data = res as unknown as { customer: CustomerSummary; ledger: LedgerEntry[]; openSales: OpenSale[]; allSales: SaleHistoryItem[] }
       setSummary(data.customer)
       setLedger(data.ledger)
       setOpenSales(data.openSales)
-      setOpenInvoices(data.openInvoices)
+      setAllSales(data.allSales)
     } catch {
       setError('Failed to load customer')
     } finally {
@@ -238,7 +225,7 @@ export default function CustomerDetailPage() {
   }
 
   const hasDebt = summary.totalDebt > 0.005
-  const totalOpen = openSales.reduce((s, x) => s + x.amountOwed, 0) + openInvoices.reduce((s, x) => s + x.amountOwed, 0)
+  const totalOpen = openSales.reduce((s, x) => s + x.amountOwed, 0)
 
   return (
     <div className="space-y-5 pb-6">
@@ -388,7 +375,7 @@ export default function CustomerDetailPage() {
                 </div>
                 <p className="text-sm font-semibold">No debt activity yet</p>
                 <p className="text-xs text-muted-foreground">
-                  Debt only appears when a sale or invoice is created with an
+                  Debt only appears when a sale is created with an
                   Amount Paid below the total.
                 </p>
               </div>
@@ -431,14 +418,6 @@ export default function CustomerDetailPage() {
                               View sale
                             </Link>
                           )}
-                          {entry.referenceType === 'invoice' && entry.referenceId && (
-                            <Link
-                              href={`/invoices/${entry.referenceId}`}
-                              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                            >
-                              View invoice
-                            </Link>
-                          )}
                         </div>
                         <p className="mt-1 text-sm text-foreground">{entry.notes ?? '\u2014'}</p>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -467,7 +446,7 @@ export default function CustomerDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Open Sales + Invoices */}
+        {/* Open Sales */}
         <Card className="overflow-hidden border-0 shadow-sm">
           <CardHeader className="border-b bg-gradient-to-r from-amber-500/5 to-transparent">
             <div className="flex items-center gap-3">
@@ -475,21 +454,21 @@ export default function CustomerDetailPage() {
                 <AlertTriangle className="size-4 text-amber-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <CardTitle className="text-base">Open Documents</CardTitle>
+                <CardTitle className="text-base">Open Sales</CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  Sales + invoices still owing
+                  Sales still owing
                 </p>
               </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            {(openSales.length === 0 && openInvoices.length === 0) ? (
+            {openSales.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
                   <CheckCircle2 className="size-6 text-emerald-600" />
                 </div>
                 <p className="text-sm font-semibold">All paid up</p>
-                <p className="text-xs text-muted-foreground">No open documents.</p>
+                <p className="text-xs text-muted-foreground">No open sales.</p>
               </div>
             ) : (
               <div className="divide-y divide-border/60">
@@ -516,33 +495,10 @@ export default function CustomerDetailPage() {
                     </div>
                   </Link>
                 ))}
-                {openInvoices.map((inv) => (
-                  <Link
-                    key={inv.id}
-                    href={`/invoices/${inv.id}`}
-                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 sm:px-5"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
-                      <FileText className="size-4 text-blue-700" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{inv.invoiceNumber}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Due {formatDate(inv.dueDate, 'short')} \u00b7 Total {formatCurrency(inv.total)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-red-600 tabular-nums">
-                        {formatCurrency(inv.amountOwed)}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">of {formatCurrency(inv.total)}</p>
-                    </div>
-                  </Link>
-                ))}
               </div>
             )}
 
-            {(openSales.length > 0 || openInvoices.length > 0) && (
+            {openSales.length > 0 && (
               <div className="border-t bg-muted/30 px-4 py-3 sm:px-5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Open total</span>
@@ -550,6 +506,64 @@ export default function CustomerDetailPage() {
                     {formatCurrency(totalOpen)}
                   </span>
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* All Sales */}
+        <Card className="overflow-hidden border-0 shadow-sm">
+          <CardHeader className="border-b bg-gradient-to-r from-emerald-500/5 to-transparent">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
+                <Receipt className="size-4 text-emerald-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-base">Sales History</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Every sale made by this customer
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {allSales.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <Receipt className="size-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-semibold">No sales yet</p>
+                <p className="text-xs text-muted-foreground">Sales will appear here.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/60">
+                {allSales.map((s) => (
+                  <Link
+                    key={s.id}
+                    href={`/sales/${s.id}`}
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30 sm:px-5"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
+                      <Receipt className="size-4 text-emerald-700" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{s.saleNumber}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {formatDate(s.createdAt, 'short')} \u00b7 {s.paymentMethod.replace('_', ' ')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold tabular-nums">{formatCurrency(s.total)}</p>
+                      {s.amountOwed > 0.005 ? (
+                        <p className="text-[11px] font-medium text-red-600">
+                          {formatCurrency(s.amountOwed)} owing
+                        </p>
+                      ) : (
+                        <p className="text-[11px] font-medium text-emerald-600">Paid in full</p>
+                      )}
+                    </div>
+                  </Link>
+                ))}
               </div>
             )}
           </CardContent>
@@ -619,7 +633,7 @@ export default function CustomerDetailPage() {
                 id="payNotes2"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. 'Defrayment for the Premium Service invoice'"
+                placeholder="e.g. 'Payment for the shoes bought last week'"
                 rows={2}
               />
             </div>

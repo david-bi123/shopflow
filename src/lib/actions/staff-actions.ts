@@ -13,9 +13,19 @@ import { generatePassword } from '@/lib/utils/format'
 import { createAuditLog } from '@/lib/services/audit'
 import type { InviteStaffInput } from '@/lib/validations/staff'
 
+/**
+ * Staff management is reserved for the shop owner. Regular `admin` and
+ * `staff` roles have no staff permissions and are rejected explicitly
+ * here even if a permission sneaks through.
+ */
+function isOwner(session: { user?: { role?: string } | null }): boolean {
+  return session?.user?.role === 'owner'
+}
+
 export async function inviteStaff(data: InviteStaffInput) {
   const session = await auth()
   if (!session?.user) return { error: 'Unauthorized' }
+  if (!isOwner(session)) return { error: 'Only the shop owner can manage staff' }
   if (!hasPermission(session.user.role, PERMISSIONS.staff.create)) return { error: 'Forbidden' }
 
   const validated = inviteStaffSchema.safeParse(data)
@@ -65,6 +75,7 @@ export async function inviteStaff(data: InviteStaffInput) {
 export async function getStaff(page = 1, limit = 20) {
   const session = await auth()
   if (!session?.user) return { error: 'Unauthorized' }
+  if (!isOwner(session)) return { error: 'Only the shop owner can manage staff' }
   if (!hasPermission(session.user.role, PERMISSIONS.staff.read)) return { error: 'Forbidden' }
 
   const db = await dbConnect()
@@ -104,6 +115,7 @@ export async function getStaff(page = 1, limit = 20) {
 export async function updateStaff(id: string, data: Record<string, unknown>) {
   const session = await auth()
   if (!session?.user) return { error: 'Unauthorized' }
+  if (!isOwner(session)) return { error: 'Only the shop owner can manage staff' }
   if (!hasPermission(session.user.role, PERMISSIONS.staff.update)) return { error: 'Forbidden' }
 
   const validated = updateStaffSchema.safeParse(data)
@@ -137,6 +149,7 @@ export async function updateStaff(id: string, data: Record<string, unknown>) {
 export async function deleteStaff(id: string) {
   const session = await auth()
   if (!session?.user) return { error: 'Unauthorized' }
+  if (!isOwner(session)) return { error: 'Only the shop owner can manage staff' }
   if (!hasPermission(session.user.role, PERMISSIONS.staff.delete)) return { error: 'Forbidden' }
 
   const db = await dbConnect()
@@ -170,4 +183,53 @@ export async function deleteStaff(id: string) {
 
   revalidatePath('/staff')
   return { success: true }
+}
+
+/**
+ * Reset a staff member's password. Generates a new secure password,
+ * updates the stored bcrypt hash, and returns the new password so the
+ * owner can share it with the staff member. The password is shown to
+ * the owner ONCE — it is never stored in plaintext.
+ */
+export async function resetStaffPassword(id: string) {
+  const session = await auth()
+  if (!session?.user) return { error: 'Unauthorized' }
+  if (!isOwner(session)) return { error: 'Only the shop owner can manage staff' }
+  if (!hasPermission(session.user.role, PERMISSIONS.staff.update)) return { error: 'Forbidden' }
+
+  const db = await dbConnect()
+  const tenantId = toNum(session.user.tenantId!)
+
+  const [staff] = await db.select().from(users)
+    .where(and(
+      eq(users.id, toNum(id)),
+      eq(users.tenantId, tenantId),
+      inArray(users.role, ['admin', 'staff']),
+    ))
+    .limit(1)
+
+  if (!staff) return { error: 'Staff member not found' }
+
+  const newPassword = generatePassword()
+  const hashed = await bcrypt.hash(newPassword, 12)
+
+  await db.update(users)
+    .set({ password: hashed, updatedAt: new Date().toISOString() })
+    .where(and(
+      eq(users.id, toNum(id)),
+      eq(users.tenantId, tenantId),
+    ))
+
+  await createAuditLog({
+    tenantId,
+    action: 'staff.password_reset',
+    entity: 'User',
+    entityId: id,
+    performedBy: toNum(session.user.id),
+    performedByName: session.user.name || 'Unknown',
+    details: { staffName: staff.name, staffEmail: staff.email },
+  })
+
+  revalidatePath('/staff')
+  return { success: true, newPassword }
 }

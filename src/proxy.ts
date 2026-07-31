@@ -18,7 +18,7 @@ import { randomBytes } from 'crypto'
  */
 
 const PUBLIC_PATHS = new Set(['/', '/login', '/register', '/forgot-password', '/reset-password', '/pending-approval', '/suspended'])
-const PUBLIC_PREFIXES = ['/r/', '/i/', '/api/auth', '/api/i/', '/api/r/', '/_next/']
+const PUBLIC_PREFIXES = ['/r/', '/api/auth', '/api/r/', '/api/health', '/_next/']
 
 const SESSION_COOKIES = [
   // NextAuth v4 / older naming

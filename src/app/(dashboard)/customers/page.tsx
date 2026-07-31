@@ -167,7 +167,7 @@ export default function CustomersPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this customer? Sales/invoices that reference them keep their stored name.')) return
+    if (!confirm('Delete this customer? Sales that reference them keep their stored name.')) return
     try {
       const { deleteCustomer } = await import('@/lib/actions/customer-actions')
       const res = await deleteCustomer(id)
@@ -540,7 +540,7 @@ export default function CustomersPage() {
           <DialogHeader>
             <DialogTitle>New Customer</DialogTitle>
             <DialogDescription>
-              A customer only becomes a debtor once you create a sale or invoice and leave
+              A customer only becomes a debtor once you create a sale and leave
               the &quot;Amount Paid&quot; field below the total. Until then they&apos;re just
               a record of name + phone.
             </DialogDescription>
@@ -659,7 +659,7 @@ export default function CustomersPage() {
                 id="payNotes"
                 value={payNotes}
                 onChange={(e) => setPayNotes(e.target.value)}
-                placeholder="e.g. 'Defrayment for the Premium Service invoice'"
+                placeholder="e.g. 'Payment for the shoes bought last week'"
                 rows={2}
               />
             </div>

@@ -44,9 +44,9 @@ const features = [
     gradient: 'from-primary/20 via-primary/10 to-transparent',
   },
   {
-    icon: FileText,
-    title: 'Professional Invoices',
-    description: 'Auto-numbered invoices with public links, PDF export, and WhatsApp sharing built-in.',
+    icon: Receipt,
+    title: 'Debt Tracking',
+    description: 'Record part payments, track what every customer owes, and settle balances in one tap.',
     gradient: 'from-chart-2/20 via-chart-2/10 to-transparent',
   },
   {
@@ -91,7 +91,7 @@ const steps = [
   {
     number: '03',
     title: 'Start selling',
-    description: 'Record sales, send invoices, and watch your dashboard fill up in real-time.',
+    description: 'Record sales, track customer debt, and watch your dashboard fill up in real-time.',
     icon: TrendingUp,
   },
 ]
@@ -106,7 +106,7 @@ const trust = [
 const faqs = [
   {
     q: 'What is IndFlow and who is it for?',
-    a: 'IndFlow is a multi-tenant business management platform built for retail shops, pharmacies, boutiques, and SMEs. It handles sales, invoices, customers, staff, and reports in one place.',
+    a: 'IndFlow is a multi-tenant business management platform built for retail shops, pharmacies, boutiques, and SMEs. It handles sales, customers, debt, staff, and reports in one place.',
   },
   {
     q: 'Is there a free tier?',
@@ -118,7 +118,7 @@ const faqs = [
   },
   {
     q: 'Can my customers view receipts without signing up?',
-    a: 'Yes. Every sale and invoice gets a public URL and a QR code. Customers can view, download as PDF, or share on WhatsApp — no account required.',
+    a: 'Yes. Every sale gets a public URL and a QR code. Customers can view, download as PDF, or share on WhatsApp — no account required.',
   },
   {
     q: 'Which currencies are supported?',
@@ -318,7 +318,7 @@ export default function LandingPage() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:mt-6 sm:text-lg sm:text-xl"
             >
-              Sales, invoices, customers, and reports — all in one platform your team will actually love using. GHS by default.
+              Sales, customers, debt, and reports — all in one platform your team will actually love using. GHS by default.
             </motion.p>
 
             <motion.div
@@ -373,7 +373,7 @@ export default function LandingPage() {
                   <div className="col-span-1 hidden border-r bg-muted/20 p-3 sm:block sm:p-4">
                     <div className="mb-4 h-3 w-20 rounded bg-muted-foreground/15 sm:mb-6 sm:h-4" />
                     <div className="space-y-1 sm:space-y-1.5">
-                      {['Dashboard', 'Sales', 'Invoices', 'Customers', 'Reports'].map((item, i) => (
+                      {['Dashboard', 'Sales', 'Customers', 'Reports', 'Settings'].map((item, i) => (
                         <div
                           key={item}
                           className={cn(

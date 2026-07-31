@@ -6,7 +6,6 @@ import {
   Store,
   Clock,
   ShoppingCart,
-  FileText,
   DollarSign,
   Loader2,
   TrendingUp,
@@ -27,7 +26,6 @@ interface PlatformStats {
   pendingTenants: number
   suspendedTenants: number
   totalSales: number
-  totalInvoices: number
   totalRevenue: number
   totalUsers: number
 }
@@ -114,14 +112,6 @@ export default function AdminDashboardPage() {
       gradient: 'from-violet-500/10 to-violet-500/0',
       iconBg: 'bg-violet-500/10',
       iconColor: 'text-violet-600',
-    },
-    {
-      title: 'Total Invoices',
-      value: formatNumber(stats?.totalInvoices ?? 0),
-      icon: FileText,
-      gradient: 'from-indigo-500/10 to-indigo-500/0',
-      iconBg: 'bg-indigo-500/10',
-      iconColor: 'text-indigo-600',
     },
     {
       title: 'Platform Revenue',

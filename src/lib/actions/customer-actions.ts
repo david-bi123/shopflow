@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
-import { customers, sales, invoices } from '@/lib/db/schema'
+import { customers, sales } from '@/lib/db/schema'
 import { eq, and, or, like, desc, count, isNotNull, isNull, ne } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
 import { createCustomerSchema, updateCustomerSchema } from '@/lib/validations/customer'
@@ -132,7 +132,7 @@ export async function getCustomerById(id: string) {
 
   // Keep the recent-activity list bounded so a customer with thousands
   // of sales doesn't trigger a slow query.
-  const [recentSalesResult, recentInvoicesResult] = await Promise.all([
+  const [recentSalesResult] = await Promise.all([
     db.select({
       id: sales.id,
       saleNumber: sales.saleNumber,
@@ -143,23 +143,12 @@ export async function getCustomerById(id: string) {
       .where(and(eq(sales.tenantId, tenantId), eq(sales.customerId, customerId)))
       .orderBy(desc(sales.createdAt))
       .limit(10),
-    db.select({
-      id: invoices.id,
-      invoiceNumber: invoices.invoiceNumber,
-      total: invoices.total,
-      status: invoices.status,
-      createdAt: invoices.createdAt,
-    }).from(invoices)
-      .where(and(eq(invoices.tenantId, tenantId), eq(invoices.customerId, customerId)))
-      .orderBy(desc(invoices.createdAt))
-      .limit(10),
   ])
 
   return {
     customer: {
       ...serializeRow(customer),
       recentSales: serializeList(recentSalesResult as unknown as Record<string, unknown>[]),
-      recentInvoices: serializeList(recentInvoicesResult as unknown as Record<string, unknown>[]),
     },
   }
 }

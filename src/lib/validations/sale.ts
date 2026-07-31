@@ -25,6 +25,12 @@ export const createSaleSchema = z.object({
   customerName: z.string().max(200).optional().or(z.literal('')),
   customerPhone: z.string().max(50).optional().or(z.literal('')),
   customerId: z.string().optional().or(z.literal('')),
+  /**
+   * Optional custom receipt / invoice number. When provided it is used
+   * as the sale's `saleNumber` (subject to a uniqueness check within the
+   * tenant); when blank the sale number is auto-generated.
+   */
+  receiptNumber: z.string().max(50).optional().or(z.literal('')),
   items: z.array(saleItemSchema).min(1, 'At least one item is required'),
   /**
    * The following five fields are computed server-side from `items` +
@@ -55,6 +61,7 @@ export type CreateSaleInput = z.infer<typeof createSaleSchema>
 export interface Sale {
   id: string
   saleNumber: string
+  receiptNumber?: string
   customerName?: string
   customerPhone?: string
   customerId?: string

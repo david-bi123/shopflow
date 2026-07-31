@@ -1,7 +1,7 @@
 'use server'
 
 import { dbConnect } from '@/lib/db/connect'
-import { sales, invoices } from '@/lib/db/schema'
+import { sales } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { toNum } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
@@ -30,21 +30,4 @@ export async function getSalePublicToken(saleId: string): Promise<string | { err
   if (!row) return { error: 'Sale not found' }
 
   return buildPublicToken({ t: 's', tn: tenantId, id: row.id })
-}
-
-export async function getInvoicePublicToken(invoiceId: string): Promise<string | { error: string }> {
-  const session = await auth()
-  if (!session?.user) return { error: 'Unauthorized' }
-  const db = await dbConnect()
-  const id = toNum(invoiceId)
-  const tenantId = toNum(session.user.tenantId!)
-
-  const [row] = await db
-    .select({ id: invoices.id })
-    .from(invoices)
-    .where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)))
-    .limit(1)
-  if (!row) return { error: 'Invoice not found' }
-
-  return buildPublicToken({ t: 'i', tn: tenantId, id: row.id })
 }

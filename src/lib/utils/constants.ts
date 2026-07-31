@@ -15,7 +15,6 @@ export const PAGINATION_LIMIT = 20
 export const PAGINATION_MAX_LIMIT = 100
 
 export const SALE_NUMBER_PREFIX = 'SALE-'
-export const INVOICE_NUMBER_PREFIX = 'INV-'
 
 export const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'US Dollar' },

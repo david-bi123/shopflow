@@ -255,8 +255,9 @@ export async function getCustomerDebtLedger(customerId: string) {
     .where(and(eq(debtLedger.tenantId, tenantId), eq(debtLedger.customerId, numericId)))
     .orderBy(debtLedger.createdAt, debtLedger.id)
 
-  // Also list open (still-owed) sales + invoices attributed to this customer.
-  const [openSales, openInvoices] = await Promise.all([
+  // Also list open (still-owed) sales attributed to this customer, plus
+  // their full sale history for the customer page.
+  const [openSales, allSales] = await Promise.all([
     db.select({
       id: sales.id,
       saleNumber: sales.saleNumber,
@@ -273,22 +274,22 @@ export async function getCustomerDebtLedger(customerId: string) {
       ))
       .orderBy(desc(sales.createdAt)),
     db.select({
-      id: invoices.id,
-      invoiceNumber: invoices.invoiceNumber,
-      total: invoices.total,
-      amountPaid: invoices.amountPaid,
-      amountOwed: invoices.amountOwed,
-      status: invoices.status,
-      dueDate: invoices.dueDate,
-      createdAt: invoices.createdAt,
+      id: sales.id,
+      saleNumber: sales.saleNumber,
+      items: sales.items,
+      total: sales.total,
+      amountPaid: sales.amountPaid,
+      amountOwed: sales.amountOwed,
+      paymentMethod: sales.paymentMethod,
+      createdAt: sales.createdAt,
     })
-      .from(invoices)
+      .from(sales)
       .where(and(
-        eq(invoices.tenantId, tenantId),
-        eq(invoices.customerId, numericId),
-        sql`${invoices.amountOwed} > 0`,
+        eq(sales.tenantId, tenantId),
+        eq(sales.customerId, numericId),
       ))
-      .orderBy(desc(invoices.createdAt)),
+      .orderBy(desc(sales.createdAt))
+      .limit(50),
   ])
 
   return {
@@ -305,7 +306,7 @@ export async function getCustomerDebtLedger(customerId: string) {
     },
     ledger: serializeList(entries as unknown as Record<string, unknown>[]),
     openSales,
-    openInvoices,
+    allSales: serializeList(allSales as unknown as Record<string, unknown>[]),
   }
 }
 
