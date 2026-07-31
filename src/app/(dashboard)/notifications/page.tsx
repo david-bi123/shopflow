@@ -145,6 +145,7 @@ export default function NotificationsPage() {
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       )
       setUnreadCount((prev) => Math.max(0, prev - 1))
+      window.dispatchEvent(new Event('indflow:notifications-updated'))
     } catch {
       // silent
     }
@@ -156,6 +157,7 @@ export default function NotificationsPage() {
       await markAllNotificationsRead()
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
       setUnreadCount(0)
+      window.dispatchEvent(new Event('indflow:notifications-updated'))
       toast.success('All notifications marked as read')
     } catch {
       toast.error('Failed to mark all as read')

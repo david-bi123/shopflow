@@ -57,14 +57,6 @@ const PAYMENT_METHODS = [
   { value: 'other', label: 'Other' },
 ]
 
-const PAYMENT_DOT: Record<string, string> = {
-  cash: 'bg-emerald-500',
-  card: 'bg-blue-500',
-  mobile_money: 'bg-amber-500',
-  bank_transfer: 'bg-violet-500',
-  other: 'bg-gray-500',
-}
-
 const ITEMS_PER_PAGE = 10
 
 export default function SalesPage() {
@@ -308,14 +300,19 @@ export default function SalesPage() {
               ),
             },
             {
-              key: 'paymentMethod',
-              header: 'Payment',
-              mobileLabel: 'Paid via',
+              key: 'amountOwed',
+              header: 'Amount Owing',
+              mobileLabel: 'Owing',
               cell: (sale: Sale) => (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground">
-                  <span className={cn('h-1.5 w-1.5 rounded-full', PAYMENT_DOT[sale.paymentMethod] ?? 'bg-gray-400')} />
-                  {sale.paymentMethod.replace('_', ' ')}
-                </span>
+                sale.amountOwed > 0.005 ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700 ring-1 ring-inset ring-red-200/60 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-800/40">
+                    {formatCurrency(sale.amountOwed)}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/40">
+                    Paid
+                  </span>
+                )
               ),
             },
             {

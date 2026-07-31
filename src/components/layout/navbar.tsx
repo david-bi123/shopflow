@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Bell,
   ChevronDown,
@@ -55,6 +55,31 @@ export function Navbar({ user, title }: NavbarProps) {
   const isMobile = useMediaQuery('(max-width: 768px)')
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
   const [signingOut, setSigningOut] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  const refreshUnread = useCallback(async () => {
+    try {
+      const { getUnreadCount } = await import('@/lib/actions/notification-actions')
+      const count = await getUnreadCount()
+      setUnreadCount(count as number)
+    } catch {
+      // silent
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshUnread()
+    const onFocus = () => refreshUnread()
+    const onUpdated = () => refreshUnread()
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('indflow:notifications-updated', onUpdated)
+    const interval = setInterval(refreshUnread, 30000)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('indflow:notifications-updated', onUpdated)
+      clearInterval(interval)
+    }
+  }, [refreshUnread])
 
   async function handleSignOut() {
     setSigningOut(true)
@@ -110,14 +135,16 @@ export function Navbar({ user, title }: NavbarProps) {
           className="relative hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring rounded-xl"
           asChild
         >
-          <Link href="/notifications">
+          <Link href="/notifications" aria-label="Notifications">
             <Bell className="h-5 w-5" />
-            <Badge
-              variant="destructive"
-              className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full p-0 text-[10px] font-bold shadow-sm"
-            >
-              3
-            </Badge>
+            {unreadCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full p-0 text-[10px] font-bold shadow-sm"
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Badge>
+            )}
           </Link>
         </Button>
 
