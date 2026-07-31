@@ -12,6 +12,8 @@ export interface SalePdfData {
   saleNumber: string
   customerName?: string
   customerPhone?: string
+  waybillNo?: string
+  companyRefNo?: string
   items: Array<{ name: string; quantity: number; price: number; subtotal: number }>
   subtotal: number
   discountPercent: number
@@ -227,6 +229,11 @@ function drawTotals(opts: DrawTotalsOpts) {
       doc.text(formatMoney(t.amount, store), startX + 8, y, { width: boxWidth - 16, align: 'right' })
       y += 14
     }
+    // Tax subtotal row: sums the per-tax lines above it.
+    doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
+    doc.text('Tax Subtotal', startX + 8, y, { width: boxWidth - 16 })
+    doc.text(formatMoney(opts.tax, store), startX + 8, y, { width: boxWidth - 16, align: 'right' })
+    y += 14
   } else if (opts.tax > 0) {
     doc.text('Tax', startX + 8, y, { width: boxWidth - 16 })
     doc.text(formatMoney(opts.tax, store), startX + 8, y, { width: boxWidth - 16, align: 'right' })
@@ -327,6 +334,21 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
       doc.text('Our Tax ID:', rightStartX, detailY)
       doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
       doc.text(store.taxNumber, rightStartX + 100, detailY, { width: 145 })
+      detailY += 14
+    }
+    if (sale.waybillNo) {
+      doc.fillColor(TEXT_MUTED).font('Helvetica')
+      doc.text('WAY-BILL NO:', rightStartX, detailY)
+      doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+      doc.text(sale.waybillNo, rightStartX + 100, detailY, { width: 145 })
+      detailY += 14
+    }
+    if (sale.companyRefNo) {
+      doc.fillColor(TEXT_MUTED).font('Helvetica')
+      doc.text('COMPANY REF NO:', rightStartX, detailY)
+      doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+      doc.text(sale.companyRefNo, rightStartX + 100, detailY, { width: 145 })
+      detailY += 14
     }
 
     if (detailY > y) y = detailY
@@ -375,7 +397,7 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     y += 10
 
     // --- Totals box on the right (subtotal, discount, tax) ---
-    drawTotals({
+    y = drawTotals({
       doc,
       startX: 330,
       width: 215,

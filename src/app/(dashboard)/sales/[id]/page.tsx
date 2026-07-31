@@ -24,6 +24,8 @@ import {
   HandCoins,
   Pencil,
   ClipboardList,
+  Truck,
+  Building2,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -279,6 +281,24 @@ export default function SaleDetailPage() {
                 {sale.customerPhone || '—'}
               </dd>
             </div>
+            {sale.waybillNo && (
+              <div className="flex items-start justify-between gap-4">
+                <dt className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                  <Truck className="size-4" />
+                  WAY-BILL NO
+                </dt>
+                <dd className="text-right font-medium text-foreground">{sale.waybillNo}</dd>
+              </div>
+            )}
+            {sale.companyRefNo && (
+              <div className="flex items-start justify-between gap-4">
+                <dt className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                  <Building2 className="size-4" />
+                  COMPANY REF NO
+                </dt>
+                <dd className="text-right font-medium text-foreground">{sale.companyRefNo}</dd>
+              </div>
+            )}
             <div className="flex items-start justify-between gap-4">
               <dt className="flex shrink-0 items-center gap-2 text-muted-foreground">
                 <CreditCard className="size-4" />
@@ -371,16 +391,24 @@ export default function SaleDetailPage() {
               </div>
             )}
             {sale.taxItems && sale.taxItems.length > 0 ? (
-              sale.taxItems.map((t) => (
-                <div key={t.name} className="flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
-                  </span>
-                  <span className="font-medium tabular-nums text-foreground">
-                    +{formatCurrency(t.amount)}
+              <>
+                {sale.taxItems.map((t) => (
+                  <div key={t.name} className="flex items-center justify-between">
+                    <span className="text-muted-foreground">
+                      {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
+                    </span>
+                    <span className="font-medium tabular-nums text-foreground">
+                      +{formatCurrency(t.amount)}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between border-t border-dashed border-border/60 pt-1.5">
+                  <span className="font-medium text-muted-foreground">Tax Subtotal</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    +{formatCurrency(sale.tax)}
                   </span>
                 </div>
-              ))
+              </>
             ) : (
               sale.tax > 0 && (
                 <div className="flex items-center justify-between">

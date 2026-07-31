@@ -44,6 +44,8 @@ export default async function PublicReceiptPage({
     amountOwed: number
     paymentMethod: string
     notes?: string | null
+    waybillNo?: string | null
+    companyRefNo?: string | null
     createdAt: string
     updatedAt: string
     currency?: string
@@ -207,6 +209,18 @@ export default async function PublicReceiptPage({
                   <span className="text-xs font-medium text-foreground">{tenant.taxNumber}</span>
                 </div>
               )}
+              {sale.waybillNo && (
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs text-muted-foreground">WAY-BILL NO:</span>
+                  <span className="text-xs font-medium text-foreground">{sale.waybillNo}</span>
+                </div>
+              )}
+              {sale.companyRefNo && (
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs text-muted-foreground">COMPANY REF NO:</span>
+                  <span className="text-xs font-medium text-foreground">{sale.companyRefNo}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -268,14 +282,22 @@ export default async function PublicReceiptPage({
                     </div>
                   )}
                   {sale.taxItems && sale.taxItems.length > 0 ? (
-                    sale.taxItems.map((t) => (
-                      <div key={t.name} className="flex justify-between text-muted-foreground">
-                        <span>
-                          {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
+                    <>
+                      {sale.taxItems.map((t) => (
+                        <div key={t.name} className="flex justify-between text-muted-foreground">
+                          <span>
+                            {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
+                          </span>
+                          <span className="tabular-nums">{formatCurrency(t.amount, currency)}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between border-t border-dashed border-border/60 pt-1.5">
+                        <span className="font-medium text-foreground">Tax Subtotal</span>
+                        <span className="font-semibold tabular-nums text-foreground">
+                          {formatCurrency(sale.tax, currency)}
                         </span>
-                        <span className="tabular-nums">{formatCurrency(t.amount, currency)}</span>
                       </div>
-                    ))
+                    </>
                   ) : (
                     sale.tax > 0 && (
                       <div className="flex justify-between text-muted-foreground">

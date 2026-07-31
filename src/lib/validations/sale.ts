@@ -31,6 +31,10 @@ export const createSaleSchema = z.object({
    * tenant); when blank the sale number is auto-generated.
    */
   receiptNumber: z.string().max(50).optional().or(z.literal('')),
+  /** Optional waybill / delivery note number. */
+  waybillNo: z.string().max(100).optional().or(z.literal('')),
+  /** Optional company / PO reference number. */
+  companyRefNo: z.string().max(100).optional().or(z.literal('')),
   items: z.array(saleItemSchema).min(1, 'At least one item is required'),
   /**
    * The following five fields are computed server-side from `items` +
@@ -62,6 +66,8 @@ export interface Sale {
   id: string
   saleNumber: string
   receiptNumber?: string
+  waybillNo?: string
+  companyRefNo?: string
   customerName?: string
   customerPhone?: string
   customerId?: string

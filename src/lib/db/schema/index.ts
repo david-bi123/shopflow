@@ -98,6 +98,10 @@ export const sales = mysqlTable('sales', {
   amountOwed: double('amount_owed').notNull().default(0),
   paymentMethod: varchar('payment_method', { length: 20 }).notNull(),
   notes: text('notes'),
+  /** Optional waybill / delivery note number shown on the receipt. */
+  waybillNo: varchar('waybill_no', { length: 100 }),
+  /** Optional company / PO reference number shown on the receipt. */
+  companyRefNo: varchar('company_ref_no', { length: 100 }),
   createdBy: int('created_by').notNull().references(() => users.id),
   createdAt: varchar('created_at', { length: 50 }).notNull(),
   updatedAt: varchar('updated_at', { length: 50 }).notNull(),

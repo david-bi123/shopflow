@@ -15,6 +15,7 @@ const DEFAULT_TAXES = [
   { name: 'VAT', rate: 15, enabled: true },
   { name: 'NHIS', rate: 2.5, enabled: false },
   { name: 'GET Fund', rate: 2.5, enabled: false },
+  { name: 'COVID Tax', rate: 1, enabled: true },
 ]
 
 export async function getSettings() {

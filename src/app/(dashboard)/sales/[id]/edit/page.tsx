@@ -19,6 +19,7 @@ import {
   HandCoins,
   AlertTriangle,
   Loader2,
+  Truck,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -50,6 +51,7 @@ const DEFAULT_TAXES = [
   { name: 'VAT', rate: 15, enabled: true },
   { name: 'NHIS', rate: 2.5, enabled: true },
   { name: 'GET Fund', rate: 2.5, enabled: true },
+  { name: 'COVID Tax', rate: 1, enabled: true },
 ]
 
 export default function EditSalePage() {
@@ -77,6 +79,8 @@ export default function EditSalePage() {
       customerPhone: '',
       customerId: '',
       receiptNumber: '',
+      waybillNo: '',
+      companyRefNo: '',
       items: [{ ...defaultItem }],
       discountPercent: 0,
       tax: 0,
@@ -155,6 +159,8 @@ export default function EditSalePage() {
           customerPhone: (data.customerPhone as string | null) ?? '',
           customerId: data.customerId ? String(data.customerId) : '',
           receiptNumber: String(data.saleNumber ?? ''),
+          waybillNo: (data.waybillNo as string | null | undefined) ?? '',
+          companyRefNo: (data.companyRefNo as string | null | undefined) ?? '',
           items: itemArr.length > 0 ? itemArr : [{ ...defaultItem }],
           discountPercent: Number(data.discountPercent ?? 0),
           discount: Number(data.discount ?? 0),
@@ -502,6 +508,31 @@ export default function EditSalePage() {
               <p className="text-xs text-muted-foreground">
                 Use your own number (e.g. from a paper receipt book). If left blank, the shop assigns one automatically.
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="waybillNo" className="flex items-center gap-1.5">
+                  <Truck className="size-3.5 text-muted-foreground" />
+                  WAY-BILL NO
+                </Label>
+                <Input
+                  id="waybillNo"
+                  {...register('waybillNo')}
+                  placeholder="Optional waybill / delivery note number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="companyRefNo" className="flex items-center gap-1.5">
+                  <Building2 className="size-3.5 text-muted-foreground" />
+                  COMPANY REF NO
+                </Label>
+                <Input
+                  id="companyRefNo"
+                  {...register('companyRefNo')}
+                  placeholder="Optional company / PO reference"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

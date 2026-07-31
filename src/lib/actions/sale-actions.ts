@@ -119,6 +119,8 @@ export async function createSale(data: CreateSaleInput) {
       amountOwed,
       paymentMethod: validated.data.paymentMethod as 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other',
       notes: (data.notes as string | undefined) ?? null,
+      waybillNo: (data.waybillNo as string | undefined)?.trim() || null,
+      companyRefNo: (data.companyRefNo as string | undefined)?.trim() || null,
       createdBy: userId,
       createdAt: now,
       updatedAt: now,
@@ -415,6 +417,8 @@ export async function updateSale(id: string, data: CreateSaleInput) {
         amountOwed,
         paymentMethod: validated.data.paymentMethod as 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other',
         notes: (validated.data.notes as string | undefined) ?? null,
+        waybillNo: (validated.data.waybillNo as string | undefined)?.trim() || null,
+        companyRefNo: (validated.data.companyRefNo as string | undefined)?.trim() || null,
         updatedAt: now,
       })
       .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
@@ -587,6 +591,8 @@ export async function getSaleByPublicToken(token: string) {
       amountOwed: sales.amountOwed,
       paymentMethod: sales.paymentMethod,
       notes: sales.notes,
+      waybillNo: sales.waybillNo,
+      companyRefNo: sales.companyRefNo,
       createdBy: sales.createdBy,
       createdAt: sales.createdAt,
       updatedAt: sales.updatedAt,

@@ -69,6 +69,10 @@ const alters: Alter[] = [
   // Audit log: capture client IP / user-agent (added for SOC2-style auditing)
   { table: 'audit_logs', column: 'ip', ddl: 'ALTER TABLE `audit_logs` ADD COLUMN `ip` TEXT' },
   { table: 'audit_logs', column: 'user_agent', ddl: 'ALTER TABLE `audit_logs` ADD COLUMN `user_agent` TEXT' },
+
+  // Sales: optional waybill / company reference numbers
+  { table: 'sales', column: 'waybill_no', ddl: 'ALTER TABLE `sales` ADD COLUMN `waybill_no` VARCHAR(100)' },
+  { table: 'sales', column: 'company_ref_no', ddl: 'ALTER TABLE `sales` ADD COLUMN `company_ref_no` VARCHAR(100)' },
 ]
 
 const createTableStatements: { name: string; ddl: string }[] = [
@@ -419,6 +423,12 @@ async function migrate() {
   await db.execute(sql`UPDATE \`sales\` SET \`tax_items\` = JSON_ARRAY() WHERE \`tax_items\` IS NULL OR JSON_LENGTH(\`tax_items\`) IS NULL`)
   await db.execute(sql`UPDATE \`invoices\` SET \`tax_items\` = JSON_ARRAY() WHERE \`tax_items\` IS NULL OR JSON_LENGTH(\`tax_items\`) IS NULL`)
   await db.execute(sql`UPDATE \`settings\` SET \`taxes\` = JSON_ARRAY() WHERE \`taxes\` IS NULL OR JSON_LENGTH(\`taxes\`) IS NULL`)
+
+  console.log('\n--- Step 3.5: Add COVID Tax to shop defaults ---')
+  // Existing shops have their `settings.taxes` list stored in the DB, so
+  // a new default line wouldn't appear for them. Append COVID Tax (1%)
+  // to any shop that doesn't already have a tax named "COVID Tax".
+  await db.execute(sql`UPDATE \`settings\` SET \`taxes\` = JSON_ARRAY_APPEND(\`taxes\`, '$', JSON_OBJECT('name', 'COVID Tax', 'rate', 1, 'enabled', true)) WHERE JSON_SEARCH(\`taxes\`, 'one', 'COVID Tax') IS NULL`)
 
   console.log('\n--- Step 4: System tenant (sentinel for orphan audit rows) ---')
   // tenant_id=0 is the "no real tenant" sentinel. The audit_logs

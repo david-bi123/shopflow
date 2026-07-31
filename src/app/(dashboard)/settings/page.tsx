@@ -71,6 +71,7 @@ const defaultSettings: Settings = {
     { name: 'VAT', rate: 15, enabled: true },
     { name: 'NHIS', rate: 2.5, enabled: false },
     { name: 'GET Fund', rate: 2.5, enabled: false },
+    { name: 'COVID Tax', rate: 1, enabled: true },
   ],
   receiptFooter: 'Thank you for your business!',
   showLogoOnReceipt: true,
@@ -382,7 +383,7 @@ export default function SettingsPage() {
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              Defaults: VAT 15%, NHIS 2.5%, GET Fund 2.5%. Add or edit more here.
+              Defaults: VAT 15%, NHIS 2.5%, GET Fund 2.5%, COVID Tax 1%. Add or edit more here.
             </p>
           </div>
           <div className="space-y-2">

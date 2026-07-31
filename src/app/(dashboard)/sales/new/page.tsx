@@ -19,6 +19,7 @@ import {
   Building2,
   HandCoins,
   AlertTriangle,
+  Truck,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -52,6 +53,7 @@ const DEFAULT_TAXES = [
   { name: 'VAT', rate: 15, enabled: true },
   { name: 'NHIS', rate: 2.5, enabled: true },
   { name: 'GET Fund', rate: 2.5, enabled: true },
+  { name: 'COVID Tax', rate: 1, enabled: true },
 ]
 
 export default function NewSalePage() {
@@ -108,6 +110,8 @@ export default function NewSalePage() {
       customerPhone: '',
       customerId: '',
       receiptNumber: '',
+      waybillNo: '',
+      companyRefNo: '',
       items: [{ ...defaultItem }],
       discountPercent: 0,
       tax: 0,
@@ -474,6 +478,31 @@ export default function NewSalePage() {
               <p className="text-xs text-muted-foreground">
                 Use your own number (e.g. from a paper receipt book). If left blank, the shop assigns one automatically.
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="waybillNo" className="flex items-center gap-1.5">
+                  <Truck className="size-3.5 text-muted-foreground" />
+                  WAY-BILL NO
+                </Label>
+                <Input
+                  id="waybillNo"
+                  {...register('waybillNo')}
+                  placeholder="Optional waybill / delivery note number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="companyRefNo" className="flex items-center gap-1.5">
+                  <Building2 className="size-3.5 text-muted-foreground" />
+                  COMPANY REF NO
+                </Label>
+                <Input
+                  id="companyRefNo"
+                  {...register('companyRefNo')}
+                  placeholder="Optional company / PO reference"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
