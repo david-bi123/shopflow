@@ -309,26 +309,21 @@ export default function ReportsPage() {
       </div>
 
       {/* Segmented date preset buttons */}
-      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <div className="inline-flex items-center rounded-lg border border-border/60 bg-muted/50 p-0.5 shadow-sm">
-          {PRESETS.map((preset, idx) => (
-            <button
-              key={preset.key}
-              onClick={() => setDatePreset(preset.key)}
-              className={cn(
-                'relative whitespace-nowrap rounded-md px-3.5 py-1.5 text-xs font-medium transition-all duration-200',
-                datePreset === preset.key
-                  ? 'bg-white text-foreground shadow-sm ring-1 ring-border/60 dark:bg-zinc-800'
-                  : 'text-muted-foreground hover:text-foreground',
-                idx === 0 && 'rounded-r-none',
-                idx === PRESETS.length - 1 && 'rounded-l-none',
-                idx > 0 && idx < PRESETS.length - 1 && 'rounded-none'
-              )}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-1.5">
+        {PRESETS.map((preset) => (
+          <button
+            key={preset.key}
+            onClick={() => setDatePreset(preset.key)}
+            className={cn(
+              'relative whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs font-medium ring-1 ring-inset transition-all duration-200',
+              datePreset === preset.key
+                ? 'bg-white text-foreground shadow-sm ring-border/60 dark:bg-zinc-800'
+                : 'bg-muted/50 text-muted-foreground ring-border/40 hover:text-foreground',
+            )}
+          >
+            {preset.label}
+          </button>
+        ))}
       </div>
 
       <Tabs defaultValue="sales">

@@ -432,6 +432,7 @@ export default function StaffPage() {
                 key: 'email',
                 header: 'Email',
                 mobileLabel: 'Email',
+                hideBelow: 'lg',
                 cell: (m: StaffMember) => <span className="text-muted-foreground">{m.email}</span>,
               },
               {
@@ -466,6 +467,7 @@ export default function StaffPage() {
                 key: 'lastLogin',
                 header: 'Last Login',
                 mobileLabel: 'Last login',
+                hideBelow: 'lg',
                 cell: (m: StaffMember) => (
                   <span className="text-muted-foreground">{m.lastLogin ? formatDate(m.lastLogin) : 'Never'}</span>
                 ),
@@ -480,7 +482,7 @@ export default function StaffPage() {
                       value={m.role}
                       onValueChange={(v) => handleUpdateRole(m, v)}
                     >
-                      <SelectTrigger className="h-8 w-24 rounded-lg border-border/60 text-xs focus:ring-2 focus:ring-amber-500/20">
+                      <SelectTrigger className="h-8 w-20 rounded-lg border-border/60 text-xs focus:ring-2 focus:ring-amber-500/20">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

@@ -17,11 +17,16 @@ export interface Column<T> {
   cell: (item: T) => ReactNode
   className?: string
   /**
-   * When true, this column is hidden on mobile (< sm) and only shown in
-   * the table view on tablet+. Use for secondary info (e.g. email,
+   * When true, this column is hidden on the card view (below md) and only
+   * shown in the table view on md+. Use for secondary info (e.g. email,
    * address) that crowds the mobile card.
    */
   hideOnMobileCard?: boolean
+  /**
+   * Hides this column in the table view below the given breakpoint so the
+   * table fits without horizontal scrolling on narrow screens (md–lg).
+   */
+  hideBelow?: 'md' | 'lg'
   /**
    * The label shown next to this column's value on the mobile card view
    * (e.g. "Customer", "Total"). Optional — if omitted, the column is
@@ -89,7 +94,7 @@ function EmptyState({ colSpan }: { colSpan: number }) {
 
 function CardEmptyState() {
   return (
-    <div className="rounded-xl border border-dashed bg-slate-50/40 p-8 text-center sm:hidden">
+    <div className="rounded-xl border border-dashed bg-slate-50/40 p-8 text-center md:hidden">
       <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -125,10 +130,17 @@ export function DataTable<T>({
   // Identify the primary column for the card view (largest text)
   const primaryCol = columns.find((c) => c.primaryOnCard) ?? columns[0]
 
+  const hideBelowClass = (col: Column<T>) =>
+    col.hideBelow === 'md'
+      ? 'hidden md:table-cell'
+      : col.hideBelow === 'lg'
+        ? 'hidden lg:table-cell'
+        : ''
+
   return (
     <>
-      {/* Mobile card list — visible only on small screens */}
-      <div className="sm:hidden">
+      {/* Mobile card list — visible only below md */}
+      <div className="md:hidden">
         {data.length === 0 ? (
           <CardEmptyState />
         ) : (
@@ -196,8 +208,8 @@ export function DataTable<T>({
         )}
       </div>
 
-      {/* Desktop table — visible only on sm+ screens */}
-      <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm sm:block">
+      {/* Desktop table — visible only on md+ screens */}
+      <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm md:block">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="bg-slate-50/60">
@@ -207,6 +219,7 @@ export function DataTable<T>({
                     key={col.key}
                     className={cn(
                       'whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-500',
+                      hideBelowClass(col),
                       col.className,
                     )}
                   >
@@ -238,6 +251,7 @@ export function DataTable<T>({
                         key={col.key}
                         className={cn(
                           'whitespace-nowrap text-sm text-slate-700',
+                          hideBelowClass(col),
                           col.className,
                         )}
                       >

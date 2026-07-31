@@ -289,6 +289,7 @@ export default function SalesPage() {
               header: 'Items',
               mobileLabel: 'Items',
               hideOnMobileCard: false,
+              hideBelow: 'lg',
               cell: (sale: Sale) => sale.items.length,
             },
             {
@@ -319,6 +320,7 @@ export default function SalesPage() {
               key: 'date',
               header: 'Date',
               mobileLabel: 'Date',
+              hideBelow: 'lg',
               cell: (sale: Sale) => formatDate(sale.createdAt),
             },
             {

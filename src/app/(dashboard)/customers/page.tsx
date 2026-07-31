@@ -400,12 +400,14 @@ export default function CustomersPage() {
               key: 'phone',
               header: 'Phone',
               mobileLabel: 'Phone',
+              hideBelow: 'lg',
               cell: (c: Customer) => <span className="text-muted-foreground">{c.phone ?? '—'}</span>,
             },
             {
               key: 'totalSales',
               header: 'Sales',
               mobileLabel: 'Sales',
+              hideBelow: 'lg',
               cell: (c: Customer) => (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
                   {c.totalSales}
@@ -457,9 +459,11 @@ export default function CustomersPage() {
                       size="sm"
                       className="h-8 rounded-full bg-emerald-600 px-2.5 text-xs shadow-sm hover:bg-emerald-700"
                       onClick={(e) => { e.stopPropagation(); openPayDialog(c) }}
+                      aria-label="Record Payment"
+                      title="Record Payment"
                     >
-                      <CreditCard className="mr-1 size-3.5" />
-                      Record Payment
+                      <CreditCard className="size-3.5 lg:mr-1" />
+                      <span className="hidden lg:inline">Record Payment</span>
                     </Button>
                   )}
                   <Button
