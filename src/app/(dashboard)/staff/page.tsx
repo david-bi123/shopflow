@@ -79,7 +79,9 @@ export default function StaffPage() {
   const [form, setForm] = useState({ name: '', email: '', role: 'staff' })
   const [resetTarget, setResetTarget] = useState<StaffMember | null>(null)
   const [resetting, setResetting] = useState(false)
-  const [resetPassword, setResetPassword] = useState<string | null>(null)
+  const [resetPassword, setResetPassword] = useState('')
+  const [resetConfirm, setResetConfirm] = useState('')
+  const [resetDone, setResetDone] = useState(false)
 
   useEffect(() => {
     async function fetchStaff() {
@@ -184,32 +186,31 @@ export default function StaffPage() {
   }
 
   async function handleResetPassword(member: StaffMember) {
-    setResetTarget(member)
-    setResetPassword(null)
+    if (!resetPassword.trim() || !resetConfirm.trim()) {
+      toast.error('Enter the new password in both fields')
+      return
+    }
+    if (resetPassword !== resetConfirm) {
+      toast.error('Passwords do not match')
+      return
+    }
     setResetting(true)
     try {
       const { resetStaffPassword } = await import('@/lib/actions/staff-actions')
-      const result = await resetStaffPassword(member.id)
+      const result = await resetStaffPassword(member.id, {
+        newPassword: resetPassword,
+        confirmPassword: resetConfirm,
+      })
       if ('error' in result && result.error) {
         toast.error(result.error)
-        setResetTarget(null)
         return
       }
-      setResetPassword((result as { newPassword?: string }).newPassword ?? null)
+      setResetDone(true)
       toast.success('Password reset')
     } catch {
       toast.error('Failed to reset password')
-      setResetTarget(null)
     } finally {
       setResetting(false)
-    }
-  }
-
-  function handleCopyResetPassword() {
-    if (resetPassword) {
-      navigator.clipboard.writeText(resetPassword)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
     }
   }
 
@@ -582,41 +583,39 @@ export default function StaffPage() {
       <Dialog
         open={!!resetTarget}
         onOpenChange={(open) => {
-          if (!open) { setResetTarget(null); setResetPassword(null) }
+          if (!open) {
+            setResetTarget(null)
+            setResetPassword('')
+            setResetConfirm('')
+            setResetDone(false)
+          }
         }}
       >
         <DialogContent className="sm:max-w-md rounded-2xl border-border/60 shadow-2xl">
           <div className="absolute inset-x-0 top-0 h-1 rounded-t-2xl bg-gradient-to-r from-blue-500 to-cyan-500" />
-          {resetPassword ? (
+          {resetDone ? (
             <div className="space-y-4 pt-2">
               <DialogHeader>
                 <DialogTitle className="text-xl">Password Reset</DialogTitle>
                 <DialogDescription>
-                  New password for {resetTarget?.name}
+                  New password set for {resetTarget?.name}
                 </DialogDescription>
               </DialogHeader>
-              <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-800 dark:bg-blue-950/50">
-                <p className="mb-1 text-sm font-medium text-blue-800 dark:text-blue-200">
-                  New password
-                </p>
-                <div className="mt-2 flex items-center gap-2">
-                  <code className="flex-1 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-mono dark:border-blue-700 dark:bg-background">
-                    {resetPassword}
-                  </code>
-                  <Button variant="outline" size="icon" onClick={handleCopyResetPassword} className="shrink-0 rounded-lg border-blue-200 dark:border-blue-700">
-                    {copied ? (
-                      <Check className="size-4 text-blue-500" />
-                    ) : (
-                      <Copy className="size-4" />
-                    )}
-                  </Button>
-                </div>
-                <p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-                  Share this password with the staff member. It will not be shown again.
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-800 dark:bg-emerald-950/50">
+                <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                  The password has been updated. Share it with {resetTarget?.name} — they will be asked to change it on first login.
                 </p>
               </div>
               <DialogFooter>
-                <Button onClick={() => { setResetTarget(null); setResetPassword(null) }} className="rounded-xl bg-blue-600 text-white shadow-md hover:bg-blue-700">
+                <Button
+                  onClick={() => {
+                    setResetTarget(null)
+                    setResetPassword('')
+                    setResetConfirm('')
+                    setResetDone(false)
+                  }}
+                  className="rounded-xl bg-blue-600 text-white shadow-md hover:bg-blue-700"
+                >
                   Done
                 </Button>
               </DialogFooter>
@@ -626,14 +625,46 @@ export default function StaffPage() {
               <DialogHeader className="pt-2">
                 <DialogTitle className="text-xl">Reset Password</DialogTitle>
                 <DialogDescription>
-                  Generate a new password for {resetTarget?.name}? Their current password will stop working.
+                  Set a new password for {resetTarget?.name}. Their current password will stop working.
                 </DialogDescription>
               </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-password" className="text-sm font-medium">New password *</Label>
+                  <Input
+                    id="reset-password"
+                    type="password"
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                    placeholder="At least 8 characters, with upper, lower & number"
+                    className="rounded-xl border-border/60 focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reset-confirm" className="text-sm font-medium">Confirm password *</Label>
+                  <Input
+                    id="reset-confirm"
+                    type="password"
+                    value={resetConfirm}
+                    onChange={(e) => setResetConfirm(e.target.value)}
+                    placeholder="Re-enter the new password"
+                    className="rounded-xl border-border/60 focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                  />
+                </div>
+              </div>
               <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="outline" onClick={() => setResetTarget(null)} className="rounded-xl border-border/60 shadow-sm">
+                <Button
+                  variant="outline"
+                  onClick={() => setResetTarget(null)}
+                  className="rounded-xl border-border/60 shadow-sm"
+                >
                   Cancel
                 </Button>
-                <Button onClick={() => handleResetPassword(resetTarget!)} disabled={resetting} className="rounded-xl bg-blue-600 text-white shadow-md hover:bg-blue-700">
+                <Button
+                  onClick={() => resetTarget && handleResetPassword(resetTarget)}
+                  disabled={resetting}
+                  className="rounded-xl bg-blue-600 text-white shadow-md hover:bg-blue-700"
+                >
                   {resetting && <Loader2 className="mr-1.5 size-4 animate-spin" />}
                   Reset Password
                 </Button>

@@ -6,7 +6,7 @@ import { dbConnect } from '@/lib/db/connect'
 import { users } from '@/lib/db/schema'
 import { eq, and, inArray, desc, count } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
-import { inviteStaffSchema, updateStaffSchema } from '@/lib/validations/staff'
+import { inviteStaffSchema, updateStaffSchema, resetStaffPasswordSchema } from '@/lib/validations/staff'
 import { auth } from '@/lib/auth/auth'
 import { hasPermission, PERMISSIONS } from '@/lib/auth/roles'
 import { generatePassword } from '@/lib/utils/format'
@@ -186,16 +186,19 @@ export async function deleteStaff(id: string) {
 }
 
 /**
- * Reset a staff member's password. Generates a new secure password,
- * updates the stored bcrypt hash, and returns the new password so the
- * owner can share it with the staff member. The password is shown to
- * the owner ONCE — it is never stored in plaintext.
+ * Reset a staff member's password. The owner supplies the new password,
+ * which is validated against the same rules as every other password in
+ * the app (min 8 chars, upper, lower, digit). Only the bcrypt hash is
+ * stored — the plaintext never leaves the request.
  */
-export async function resetStaffPassword(id: string) {
+export async function resetStaffPassword(id: string, data: { newPassword: string; confirmPassword: string }) {
   const session = await auth()
   if (!session?.user) return { error: 'Unauthorized' }
   if (!isOwner(session)) return { error: 'Only the shop owner can manage staff' }
   if (!hasPermission(session.user.role, PERMISSIONS.staff.update)) return { error: 'Forbidden' }
+
+  const validated = resetStaffPasswordSchema.safeParse(data)
+  if (!validated.success) return { error: validated.error.issues[0].message }
 
   const db = await dbConnect()
   const tenantId = toNum(session.user.tenantId!)
@@ -210,8 +213,7 @@ export async function resetStaffPassword(id: string) {
 
   if (!staff) return { error: 'Staff member not found' }
 
-  const newPassword = generatePassword()
-  const hashed = await bcrypt.hash(newPassword, 12)
+  const hashed = await bcrypt.hash(validated.data.newPassword, 12)
 
   await db.update(users)
     .set({ password: hashed, updatedAt: new Date().toISOString() })
@@ -231,5 +233,5 @@ export async function resetStaffPassword(id: string) {
   })
 
   revalidatePath('/staff')
-  return { success: true, newPassword }
+  return { success: true }
 }
