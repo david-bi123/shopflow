@@ -185,7 +185,15 @@ export default function StaffPage() {
     }
   }
 
-  async function handleResetPassword(member: StaffMember) {
+  function openResetDialog(member: StaffMember) {
+    setResetTarget(member)
+    setResetPassword('')
+    setResetConfirm('')
+    setResetDone(false)
+  }
+
+  async function handleResetPassword() {
+    if (!resetTarget) return
     if (!resetPassword.trim() || !resetConfirm.trim()) {
       toast.error('Enter the new password in both fields')
       return
@@ -197,7 +205,7 @@ export default function StaffPage() {
     setResetting(true)
     try {
       const { resetStaffPassword } = await import('@/lib/actions/staff-actions')
-      const result = await resetStaffPassword(member.id, {
+      const result = await resetStaffPassword(resetTarget.id, {
         newPassword: resetPassword,
         confirmPassword: resetConfirm,
       })
@@ -496,7 +504,7 @@ export default function StaffPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleResetPassword(m)}
+                      onClick={() => openResetDialog(m)}
                       title="Reset password"
                       className="rounded-full"
                     >
@@ -520,7 +528,7 @@ export default function StaffPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => handleResetPassword(m)}
+                onClick={() => openResetDialog(m)}
                 title="Reset password"
                 className="h-9 w-9 rounded-full"
                 aria-label="Reset password"
@@ -661,7 +669,7 @@ export default function StaffPage() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => resetTarget && handleResetPassword(resetTarget)}
+                  onClick={() => handleResetPassword()}
                   disabled={resetting}
                   className="rounded-xl bg-blue-600 text-white shadow-md hover:bg-blue-700"
                 >
