@@ -111,8 +111,8 @@ export default async function PublicReceiptPage({
   const isUpdated = sale.updatedAt && sale.updatedAt !== sale.createdAt
 
   return (
-    <div className="min-h-screen bg-slate-100 py-6 dark:bg-zinc-950 sm:py-12 print:bg-white print:py-0">
-      <div className="mx-auto max-w-3xl px-4">
+    <div className="min-h-screen bg-slate-100 py-6 dark:bg-zinc-950 sm:py-10 print:bg-white print:py-0">
+      <div className="mx-auto flex min-h-[calc(100vh_-_3rem)] w-full max-w-3xl flex-col px-4 sm:min-h-[calc(100vh_-_5rem)] print:min-h-0">
         <div className="mb-5 flex items-center justify-between print:hidden sm:mb-6">
           <Link
             href="/"
@@ -125,7 +125,7 @@ export default async function PublicReceiptPage({
         </div>
 
         <div
-          className="overflow-hidden rounded-2xl border border-border/60 bg-white shadow-xl shadow-slate-200/50 dark:bg-card dark:shadow-black/20 print:shadow-none print:border-0 print:rounded-none"
+          className="flex flex-1 flex-col overflow-hidden rounded-3xl border border-border/60 bg-white shadow-2xl shadow-slate-200/60 dark:bg-card dark:shadow-black/30 print:shadow-none print:border-0 print:rounded-none"
           id="receipt"
         >
           {/* Header (mirrors PDF: navy band, centered store identity, accent bar) */}
@@ -392,8 +392,8 @@ export default async function PublicReceiptPage({
             </div>
           )}
 
-          {/* Footer (mirrors PDF gray band) */}
-          <div className="border-t border-border/60 bg-[#f8fafc] px-5 py-5 dark:bg-zinc-900/30 sm:px-10 sm:py-6">
+          {/* Footer (mirrors PDF gray band, pinned to the bottom of the page) */}
+          <div className="mt-auto border-t border-border/60 bg-[#f8fafc] px-5 py-5 dark:bg-zinc-900/30 sm:px-10 sm:py-6">
             <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
               <div className="order-2 text-center sm:order-1 sm:text-left">
                 <p className="text-sm font-semibold text-foreground">
