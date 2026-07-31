@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import {
-  Store,
   ArrowLeft,
   CheckCircle2,
   AlertTriangle,
@@ -137,56 +136,47 @@ export default async function PublicReceiptPage({
           <div className="relative bg-gradient-to-br from-slate-50/80 via-white to-white px-5 py-7 sm:px-10 sm:py-8 dark:from-zinc-900/50 dark:via-card dark:to-card">
             <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary via-chart-2 to-chart-3" />
 
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/20">
-                  <Store className="h-6 w-6 text-primary" />
-                </div>
-                <h1 className="text-xl font-bold tracking-tight text-foreground">{tenant.name}</h1>
-                {tenant.description && (
-                  <p className="mt-1 text-xs italic text-muted-foreground">
-                    {tenant.description}
+            {/* Store identity — name first on top, then address, phone, email (receipt-book style) */}
+            <div className="text-center">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{tenant.name}</h1>
+              {tenant.description && (
+                <p className="mt-1 text-xs italic text-muted-foreground">
+                  {tenant.description}
+                </p>
+              )}
+              <div className="mt-2.5 space-y-1 text-xs text-muted-foreground">
+                {tenant.address && (
+                  <p className="flex items-center justify-center gap-1.5">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span>{tenant.address}</span>
                   </p>
                 )}
-                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                  {tenant.address && (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      <span>{tenant.address}</span>
-                    </div>
-                  )}
-                  {tenant.phone && (
-                    <div className="flex items-center gap-1.5">
-                      <Phone className="h-3 w-3 shrink-0" />
-                      <span>{tenant.phone}</span>
-                    </div>
-                  )}
-                  {tenant.email && (
-                    <div className="flex items-center gap-1.5">
-                      <span>{tenant.email}</span>
-                    </div>
-                  )}
-                  {tenant.taxNumber && (
-                    <div className="flex items-center gap-1.5 text-[11px] font-medium">
-                      <span>Tax ID: {tenant.taxNumber}</span>
-                    </div>
-                  )}
-                </div>
+                {tenant.phone && (
+                  <p className="flex items-center justify-center gap-1.5">
+                    <Phone className="h-3 w-3 shrink-0" />
+                    <span>{tenant.phone}</span>
+                  </p>
+                )}
+                {tenant.email && <p>{tenant.email}</p>}
+                {tenant.taxNumber && (
+                  <p className="text-[11px] font-medium">Tax ID: {tenant.taxNumber}</p>
+                )}
               </div>
+            </div>
 
-              <div className="text-left sm:text-right">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                  Receipt
-                </p>
-                <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                  #{sale.saleNumber}
-                </h2>
-                <div
-                  className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusConfig.bgClass} ${statusConfig.className}`}
-                >
-                  <StatusIcon className="h-3.5 w-3.5" />
-                  {statusConfig.label}
-                </div>
+            {/* Receipt title */}
+            <div className="mt-6 border-t border-dashed border-border/60 pt-5 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Receipt
+              </p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                #{sale.saleNumber}
+              </h2>
+              <div
+                className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusConfig.bgClass} ${statusConfig.className}`}
+              >
+                <StatusIcon className="h-3.5 w-3.5" />
+                {statusConfig.label}
               </div>
             </div>
           </div>

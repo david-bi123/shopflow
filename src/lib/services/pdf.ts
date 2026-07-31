@@ -81,87 +81,68 @@ const DISCOUNT_RED = '#dc2626'
 function formatMoney(value: number, store: StoreInfo): string {
   const code = store.currency || 'GHS'
   const symbol = store.currencySymbol || code
-  return `${symbol} ${value.toFixed(2)}`
+  return `${pdfSafeSymbol(symbol)} ${value.toFixed(2)}`
 }
 
- 
-function drawTableRow(
-  doc: PDFKit.PDFDocument,
-  y: number,
-  cols: string[],
-  widths: number[],
-  alignments: ('left' | 'right')[],
-  isHeader = false,
-  rowIndex?: number
-) {
-  let x = 50
-  if (!isHeader && rowIndex !== undefined) {
-    const rowColor = rowIndex % 2 === 0 ? ROW_EVEN : ROW_ODD
-    doc.rect(x, y - 3, widths.reduce((a, b) => a + b, 0), 18).fill(rowColor)
-    doc.fillColor(TEXT_PRIMARY)
-  }
-
-  if (isHeader) {
-    doc.rect(x, y - 3, widths.reduce((a, b) => a + b, 0), 20).fill(TABLE_HEADER_BG)
-    doc.fillColor('#ffffff')
-  }
-
-  cols.forEach((text, i) => {
-    doc.fontSize(isHeader ? 8 : 8)
-    doc.font(isHeader ? 'Helvetica-Bold' : 'Helvetica')
-    const padding = isHeader ? 6 : 4
-    if (alignments[i] === 'right') {
-      doc.text(text, x + widths[i] - padding, y, { width: widths[i] - 4, align: 'right' })
-    } else {
-      doc.text(text, x + padding, y, { width: widths[i] - 8 })
-    }
-    x += widths[i]
-  })
-
-  if (!isHeader) {
-    doc.fillColor(TEXT_PRIMARY)
-  }
+/**
+ * PDFKit's built-in Helvetica uses the WinAnsi charset, which cannot
+ * render the Ghana cedi (₵, U+20B5) or Naira (₦, U+20A6) glyphs — they
+ * would print as blank/boxed characters. Map them to WinAnsi-safe
+ * equivalents (¢ is the cent sign, in WinAnsi) so money prints cleanly.
+ */
+function pdfSafeSymbol(symbol: string): string {
+  return symbol
+    .replace('\u20b5', '\u00a2') // ₵ → ¢
+    .replace('\u20a6', 'N') // ₦ → N
 }
 
+/**
+ * Formats an ISO date string the same way the on-screen receipt does
+ * (e.g. "31 Jul 2026"). Falls back to the raw value if it isn't a date.
+ */
+function formatPdfDate(value: string): string {
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return value
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+/**
+ * Invoice-book style header: the store name is printed first and
+ * centered on top, then the address, phone, email and tax ID follow
+ * underneath — one per line — exactly like a paper receipt book.
+ */
 function drawA4Header(doc: PDFKit.PDFDocument, store: StoreInfo) {
-  const startY = 40
-  doc.rect(0, 0, doc.page.width, 110).fill(HEADER_COLOR)
-  doc.rect(0, 110, doc.page.width, 4).fill(HEADER_ACCENT)
+  const headerHeight = 122
+  const startY = 34
+  doc.rect(0, 0, doc.page.width, headerHeight).fill(HEADER_COLOR)
+  doc.rect(0, headerHeight, doc.page.width, 4).fill(HEADER_ACCENT)
 
-  // Logo placeholder
-  doc.roundedRect(45, startY, 32, 32, 4).fill(HEADER_ACCENT)
-  doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold')
-  doc.text('🏪', 50, startY + 6)
-  doc.fillColor('#ffffff')
+  // Name first, centered on top
+  doc.fillColor('#ffffff').fontSize(18).font('Helvetica-Bold')
+  doc.text(store.name, 50, startY, { width: doc.page.width - 100, align: 'center' })
 
-  doc.fontSize(18).font('Helvetica-Bold')
-  doc.text(store.name, 88, startY + 2, { width: doc.page.width - 280 })
-
+  let infoY = startY + 26
+  doc.fillColor('#cbd5e1').fontSize(8).font('Helvetica')
   if (store.description) {
-    doc.fontSize(8).font('Helvetica-Oblique')
-    doc.text(store.description, 88, startY + 22, { width: doc.page.width - 280 })
+    doc.font('Helvetica-Oblique')
+    doc.text(store.description, 50, infoY, { width: doc.page.width - 100, align: 'center' })
+    doc.font('Helvetica')
+    infoY += 11
   }
-
-  let infoY = startY
-  const rightX = doc.page.width - 50
-  const rightWidth = 200
-
-  doc.fontSize(7).font('Helvetica')
   if (store.address) {
-    doc.text(store.address, rightX - rightWidth, infoY, { width: rightWidth, align: 'right' })
+    doc.text(store.address, 50, infoY, { width: doc.page.width - 100, align: 'center' })
     infoY += 10
   }
   if (store.phone) {
-    doc.text(`Tel: ${store.phone}`, rightX - rightWidth, infoY, { width: rightWidth, align: 'right' })
+    doc.text(`Tel: ${store.phone}`, 50, infoY, { width: doc.page.width - 100, align: 'center' })
     infoY += 10
   }
   if (store.email) {
-    doc.text(store.email, rightX - rightWidth, infoY, { width: rightWidth, align: 'right' })
+    doc.text(store.email, 50, infoY, { width: doc.page.width - 100, align: 'center' })
     infoY += 10
   }
   if (store.taxNumber) {
-    doc.text(`Tax ID: ${store.taxNumber}`, rightX - rightWidth, infoY, { width: rightWidth, align: 'right' })
-    infoY += 10
+    doc.text(`Tax ID: ${store.taxNumber}`, 50, infoY, { width: doc.page.width - 100, align: 'center' })
   }
 
   doc.fillColor(TEXT_PRIMARY)
@@ -173,6 +154,13 @@ function drawA4Footer(doc: PDFKit.PDFDocument, store: StoreInfo) {
   doc.moveTo(50, bottomY - 6).lineTo(doc.page.width - 50, bottomY - 6).stroke(BORDER_COLOR)
 
   doc.fillColor(TEXT_MUTED).fontSize(8).font('Helvetica')
+
+  // Relax the bottom margin while drawing the footer so PDFKit doesn't
+  // treat these absolute-positioned lines as overflowing and inject
+  // spurious extra pages.
+  const savedBottom = doc.page.margins.bottom
+  doc.page.margins.bottom = 0
+
   doc.text(
     store.footer || 'Thank you for your business!',
     50,
@@ -182,7 +170,7 @@ function drawA4Footer(doc: PDFKit.PDFDocument, store: StoreInfo) {
 
   doc.fontSize(7)
   const range = doc.bufferedPageRange() as { start: number; count: number } | null
-  const pageText = `Page ${range ? range.start : 1}`
+  const pageText = `Page ${range ? range.start + 1 : 1}`
   doc.text(
     `${store.name} \u2022 Generated by IndFlow`,
     50,
@@ -191,6 +179,7 @@ function drawA4Footer(doc: PDFKit.PDFDocument, store: StoreInfo) {
   )
   doc.text(pageText, doc.page.width - 50 - 80, bottomY + 22, { width: 80, align: 'right' })
 
+  doc.page.margins.bottom = savedBottom
   doc.fillColor(TEXT_PRIMARY)
 }
 
@@ -266,16 +255,16 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
 
     drawA4Header(doc, store)
 
-    let y = 130
+    let y = 142
 
-    // --- Title + sale number + payment status badge ---
+    // --- Title + sale number + payment status badge (centered) ---
     doc.fontSize(24).font('Helvetica-Bold').fillColor(HEADER_COLOR)
-    doc.text('RECEIPT', 380, y, { align: 'right' })
-    y += 18
+    doc.text('RECEIPT', 50, y, { width: doc.page.width - 100, align: 'center' })
+    y += 20
 
     doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
-    doc.text(`#${sale.saleNumber}`, 380, y, { align: 'right' })
-    y += 22
+    doc.text(`#${sale.saleNumber}`, 50, y, { width: doc.page.width - 100, align: 'center' })
+    y += 24
 
     // Payment status badge — Paid (green), Partially Paid (amber), Unpaid (red)
     const owed = Math.max(0, Math.round((sale.amountOwed ?? 0) * 100) / 100)
@@ -293,11 +282,12 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
       statusColor = '#dc2626'
     }
     const badgeWidth = statusLabel.length > 10 ? 110 : 90
-    doc.roundedRect(505 - badgeWidth, y - 2, badgeWidth, 20, 5).fill(statusColor)
+    const badgeX = (doc.page.width - badgeWidth) / 2
+    doc.roundedRect(badgeX, y - 2, badgeWidth, 20, 5).fill(statusColor)
     doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold')
-    doc.text(statusLabel, 505 - badgeWidth, y + 2, { align: 'center', width: badgeWidth })
+    doc.text(statusLabel, badgeX, y + 2, { align: 'center', width: badgeWidth })
     doc.fillColor(TEXT_PRIMARY)
-    y += 28
+    y += 30
 
     // --- Customer + Date / Payment side-by-side ---
     doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
@@ -310,11 +300,11 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     y += 4
 
     const rightStartX = 350
-    let detailY = 130
+    let detailY = y
     doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
     doc.text('Receipt Date:', rightStartX, detailY)
     doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-    doc.text(sale.createdAt, rightStartX + 100, detailY, { width: 145 })
+    doc.text(formatPdfDate(sale.createdAt), rightStartX + 100, detailY, { width: 145 })
     detailY += 14
     doc.fillColor(TEXT_MUTED).font('Helvetica')
     doc.text('Payment Method:', rightStartX, detailY)
@@ -329,7 +319,7 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
       doc.fillColor(TEXT_MUTED).font('Helvetica')
       doc.text('Last Updated:', rightStartX, detailY)
       doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-      doc.text(sale.updatedAt, rightStartX + 100, detailY, { width: 145 })
+      doc.text(formatPdfDate(sale.updatedAt), rightStartX + 100, detailY, { width: 145 })
       detailY += 14
     }
     if (store.taxNumber) {
@@ -455,7 +445,7 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
         doc.fontSize(8).font('Helvetica').fillColor(TEXT_PRIMARY)
         const typeLabel = h.type === 'manual_payment' ? 'Payment' : h.type.replace(/_/g, ' ')
         const amountStr = `${h.amount < 0 ? '-' : ''}${formatMoney(Math.abs(h.amount), store)}`
-        doc.text(h.createdAt, 50, y, { width: 100 })
+        doc.text(formatPdfDate(h.createdAt), 50, y, { width: 100 })
         doc.text(typeLabel, 160, y, { width: 90 })
         doc.text(h.notes ?? '', 260, y, { width: 210 })
         doc.text(amountStr, 480, y, { width: 65, align: 'right' })
@@ -491,16 +481,16 @@ export function generateInvoicePdf(invoice: InvoicePdfData, store: StoreInfo): P
 
     drawA4Header(doc, store)
 
-    let y = 130
+    let y = 142
 
-    // --- Title + invoice number + status badge ---
+    // --- Title + invoice number + status badge (centered) ---
     doc.fontSize(24).font('Helvetica-Bold').fillColor(HEADER_COLOR)
-    doc.text('INVOICE', 380, y, { align: 'right' })
-    y += 18
+    doc.text('INVOICE', 50, y, { width: doc.page.width - 100, align: 'center' })
+    y += 20
 
     doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
-    doc.text(`#${invoice.invoiceNumber}`, 380, y, { align: 'right' })
-    y += 22
+    doc.text(`#${invoice.invoiceNumber}`, 50, y, { width: doc.page.width - 100, align: 'center' })
+    y += 24
 
     const statusColors: Record<string, string> = {
       paid: SUCCESS_GREEN,
@@ -510,16 +500,18 @@ export function generateInvoicePdf(invoice: InvoicePdfData, store: StoreInfo): P
       cancelled: '#6b7280',
     }
     const statusColor = statusColors[invoice.status] || '#6b7280'
-    doc.roundedRect(425, y - 2, 80, 20, 5).fill(statusColor)
+    const badgeWidth = 80
+    const badgeX = (doc.page.width - badgeWidth) / 2
+    doc.roundedRect(badgeX, y - 2, badgeWidth, 20, 5).fill(statusColor)
     doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold')
     doc.text(
       invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1),
-      425,
+      badgeX,
       y + 2,
-      { align: 'center', width: 80 }
+      { align: 'center', width: badgeWidth }
     )
     doc.fillColor(TEXT_PRIMARY)
-    y += 28
+    y += 30
 
     // --- Bill To + Dates side-by-side ---
     doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
@@ -534,16 +526,16 @@ export function generateInvoicePdf(invoice: InvoicePdfData, store: StoreInfo): P
     y += 4
 
     const rightStartX = 350
-    let detailY = 130
+    let detailY = y
     doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
     doc.text('Invoice Date:', rightStartX, detailY)
     doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-    doc.text(invoice.createdAt, rightStartX + 100, detailY, { width: 145 })
+    doc.text(formatPdfDate(invoice.createdAt), rightStartX + 100, detailY, { width: 145 })
     detailY += 14
     doc.fillColor(TEXT_MUTED).font('Helvetica')
     doc.text('Due Date:', rightStartX, detailY)
     doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-    doc.text(invoice.dueDate, rightStartX + 100, detailY, { width: 145 })
+    doc.text(formatPdfDate(invoice.dueDate), rightStartX + 100, detailY, { width: 145 })
     detailY += 14
     if (store.taxNumber) {
       doc.fillColor(TEXT_MUTED).font('Helvetica')
