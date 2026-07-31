@@ -62,7 +62,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
 
       <aside
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-full w-64 flex-col border-r bg-card shadow-xl transition-transform duration-300 md:w-60 md:shadow-none',
+          'fixed left-0 top-0 z-50 flex h-full w-64 flex-col border-r bg-card shadow-xl transition-transform duration-300 md:translate-x-0 md:w-60 md:shadow-none',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
