@@ -15,7 +15,7 @@ import {
   Wallet,
   ClipboardList,
 } from 'lucide-react'
-import { formatCurrency, formatDate } from '@/lib/utils/format'
+import { formatCurrency, formatDate, formatAmountInWords } from '@/lib/utils/format'
 import { getSaleByPublicToken } from '@/lib/actions/sale-actions'
 import { PublicActions } from '@/components/shared/public-actions'
 
@@ -138,6 +138,16 @@ export default async function PublicReceiptPage({
 
             {/* Store identity — name first on top, then address, phone, email (receipt-book style) */}
             <div className="text-center">
+              <div className="mb-3 flex justify-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-chart-3 text-lg font-bold text-primary-foreground shadow-md shadow-primary/20">
+                  {tenant.name
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w) => w.charAt(0).toUpperCase())
+                    .join('') || 'S'}
+                </div>
+              </div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">{tenant.name}</h1>
               {tenant.description && (
                 <p className="mt-1 text-xs italic text-muted-foreground">
@@ -202,7 +212,7 @@ export default async function PublicReceiptPage({
                 Receipt Date
               </div>
               <p className="text-base font-semibold tabular-nums text-foreground">
-                {formatDate(sale.createdAt, 'long')}
+                {formatDate(sale.createdAt, 'datetime')}
               </p>
               <div className="mt-2 space-y-1.5 text-sm">
                 <div className="flex items-center justify-between gap-3">
@@ -300,6 +310,15 @@ export default async function PublicReceiptPage({
                 <span className="text-lg font-bold tabular-nums text-foreground">
                   {formatCurrency(sale.total, currency)}
                 </span>
+              </div>
+
+              <div className="rounded-lg bg-white/70 px-3 py-2 ring-1 ring-border/40 dark:bg-zinc-900/30">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Amount in words
+                </p>
+                <p className="mt-0.5 text-xs italic leading-relaxed text-foreground/80">
+                  {formatAmountInWords(sale.total, currency)}
+                </p>
               </div>
 
               {/* Payment Summary card */}

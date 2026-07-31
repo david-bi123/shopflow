@@ -25,6 +25,77 @@ export function formatNumber(num: number): string {
   return new Intl.NumberFormat('en-US').format(num)
 }
 
+const WORDS_ONES = [
+  '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen',
+  'Eighteen', 'Nineteen',
+]
+const WORDS_TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+
+function threeDigitsToWords(n: number): string {
+  const hundreds = Math.floor(n / 100)
+  const rest = n % 100
+  const parts: string[] = []
+  if (hundreds > 0) {
+    parts.push(`${WORDS_ONES[hundreds]} Hundred${rest > 0 ? ' and' : ''}`)
+  }
+  if (rest > 0) {
+    if (rest < 20) parts.push(WORDS_ONES[rest])
+    else {
+      const tens = Math.floor(rest / 10)
+      const ones = rest % 10
+      parts.push(WORDS_TENS[tens] + (ones > 0 ? `-${WORDS_ONES[ones]}` : ''))
+    }
+  }
+  return parts.join(' ')
+}
+
+function numberToWords(n: number): string {
+  if (n === 0) return 'Zero'
+  const groups: Array<{ value: number; label: string }> = [
+    { value: 1000000000, label: 'Billion' },
+    { value: 1000000, label: 'Million' },
+    { value: 1000, label: 'Thousand' },
+    { value: 1, label: '' },
+  ]
+  const parts: string[] = []
+  for (const { value, label } of groups) {
+    if (n >= value) {
+      const q = Math.floor(n / value)
+      parts.push(`${threeDigitsToWords(q)}${label ? ` ${label}` : ''}`)
+      n -= q * value
+    }
+  }
+  return parts.join(' ')
+}
+
+const CURRENCY_UNITS: Record<string, { whole: string; part: string }> = {
+  GHS: { whole: 'Ghana Cedis', part: 'Pesewas' },
+  NGN: { whole: 'Naira', part: 'Kobo' },
+  KES: { whole: 'Kenyan Shillings', part: 'Cents' },
+  USD: { whole: 'US Dollars', part: 'Cents' },
+  GBP: { whole: 'Pounds Sterling', part: 'Pence' },
+  EUR: { whole: 'Euros', part: 'Cents' },
+}
+
+/**
+ * Renders a monetary amount in words, invoice-book style, e.g.
+ * 250.5 GHS → "Two Hundred and Fifty Ghana Cedis and Fifty Pesewas only".
+ */
+export function formatAmountInWords(amount: number, currency = DEFAULT_CURRENCY): string {
+  const isNegative = amount < 0
+  const abs = Math.abs(Math.round(amount * 100) / 100)
+  const whole = Math.floor(abs)
+  const cents = Math.round((abs - whole) * 100)
+  const { whole: wholeUnit, part: partUnit } =
+    CURRENCY_UNITS[currency] ?? { whole: 'Currency', part: 'Cents' }
+  const parts: string[] = []
+  if (whole > 0) parts.push(`${numberToWords(whole)} ${wholeUnit}`)
+  if (cents > 0) parts.push(`${numberToWords(cents)} ${partUnit}`)
+  const text = parts.length > 0 ? parts.join(' and ') : 'Zero'
+  return `${isNegative ? 'Minus ' : ''}${text} only`
+}
+
 export function formatPercentage(value: number): string {
   return `${(value * 100).toFixed(1)}%`
 }
