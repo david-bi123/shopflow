@@ -5,12 +5,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   CircleDot,
-  Calendar,
-  Hash,
   FileText,
-  Phone,
   CreditCard,
-  MapPin,
   Receipt,
   Wallet,
   ClipboardList,
@@ -115,7 +111,7 @@ export default async function PublicReceiptPage({
   const isUpdated = sale.updatedAt && sale.updatedAt !== sale.createdAt
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 py-6 dark:from-black dark:via-zinc-950 dark:to-emerald-950/20 sm:py-12 print:bg-white print:py-0">
+    <div className="min-h-screen bg-slate-100 py-6 dark:bg-zinc-950 sm:py-12 print:bg-white print:py-0">
       <div className="mx-auto max-w-3xl px-4">
         <div className="mb-5 flex items-center justify-between print:hidden sm:mb-6">
           <Link
@@ -132,105 +128,85 @@ export default async function PublicReceiptPage({
           className="overflow-hidden rounded-2xl border border-border/60 bg-white shadow-xl shadow-slate-200/50 dark:bg-card dark:shadow-black/20 print:shadow-none print:border-0 print:rounded-none"
           id="receipt"
         >
-          {/* Header */}
-          <div className="relative bg-gradient-to-br from-slate-50/80 via-white to-white px-5 py-7 sm:px-10 sm:py-8 dark:from-zinc-900/50 dark:via-card dark:to-card">
-            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary via-chart-2 to-chart-3" />
-
-            {/* Store identity — name first on top, then address, phone, email (receipt-book style) */}
+          {/* Header (mirrors PDF: navy band, centered store identity, accent bar) */}
+          <div className="relative bg-[#0f172a] px-5 py-7 sm:px-10 sm:py-8">
+            <div className="absolute inset-x-0 bottom-0 h-1 bg-[#1e3a5f]" />
             <div className="text-center">
-              <div className="mb-3 flex justify-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-chart-3 text-lg font-bold text-primary-foreground shadow-md shadow-primary/20">
-                  {tenant.name
-                    .split(/\s+/)
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((w) => w.charAt(0).toUpperCase())
-                    .join('') || 'S'}
-                </div>
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">{tenant.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-white">{tenant.name}</h1>
               {tenant.description && (
-                <p className="mt-1 text-xs italic text-muted-foreground">
+                <p className="mt-1 text-xs italic text-slate-300">
                   {tenant.description}
                 </p>
               )}
-              <div className="mt-2.5 space-y-1 text-xs text-muted-foreground">
-                {tenant.address && (
-                  <p className="flex items-center justify-center gap-1.5">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    <span>{tenant.address}</span>
-                  </p>
-                )}
-                {tenant.phone && (
-                  <p className="flex items-center justify-center gap-1.5">
-                    <Phone className="h-3 w-3 shrink-0" />
-                    <span>{tenant.phone}</span>
-                  </p>
-                )}
+              <div className="mt-2.5 space-y-1 text-xs text-slate-300">
+                {tenant.address && <p>{tenant.address}</p>}
+                {tenant.phone && <p>Tel: {tenant.phone}</p>}
                 {tenant.email && <p>{tenant.email}</p>}
-                {tenant.taxNumber && (
-                  <p className="text-[11px] font-medium">Tax ID: {tenant.taxNumber}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Receipt title */}
-            <div className="mt-6 border-t border-dashed border-border/60 pt-5 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                Receipt
-              </p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                #{sale.saleNumber}
-              </h2>
-              <div
-                className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusConfig.bgClass} ${statusConfig.className}`}
-              >
-                <StatusIcon className="h-3.5 w-3.5" />
-                {statusConfig.label}
+                {tenant.taxNumber && <p className="font-medium">Tax ID: {tenant.taxNumber}</p>}
               </div>
             </div>
           </div>
 
-          {/* Customer + Date / Payment */}
-          <div className="grid grid-cols-1 gap-px border-y border-border/60 bg-border/40 sm:grid-cols-2">
-            <div className="bg-white px-5 py-4 dark:bg-card sm:px-6 sm:py-5">
-              <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <Hash className="h-3 w-3" />
-                Customer
-              </div>
-              <p className="text-base font-semibold text-foreground">
+          {/* Title + number + status badge (mirrors PDF body) */}
+          <div className="px-5 pt-7 text-center sm:px-10 sm:pt-8">
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-500">
+              Receipt
+            </p>
+            <h2 className="mt-1 text-3xl font-bold tracking-tight text-[#0f172a] sm:text-4xl">
+              #{sale.saleNumber}
+            </h2>
+            <div
+              className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusConfig.bgClass} ${statusConfig.className}`}
+            >
+              <StatusIcon className="h-3.5 w-3.5" />
+              {statusConfig.label}
+            </div>
+          </div>
+
+          {/* Customer + Receipt details (mirrors PDF side-by-side) */}
+          <div className="grid grid-cols-1 gap-6 border-y border-border/60 px-5 py-5 sm:grid-cols-2 sm:px-10 sm:py-6">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-foreground">
+                Customer:
+              </p>
+              <p className="mt-1.5 text-base font-semibold text-foreground">
                 {sale.customerName || 'Walk-in customer'}
               </p>
-              <div className="mt-1.5 space-y-1 text-xs text-muted-foreground">
-                {sale.customerPhone && <p>{sale.customerPhone}</p>}
-                {sale.customerEmail && <p>{sale.customerEmail}</p>}
-              </div>
+              {sale.customerPhone && (
+                <p className="mt-1 text-xs text-muted-foreground">{sale.customerPhone}</p>
+              )}
+              {sale.customerEmail && (
+                <p className="mt-0.5 text-xs text-muted-foreground">{sale.customerEmail}</p>
+              )}
             </div>
-            <div className="bg-white px-5 py-4 dark:bg-card sm:px-6 sm:py-5">
-              <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                Receipt Date
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs text-muted-foreground">Receipt Date:</span>
+                <span className="font-medium tabular-nums text-foreground">
+                  {formatDate(sale.createdAt, 'long')}
+                </span>
               </div>
-              <p className="text-base font-semibold tabular-nums text-foreground">
-                {formatDate(sale.createdAt, 'datetime')}
-              </p>
-              <div className="mt-2 space-y-1.5 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-muted-foreground">Payment method</span>
-                  <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
-                    <CreditCard className="h-3 w-3" />
-                    {paymentMethodLabel}
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs text-muted-foreground">Payment Method:</span>
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
+                  <CreditCard className="h-3 w-3" />
+                  {paymentMethodLabel}
+                </span>
+              </div>
+              {isUpdated && (
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs text-muted-foreground">Last Updated:</span>
+                  <span className="text-xs font-medium tabular-nums text-foreground">
+                    {formatDate(sale.updatedAt, 'long')}
                   </span>
                 </div>
-                {isUpdated && (
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-muted-foreground">Last updated</span>
-                    <span className="text-xs font-medium tabular-nums text-foreground">
-                      {formatDate(sale.updatedAt, 'long')}
-                    </span>
-                  </div>
-                )}
-              </div>
+              )}
+              {tenant.taxNumber && (
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs text-muted-foreground">Our Tax ID:</span>
+                  <span className="text-xs font-medium text-foreground">{tenant.taxNumber}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -241,78 +217,83 @@ export default async function PublicReceiptPage({
               Items
             </div>
             <div className="overflow-hidden rounded-xl border border-border/60">
-              <div className="grid grid-cols-12 gap-2 border-b border-border/60 bg-slate-50/70 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:px-4 sm:py-2.5 dark:bg-zinc-900/50">
+              <div className="grid grid-cols-12 gap-2 bg-[#1e40af] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white sm:px-4 sm:py-2.5">
                 <div className="col-span-12 sm:col-span-6">Item</div>
                 <div className="col-span-4 text-right sm:col-span-2">Quantity</div>
                 <div className="col-span-4 text-right sm:col-span-2">Unit Price</div>
                 <div className="col-span-4 text-right sm:col-span-2">Total</div>
               </div>
-              <div className="divide-y divide-border/60">
-                {sale.items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-12 gap-2 px-3 py-3 text-sm transition-colors hover:bg-slate-50/40 sm:px-4 sm:py-3.5 dark:hover:bg-zinc-900/30"
-                  >
-                    <div className="col-span-12 sm:col-span-6">
-                      <p className="font-medium text-foreground">{item.name}</p>
-                    </div>
-                    <div className="col-span-4 text-right tabular-nums text-muted-foreground sm:col-span-2">
-                      {item.quantity}
-                    </div>
-                    <div className="col-span-4 text-right tabular-nums text-muted-foreground sm:col-span-2">
-                      {formatCurrency(item.price, currency)}
-                    </div>
-                    <div className="col-span-4 text-right tabular-nums font-semibold text-foreground sm:col-span-2">
-                      {formatCurrency(item.subtotal, currency)}
-                    </div>
+              {sale.items.map((item, idx) => (
+                <div
+                  key={idx}
+                  className={`grid grid-cols-12 gap-2 px-3 py-3 text-sm sm:px-4 sm:py-3.5 ${
+                    idx % 2 === 0 ? 'bg-[#f8fafc] dark:bg-zinc-900/30' : 'bg-white dark:bg-card'
+                  }`}
+                >
+                  <div className="col-span-12 sm:col-span-6">
+                    <p className="font-medium text-foreground">{item.name}</p>
                   </div>
-                ))}
-              </div>
+                  <div className="col-span-4 text-right tabular-nums text-muted-foreground sm:col-span-2">
+                    {item.quantity}
+                  </div>
+                  <div className="col-span-4 text-right tabular-nums text-muted-foreground sm:col-span-2">
+                    {formatCurrency(item.price, currency)}
+                  </div>
+                  <div className="col-span-4 text-right tabular-nums font-semibold text-foreground sm:col-span-2">
+                    {formatCurrency(item.subtotal, currency)}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Totals + Payment Summary */}
-          <div className="flex justify-end border-t border-border/60 bg-slate-50/40 px-5 py-4 dark:bg-zinc-900/30 sm:px-10 sm:py-5">
-            <div className="w-full max-w-xs space-y-2 text-sm">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span className="tabular-nums">{formatCurrency(sale.subtotal, currency)}</span>
-              </div>
-              {sale.discount > 0 && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>
-                    Discount{(sale.discountPercent ?? 0) > 0 ? ` (${(sale.discountPercent ?? 0).toFixed(2)}%)` : ''}
-                  </span>
-                  <span className="tabular-nums text-emerald-600 dark:text-emerald-400">
-                    −{formatCurrency(sale.discount, currency)}
-                  </span>
-                </div>
-              )}
-              {sale.taxItems && sale.taxItems.length > 0 ? (
-                sale.taxItems.map((t) => (
-                  <div key={t.name} className="flex justify-between text-muted-foreground">
-                    <span>
-                      {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
-                    </span>
-                    <span className="tabular-nums">{formatCurrency(t.amount, currency)}</span>
-                  </div>
-                ))
-              ) : (
-                sale.tax > 0 && (
+          {/* Totals + Payment Summary (mirrors PDF: blue-accent totals box + gray payment box) */}
+          <div className="flex justify-end border-t border-border/60 px-5 py-4 sm:px-10 sm:py-5">
+            <div className="w-full max-w-xs space-y-3 text-sm">
+              <div className="overflow-hidden rounded-xl border border-border/60 bg-white shadow-sm dark:bg-card">
+                <div className="h-1 bg-[#1e40af]" />
+                <div className="space-y-2 px-4 py-3.5">
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Tax</span>
-                    <span className="tabular-nums">{formatCurrency(sale.tax, currency)}</span>
+                    <span>Subtotal</span>
+                    <span className="tabular-nums">{formatCurrency(sale.subtotal, currency)}</span>
                   </div>
-                )
-              )}
-              <div className="flex items-baseline justify-between border-t border-border/60 pt-2.5">
-                <span className="text-sm font-semibold text-foreground">Total</span>
-                <span className="text-lg font-bold tabular-nums text-foreground">
-                  {formatCurrency(sale.total, currency)}
-                </span>
+                  {sale.discount > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>
+                        Discount{(sale.discountPercent ?? 0) > 0 ? ` (${(sale.discountPercent ?? 0).toFixed(2)}%)` : ''}
+                      </span>
+                      <span className="tabular-nums text-red-600 dark:text-red-400">
+                        −{formatCurrency(sale.discount, currency)}
+                      </span>
+                    </div>
+                  )}
+                  {sale.taxItems && sale.taxItems.length > 0 ? (
+                    sale.taxItems.map((t) => (
+                      <div key={t.name} className="flex justify-between text-muted-foreground">
+                        <span>
+                          {t.name} <span className="text-[10px] text-muted-foreground/70">({t.rate}%)</span>
+                        </span>
+                        <span className="tabular-nums">{formatCurrency(t.amount, currency)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    sale.tax > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Tax</span>
+                        <span className="tabular-nums">{formatCurrency(sale.tax, currency)}</span>
+                      </div>
+                    )
+                  )}
+                  <div className="flex items-baseline justify-between border-t border-border/60 pt-2.5">
+                    <span className="text-sm font-bold uppercase tracking-wide text-foreground">Total</span>
+                    <span className="text-lg font-bold tabular-nums text-foreground">
+                      {formatCurrency(sale.total, currency)}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="rounded-lg bg-white/70 px-3 py-2 ring-1 ring-border/40 dark:bg-zinc-900/30">
+              <div className="rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-border/40 dark:bg-zinc-900/30">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Amount in words
                 </p>
@@ -321,21 +302,19 @@ export default async function PublicReceiptPage({
                 </p>
               </div>
 
-              {/* Payment Summary card */}
-              <div
-                className={`mt-3 overflow-hidden rounded-xl ring-1 ring-inset ${
-                  status === 'paid'
-                    ? 'bg-emerald-50/70 ring-emerald-200/60 dark:bg-emerald-950/20 dark:ring-emerald-800/40'
-                    : status === 'partial'
-                      ? 'bg-amber-50/70 ring-amber-200/60 dark:bg-amber-950/20 dark:ring-amber-800/40'
-                      : 'bg-red-50/70 ring-red-200/60 dark:bg-red-950/20 dark:ring-red-800/40'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 border-b border-border/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {/* Payment Summary box (gray like the PDF) */}
+              <div className="overflow-hidden rounded-xl bg-[#f1f5f9] ring-1 ring-inset ring-border/60 dark:bg-zinc-900/40">
+                <div className="flex items-center gap-1.5 border-b border-border/40 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   <Wallet className="h-3 w-3" />
                   Payment Summary
                 </div>
-                <div className="space-y-1.5 px-3 py-2.5 text-sm">
+                <div className="space-y-1.5 px-4 py-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="font-semibold tabular-nums text-foreground">
+                      {formatCurrency(sale.total, currency)}
+                    </span>
+                  </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Amount Paid</span>
                     <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
@@ -344,7 +323,7 @@ export default async function PublicReceiptPage({
                   </div>
                   {owed > 0.005 && (
                     <div className="flex items-baseline justify-between border-t border-border/40 pt-2">
-                      <span className="text-sm font-semibold text-foreground">Balance Due</span>
+                      <span className="text-sm font-bold text-foreground">Balance Due</span>
                       <span className="text-lg font-bold tabular-nums text-red-700 dark:text-red-400">
                         {formatCurrency(owed, currency)}
                       </span>
@@ -413,16 +392,16 @@ export default async function PublicReceiptPage({
             </div>
           )}
 
-          {/* Footer */}
-          <div className="border-t border-border/60 bg-gradient-to-b from-white to-slate-50/50 px-5 py-5 dark:from-card dark:to-zinc-900/30 sm:px-10 sm:py-6">
+          {/* Footer (mirrors PDF gray band) */}
+          <div className="border-t border-border/60 bg-[#f8fafc] px-5 py-5 dark:bg-zinc-900/30 sm:px-10 sm:py-6">
             <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
               <div className="order-2 text-center sm:order-1 sm:text-left">
                 <p className="text-sm font-semibold text-foreground">
                   <Receipt className="mr-1.5 inline-block h-3.5 w-3.5 text-primary" />
-                  Thank you for your purchase!
+                  Thank you for your business!
                 </p>
                 <p className="mt-0.5 text-[10px] text-muted-foreground">
-                  Generated by {tenant.name} · Powered by IndFlow
+                  {tenant.name} • Generated by IndFlow
                 </p>
               </div>
               <div className="order-1 sm:order-2">
