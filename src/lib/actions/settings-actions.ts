@@ -46,7 +46,14 @@ export async function getSettings() {
     settings = newSettings
   }
 
-  return { settings: serializeRow(settings) }
+  // Some legacy shops have an empty `taxes` array in the DB. Fall back to
+  // the defaults so the settings page and sale form always have tax lines
+  // to toggle, instead of showing nothing.
+  const taxes = Array.isArray(settings.taxes) && settings.taxes.length > 0
+    ? settings.taxes
+    : DEFAULT_TAXES
+
+  return { settings: serializeRow({ ...settings, taxes }) }
 }
 
 export async function updateSettings(data: UpdateSettingsInput) {

@@ -352,69 +352,6 @@ export default function LandingPage() {
                 </div>
               ))}
             </motion.div>
-
-            {/* Dashboard Preview */}
-            <motion.div
-              initial={{ opacity: 0, y: 60 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.6 }}
-              className="mt-12 sm:mt-16"
-            >
-              <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border bg-card shadow-2xl backdrop-blur-sm">
-                <div className="flex items-center gap-1.5 border-b bg-muted/30 px-3 py-2.5 sm:px-4 sm:py-3">
-                  <div className="h-2.5 w-2.5 rounded-full bg-destructive/80 sm:h-3 sm:w-3" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-warning/80 sm:h-3 sm:w-3" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-success/80 sm:h-3 sm:w-3" />
-                  <div className="ml-3 flex-1 rounded-md bg-muted px-2.5 py-0.5 text-left text-[10px] text-muted-foreground sm:ml-4 sm:px-3 sm:py-1 sm:text-xs">
-                    indflow.app/dashboard
-                  </div>
-                </div>
-                <div className="grid grid-cols-5 gap-px bg-border">
-                  <div className="col-span-1 hidden border-r bg-muted/20 p-3 sm:block sm:p-4">
-                    <div className="mb-4 h-3 w-20 rounded bg-muted-foreground/15 sm:mb-6 sm:h-4" />
-                    <div className="space-y-1 sm:space-y-1.5">
-                      {['Dashboard', 'Sales', 'Customers', 'Reports', 'Settings'].map((item, i) => (
-                        <div
-                          key={item}
-                          className={cn(
-                            'rounded-md px-2.5 py-1.5 text-[10px] font-medium sm:px-3 sm:py-2 sm:text-xs',
-                            i === 0 ? 'bg-primary/15 text-primary' : 'text-muted-foreground'
-                          )}
-                        >
-                          {item}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="col-span-5 p-3 sm:col-span-4 sm:p-4">
-                    <div className="mb-3 flex items-center justify-between sm:mb-4">
-                      <div className="h-4 w-24 rounded bg-muted-foreground/15 sm:h-5 sm:w-32" />
-                      <div className="h-6 w-16 rounded-md bg-primary/20 sm:h-8 sm:w-24" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="rounded-lg border bg-card p-2.5 sm:p-3">
-                          <div className="mb-1.5 h-2.5 w-12 rounded bg-muted-foreground/15 sm:mb-2 sm:h-3 sm:w-16" />
-                          <div className="h-4 w-16 rounded bg-muted-foreground/15 sm:h-6 sm:w-20" />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="flex items-center gap-2.5 rounded-lg border bg-card p-2.5 sm:gap-3 sm:p-3">
-                          <div className="h-6 w-6 rounded-full bg-muted-foreground/15 sm:h-8 sm:w-8" />
-                          <div className="flex-1">
-                            <div className="mb-1 h-2.5 w-24 rounded bg-muted-foreground/15 sm:h-3 sm:w-32" />
-                            <div className="h-2.5 w-16 rounded bg-muted-foreground/15 sm:h-3 sm:w-20" />
-                          </div>
-                          <div className="h-4 w-12 rounded bg-success/20 sm:h-6 sm:w-16" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
           </div>
         </section>
 
