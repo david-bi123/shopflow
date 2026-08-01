@@ -159,7 +159,10 @@ export async function getSalesChartData(days = 30) {
 
   const tenantId = toNum(session.user.tenantId!)
 
-  const dayExpr = sql<string>`COALESCE(${sales.saleDate}, LEFT(${sales.createdAt}, 10))`.as('day')
+  // Use the unaliased expression in the WHERE clause — MySQL won't let a
+  // select alias be referenced in WHERE ("Unknown column 'day'").
+  const dayExpression = sql<string>`COALESCE(${sales.saleDate}, LEFT(${sales.createdAt}, 10))`
+  const dayExpr = dayExpression.as('day')
   const rows = await db
     .select({
       date: dayExpr,
@@ -167,7 +170,7 @@ export async function getSalesChartData(days = 30) {
       orders: sql<number>`COUNT(*)`.as('orders'),
     })
     .from(sales)
-    .where(and(eq(sales.tenantId, tenantId), gte(dayExpr, startDateStr)))
+    .where(and(eq(sales.tenantId, tenantId), gte(dayExpression, startDateStr)))
     .groupBy(dayExpr)
     .orderBy(asc(dayExpr))
 
