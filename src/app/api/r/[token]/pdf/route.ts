@@ -73,6 +73,7 @@ export async function GET(
         customerPhone: s.customerPhone || undefined,
         waybillNo: s.waybillNo || undefined,
         companyRefNo: s.companyRefNo || undefined,
+        carNo: s.carNo || undefined,
         items: s.items as Array<{ name: string; quantity: number; price: number; subtotal: number }>,
         subtotal: s.subtotal,
         discountPercent: s.discountPercent,

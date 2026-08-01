@@ -46,6 +46,7 @@ export default async function PublicReceiptPage({
     notes?: string | null
     waybillNo?: string | null
     companyRefNo?: string | null
+    carNo?: string | null
     createdAt: string
     updatedAt: string
     currency?: string
@@ -219,6 +220,12 @@ export default async function PublicReceiptPage({
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-xs text-muted-foreground">COMPANY REF NO:</span>
                   <span className="text-xs font-medium text-foreground">{sale.companyRefNo}</span>
+                </div>
+              )}
+              {sale.carNo && (
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs text-muted-foreground">CAR NO:</span>
+                  <span className="text-xs font-medium text-foreground">{sale.carNo}</span>
                 </div>
               )}
             </div>

@@ -26,6 +26,7 @@ import {
   ClipboardList,
   Truck,
   Building2,
+  Car,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -297,6 +298,15 @@ export default function SaleDetailPage() {
                   COMPANY REF NO
                 </dt>
                 <dd className="text-right font-medium text-foreground">{sale.companyRefNo}</dd>
+              </div>
+            )}
+            {sale.carNo && (
+              <div className="flex items-start justify-between gap-4">
+                <dt className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                  <Car className="size-4" />
+                  CAR NO
+                </dt>
+                <dd className="text-right font-medium text-foreground">{sale.carNo}</dd>
               </div>
             )}
             <div className="flex items-start justify-between gap-4">

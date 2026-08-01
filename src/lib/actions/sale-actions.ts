@@ -121,6 +121,7 @@ export async function createSale(data: CreateSaleInput) {
       notes: (data.notes as string | undefined) ?? null,
       waybillNo: (data.waybillNo as string | undefined)?.trim() || null,
       companyRefNo: (data.companyRefNo as string | undefined)?.trim() || null,
+      carNo: (data.carNo as string | undefined)?.trim() || null,
       createdBy: userId,
       createdAt: now,
       updatedAt: now,
@@ -419,6 +420,7 @@ export async function updateSale(id: string, data: CreateSaleInput) {
         notes: (validated.data.notes as string | undefined) ?? null,
         waybillNo: (validated.data.waybillNo as string | undefined)?.trim() || null,
         companyRefNo: (validated.data.companyRefNo as string | undefined)?.trim() || null,
+        carNo: (validated.data.carNo as string | undefined)?.trim() || null,
         updatedAt: now,
       })
       .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
@@ -593,6 +595,7 @@ export async function getSaleByPublicToken(token: string) {
       notes: sales.notes,
       waybillNo: sales.waybillNo,
       companyRefNo: sales.companyRefNo,
+      carNo: sales.carNo,
       createdBy: sales.createdBy,
       createdAt: sales.createdAt,
       updatedAt: sales.updatedAt,

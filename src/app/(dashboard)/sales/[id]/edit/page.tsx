@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Loader2,
   Truck,
+  Car,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -81,6 +82,7 @@ export default function EditSalePage() {
       receiptNumber: '',
       waybillNo: '',
       companyRefNo: '',
+      carNo: '',
       items: [{ ...defaultItem }],
       discountPercent: 0,
       tax: 0,
@@ -161,6 +163,7 @@ export default function EditSalePage() {
           receiptNumber: String(data.saleNumber ?? ''),
           waybillNo: (data.waybillNo as string | null | undefined) ?? '',
           companyRefNo: (data.companyRefNo as string | null | undefined) ?? '',
+          carNo: (data.carNo as string | null | undefined) ?? '',
           items: itemArr.length > 0 ? itemArr : [{ ...defaultItem }],
           discountPercent: Number(data.discountPercent ?? 0),
           discount: Number(data.discount ?? 0),
@@ -510,7 +513,7 @@ export default function EditSalePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="waybillNo" className="flex items-center gap-1.5">
                   <Truck className="size-3.5 text-muted-foreground" />
@@ -531,6 +534,17 @@ export default function EditSalePage() {
                   id="companyRefNo"
                   {...register('companyRefNo')}
                   placeholder="Optional company / PO reference"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="carNo" className="flex items-center gap-1.5">
+                  <Car className="size-3.5 text-muted-foreground" />
+                  CAR NO
+                </Label>
+                <Input
+                  id="carNo"
+                  {...register('carNo')}
+                  placeholder="Optional vehicle registration"
                 />
               </div>
             </div>

@@ -14,6 +14,7 @@ export interface SalePdfData {
   customerPhone?: string
   waybillNo?: string
   companyRefNo?: string
+  carNo?: string
   items: Array<{ name: string; quantity: number; price: number; subtotal: number }>
   subtotal: number
   discountPercent: number
@@ -348,6 +349,13 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
       doc.text('COMPANY REF NO:', rightStartX, detailY)
       doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
       doc.text(sale.companyRefNo, rightStartX + 100, detailY, { width: 145 })
+      detailY += 14
+    }
+    if (sale.carNo) {
+      doc.fillColor(TEXT_MUTED).font('Helvetica')
+      doc.text('CAR NO:', rightStartX, detailY)
+      doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+      doc.text(sale.carNo, rightStartX + 100, detailY, { width: 145 })
       detailY += 14
     }
 

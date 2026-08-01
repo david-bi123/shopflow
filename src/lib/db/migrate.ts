@@ -73,6 +73,7 @@ const alters: Alter[] = [
   // Sales: optional waybill / company reference numbers
   { table: 'sales', column: 'waybill_no', ddl: 'ALTER TABLE `sales` ADD COLUMN `waybill_no` VARCHAR(100)' },
   { table: 'sales', column: 'company_ref_no', ddl: 'ALTER TABLE `sales` ADD COLUMN `company_ref_no` VARCHAR(100)' },
+  { table: 'sales', column: 'car_no', ddl: 'ALTER TABLE `sales` ADD COLUMN `car_no` VARCHAR(100)' },
 ]
 
 const createTableStatements: { name: string; ddl: string }[] = [

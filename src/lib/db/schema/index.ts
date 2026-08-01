@@ -102,6 +102,8 @@ export const sales = mysqlTable('sales', {
   waybillNo: varchar('waybill_no', { length: 100 }),
   /** Optional company / PO reference number shown on the receipt. */
   companyRefNo: varchar('company_ref_no', { length: 100 }),
+  /** Optional vehicle registration number shown on the receipt. */
+  carNo: varchar('car_no', { length: 100 }),
   createdBy: int('created_by').notNull().references(() => users.id),
   createdAt: varchar('created_at', { length: 50 }).notNull(),
   updatedAt: varchar('updated_at', { length: 50 }).notNull(),
