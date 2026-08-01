@@ -15,6 +15,8 @@ export interface SalePdfData {
   waybillNo?: string
   companyRefNo?: string
   carNo?: string
+  /** The date the sale took place (`yyyy-mm-dd`). Defaults to `createdAt`. */
+  saleDate?: string
   items: Array<{ name: string; quantity: number; price: number; subtotal: number }>
   subtotal: number
   discountPercent: number
@@ -104,7 +106,10 @@ function pdfSafeSymbol(symbol: string): string {
  * (e.g. "31 Jul 2026"). Falls back to the raw value if it isn't a date.
  */
 function formatPdfDate(value: string): string {
-  const d = new Date(value)
+  // Date-only strings ("2026-08-01") parse as UTC midnight and can shift
+  // a day for timezones west of UTC; re-parse as local midnight.
+  const src = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value
+  const d = new Date(src)
   if (isNaN(d.getTime())) return value
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
@@ -312,7 +317,7 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
     doc.text('Receipt Date:', rightStartX, detailY)
     doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-    doc.text(formatPdfDate(sale.createdAt), rightStartX + 100, detailY, { width: 145 })
+    doc.text(formatPdfDate(sale.saleDate || sale.createdAt), rightStartX + 100, detailY, { width: 145 })
     detailY += 14
     doc.fillColor(TEXT_MUTED).font('Helvetica')
     doc.text('Payment Method:', rightStartX, detailY)

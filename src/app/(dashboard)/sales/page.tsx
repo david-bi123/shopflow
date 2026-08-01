@@ -321,7 +321,7 @@ export default function SalesPage() {
               header: 'Date',
               mobileLabel: 'Date',
               hideBelow: 'lg',
-              cell: (sale: Sale) => formatDate(sale.createdAt),
+              cell: (sale: Sale) => formatDate(sale.saleDate ?? sale.createdAt),
             },
             {
               key: 'actions',

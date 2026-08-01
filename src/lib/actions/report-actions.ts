@@ -7,11 +7,34 @@ import { toNum, serializeList } from '@/lib/db/helpers'
 import { auth } from '@/lib/auth/auth'
 
 /**
+ * The sale's reporting date. Sales carry an explicit, user-editable
+ * `sale_date` (`yyyy-mm-dd`); older rows backfilled from `created_at`.
+ * Every date comparison below uses this expression so dashboards and
+ * reports follow the sale's actual date rather than the day it was
+ * recorded.
+ */
+const saleDay = sql`COALESCE(${sales.saleDate}, LEFT(${sales.createdAt}, 10))`
+
+function toDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/**
+ * Normalise a report range bound to `yyyy-mm-dd`. The reports page sends
+ * date-only strings already; this also accepts full ISO timestamps.
+ */
+function toBound(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : toDateStr(new Date(value))
+}
+
+/**
  * Dashboard aggregates for a single tenant.
  *
  * Everything below is computed in SQL — we never `SELECT *` from the
- * sales table. All filters are on the `(tenantId, createdAt)` index so
- * these queries are O(log n) regardless of the size of the catalog.
+ * sales table. Aggregates are bucketed by the sale's date (`sale_day`).
  */
 export async function getDashboardStats() {
   const session = await auth()
@@ -21,11 +44,12 @@ export async function getDashboardStats() {
   const tenantId = toNum(session.user.tenantId!)
 
   const now = new Date()
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-  const startOfWeek = new Date(startOfDay)
+  const startOfDayStr = toDateStr(now)
+  const startOfWeek = new Date(now)
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
-  const startOfWeekStr = startOfWeek.toISOString()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const startOfWeekStr = toDateStr(startOfWeek)
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const startOfMonthStr = toDateStr(startOfMonth)
 
   // All aggregates in a single round trip using conditional SUM/COUNT.
   // This replaces a previous implementation that loaded the entire sales
@@ -37,16 +61,16 @@ export async function getDashboardStats() {
   // rejects unaliased expressions in SELECT.
   const [aggregates] = await db
     .select({
-      todayTotal: sql<number>`COALESCE(SUM(CASE WHEN ${sales.createdAt} >= ${startOfDay} THEN ${sales.total} ELSE 0 END), 0)`.as('today_total'),
-      todayCount: sql<number>`COUNT(CASE WHEN ${sales.createdAt} >= ${startOfDay} THEN 1 END)`.as('today_count'),
-      weeklyTotal: sql<number>`COALESCE(SUM(CASE WHEN ${sales.createdAt} >= ${startOfWeekStr} THEN ${sales.total} ELSE 0 END), 0)`.as('weekly_total'),
-      weeklyCount: sql<number>`COUNT(CASE WHEN ${sales.createdAt} >= ${startOfWeekStr} THEN 1 END)`.as('weekly_count'),
-      monthlyTotal: sql<number>`COALESCE(SUM(CASE WHEN ${sales.createdAt} >= ${startOfMonth} THEN ${sales.total} ELSE 0 END), 0)`.as('monthly_total'),
-      monthlyCount: sql<number>`COUNT(CASE WHEN ${sales.createdAt} >= ${startOfMonth} THEN 1 END)`.as('monthly_count'),
+      todayTotal: sql<number>`COALESCE(SUM(CASE WHEN ${saleDay} >= ${startOfDayStr} THEN ${sales.total} ELSE 0 END), 0)`.as('today_total'),
+      todayCount: sql<number>`COUNT(CASE WHEN ${saleDay} >= ${startOfDayStr} THEN 1 END)`.as('today_count'),
+      weeklyTotal: sql<number>`COALESCE(SUM(CASE WHEN ${saleDay} >= ${startOfWeekStr} THEN ${sales.total} ELSE 0 END), 0)`.as('weekly_total'),
+      weeklyCount: sql<number>`COUNT(CASE WHEN ${saleDay} >= ${startOfWeekStr} THEN 1 END)`.as('weekly_count'),
+      monthlyTotal: sql<number>`COALESCE(SUM(CASE WHEN ${saleDay} >= ${startOfMonthStr} THEN ${sales.total} ELSE 0 END), 0)`.as('monthly_total'),
+      monthlyCount: sql<number>`COUNT(CASE WHEN ${saleDay} >= ${startOfMonthStr} THEN 1 END)`.as('monthly_count'),
       totalCount: sql<number>`COUNT(*)`.as('total_count'),
       allTimeRevenue: sql<number>`COALESCE(SUM(${sales.total}), 0)`.as('all_time_revenue'),
-      firstSaleAt: sql<string | null>`MIN(${sales.createdAt})`.as('first_sale_at'),
-      lastSaleAt: sql<string | null>`MAX(${sales.createdAt})`.as('last_sale_at'),
+      firstSaleAt: sql<string | null>`MIN(${saleDay})`.as('first_sale_at'),
+      lastSaleAt: sql<string | null>`MAX(${saleDay})`.as('last_sale_at'),
     })
     .from(sales)
     .where(eq(sales.tenantId, tenantId))
@@ -120,9 +144,8 @@ export async function getDashboardStats() {
 }
 
 /**
- * Per-day sales totals for the last `days` days. Done in SQL with
- * `GROUP BY substr(createdAt, 1, 10)` (the column is `varchar(50)` ISO
- * strings so the lexicographic prefix is the calendar date).
+ * Per-day sales totals for the last `days` days. Grouped by the sale's
+ * date (the `sale_date` column stores `yyyy-mm-dd` directly).
  */
 export async function getSalesChartData(days = 30) {
   const session = await auth()
@@ -132,11 +155,11 @@ export async function getSalesChartData(days = 30) {
 
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - days)
-  const startDateStr = startDate.toISOString()
+  const startDateStr = toDateStr(startDate)
 
   const tenantId = toNum(session.user.tenantId!)
 
-  const dayExpr = sql<string>`substr(${sales.createdAt}, 1, 10)`.as('day')
+  const dayExpr = sql<string>`COALESCE(${sales.saleDate}, LEFT(${sales.createdAt}, 10))`.as('day')
   const rows = await db
     .select({
       date: dayExpr,
@@ -144,7 +167,7 @@ export async function getSalesChartData(days = 30) {
       orders: sql<number>`COUNT(*)`.as('orders'),
     })
     .from(sales)
-    .where(and(eq(sales.tenantId, tenantId), gte(sales.createdAt, startDateStr)))
+    .where(and(eq(sales.tenantId, tenantId), gte(dayExpr, startDateStr)))
     .groupBy(dayExpr)
     .orderBy(asc(dayExpr))
 
@@ -167,16 +190,16 @@ export async function getSalesReport(startDate: string, endDate: string) {
   const db = await dbConnect()
   const tenantId = toNum(session.user.tenantId!)
 
-  const start = new Date(startDate).toISOString()
-  const end = new Date(endDate).toISOString()
+  const start = toBound(startDate)
+  const end = toBound(endDate)
 
   const where = and(
     eq(sales.tenantId, tenantId),
-    gte(sales.createdAt, start),
-    lte(sales.createdAt, end),
+    gte(saleDay, start),
+    lte(saleDay, end),
   )
 
-  const dayExpr = sql<string>`substr(${sales.createdAt}, 1, 10)`.as('day')
+  const dayExpr = sql<string>`COALESCE(${sales.saleDate}, LEFT(${sales.createdAt}, 10))`.as('day')
 
   const [[kpis], daily, methodAgg] = await Promise.all([
     db

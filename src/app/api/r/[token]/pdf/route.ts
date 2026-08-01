@@ -74,6 +74,7 @@ export async function GET(
         waybillNo: s.waybillNo || undefined,
         companyRefNo: s.companyRefNo || undefined,
         carNo: s.carNo || undefined,
+        saleDate: s.saleDate || undefined,
         items: s.items as Array<{ name: string; quantity: number; price: number; subtotal: number }>,
         subtotal: s.subtotal,
         discountPercent: s.discountPercent,

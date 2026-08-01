@@ -74,6 +74,9 @@ const alters: Alter[] = [
   { table: 'sales', column: 'waybill_no', ddl: 'ALTER TABLE `sales` ADD COLUMN `waybill_no` VARCHAR(100)' },
   { table: 'sales', column: 'company_ref_no', ddl: 'ALTER TABLE `sales` ADD COLUMN `company_ref_no` VARCHAR(100)' },
   { table: 'sales', column: 'car_no', ddl: 'ALTER TABLE `sales` ADD COLUMN `car_no` VARCHAR(100)' },
+
+  // Sales: editable transaction date (added after v0.3)
+  { table: 'sales', column: 'sale_date', ddl: 'ALTER TABLE `sales` ADD COLUMN `sale_date` VARCHAR(50)' },
 ]
 
 const createTableStatements: { name: string; ddl: string }[] = [
@@ -430,6 +433,12 @@ async function migrate() {
   // a new default line wouldn't appear for them. Append COVID Tax (1%)
   // to any shop that doesn't already have a tax named "COVID Tax".
   await db.execute(sql`UPDATE \`settings\` SET \`taxes\` = JSON_ARRAY_APPEND(\`taxes\`, '$', JSON_OBJECT('name', 'COVID Tax', 'rate', 1, 'enabled', true)) WHERE JSON_SEARCH(\`taxes\`, 'one', 'COVID Tax') IS NULL`)
+
+  console.log('\n--- Step 3.6: Backfill sale dates from created_at ---')
+  // Existing sales predate the editable sale-date feature. Preserve them
+  // by copying the date part of their `created_at` (ISO string) into the
+  // new `sale_date` column so nothing is lost and reports stay consistent.
+  await db.execute(sql`UPDATE \`sales\` SET \`sale_date\` = LEFT(\`created_at\`, 10) WHERE \`sale_date\` IS NULL OR \`sale_date\` = ''`)
 
   console.log('\n--- Step 4: System tenant (sentinel for orphan audit rows) ---')
   // tenant_id=0 is the "no real tenant" sentinel. The audit_logs

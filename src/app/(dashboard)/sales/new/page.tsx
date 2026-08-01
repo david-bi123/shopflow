@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   Truck,
   Car,
+  CalendarDays,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -49,6 +50,14 @@ import { cn } from '@/lib/utils/cn'
 type FormValues = CreateSaleInput
 
 const defaultItem = { name: '', quantity: 1, price: 0, subtotal: 0 }
+
+const toDateInputValue = (d: Date) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+const todayStr = toDateInputValue(new Date())
 
 const DEFAULT_TAXES = [
   { name: 'VAT', rate: 15, enabled: true },
@@ -114,6 +123,7 @@ export default function NewSalePage() {
       waybillNo: '',
       companyRefNo: '',
       carNo: '',
+      saleDate: todayStr,
       items: [{ ...defaultItem }],
       discountPercent: 0,
       tax: 0,
@@ -467,6 +477,22 @@ export default function NewSalePage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-5 pt-5">
+            <div className="space-y-2">
+              <Label htmlFor="saleDate" className="flex items-center gap-1.5">
+                <CalendarDays className="size-3.5 text-muted-foreground" />
+                Sale Date
+              </Label>
+              <Input
+                id="saleDate"
+                type="date"
+                max={todayStr}
+                {...register('saleDate')}
+              />
+              <p className="text-xs text-muted-foreground">
+                The date this sale took place. Defaults to today \u2014 change it when recording a past sale.
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="receiptNumber" className="flex items-center gap-1.5">
                 <Receipt className="size-3.5 text-muted-foreground" />

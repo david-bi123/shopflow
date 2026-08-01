@@ -122,6 +122,9 @@ export async function createSale(data: CreateSaleInput) {
       waybillNo: (data.waybillNo as string | undefined)?.trim() || null,
       companyRefNo: (data.companyRefNo as string | undefined)?.trim() || null,
       carNo: (data.carNo as string | undefined)?.trim() || null,
+      // The sale's actual date, editable by the user. Blank defaults to
+      // the day the sale was recorded.
+      saleDate: (data.saleDate as string | undefined)?.trim() || now.slice(0, 10),
       createdBy: userId,
       createdAt: now,
       updatedAt: now,
@@ -237,10 +240,10 @@ export async function getSales(page = 1, limit = 20, filters?: Record<string, st
     conditions.push(eq(sales.paymentMethod, filters.paymentMethod as 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other'))
   }
   if (filters?.startDate) {
-    conditions.push(sql`${sales.createdAt} >= ${filters.startDate}`)
+    conditions.push(sql`COALESCE(${sales.saleDate}, LEFT(${sales.createdAt}, 10)) >= ${filters.startDate}`)
   }
   if (filters?.endDate) {
-    conditions.push(sql`${sales.createdAt} <= ${filters.endDate}`)
+    conditions.push(sql`COALESCE(${sales.saleDate}, LEFT(${sales.createdAt}, 10)) <= ${filters.endDate}`)
   }
 
   const where = and(...conditions)
@@ -249,7 +252,7 @@ export async function getSales(page = 1, limit = 20, filters?: Record<string, st
 
   const salesList = await db.select().from(sales)
     .where(where)
-    .orderBy(desc(sales.createdAt))
+    .orderBy(sql`COALESCE(${sales.saleDate}, LEFT(${sales.createdAt}, 10)) DESC`, desc(sales.createdAt))
     .limit(limit)
     .offset((page - 1) * limit)
 
@@ -421,6 +424,11 @@ export async function updateSale(id: string, data: CreateSaleInput) {
         waybillNo: (validated.data.waybillNo as string | undefined)?.trim() || null,
         companyRefNo: (validated.data.companyRefNo as string | undefined)?.trim() || null,
         carNo: (validated.data.carNo as string | undefined)?.trim() || null,
+        // Editable sale date. Blank keeps the existing date; the form
+        // always sends one, so this is mostly a safety net.
+        saleDate: (validated.data.saleDate as string | undefined)?.trim()
+          || oldSale.saleDate
+          || now.slice(0, 10),
         updatedAt: now,
       })
       .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
@@ -596,6 +604,7 @@ export async function getSaleByPublicToken(token: string) {
       waybillNo: sales.waybillNo,
       companyRefNo: sales.companyRefNo,
       carNo: sales.carNo,
+      saleDate: sales.saleDate,
       createdBy: sales.createdBy,
       createdAt: sales.createdAt,
       updatedAt: sales.updatedAt,

@@ -217,7 +217,7 @@ export default function SaleDetailPage() {
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
               <Calendar className="mr-1 inline size-3" />
-              {formatDate(sale.createdAt, 'long')}
+              {formatDate(sale.saleDate ?? sale.createdAt, 'long')}
               <span className="mx-1.5 text-border">•</span>
               <Hash className="mr-1 inline size-3" />
               {sale.items.length} {sale.items.length === 1 ? 'item' : 'items'}
@@ -325,7 +325,7 @@ export default function SaleDetailPage() {
                 Date
               </dt>
               <dd className="text-right font-medium tabular-nums text-foreground">
-                {formatDate(sale.createdAt, 'long')}
+                {formatDate(sale.saleDate ?? sale.createdAt, 'long')}
               </dd>
             </div>
           </dl>

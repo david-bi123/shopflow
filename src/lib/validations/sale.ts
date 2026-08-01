@@ -37,6 +37,8 @@ export const createSaleSchema = z.object({
   companyRefNo: z.string().max(100).optional().or(z.literal('')),
   /** Optional vehicle registration number. */
   carNo: z.string().max(100).optional().or(z.literal('')),
+  /** The date the sale took place, `yyyy-mm-dd`. Blank defaults to today. */
+  saleDate: z.string().max(50).optional().or(z.literal('')),
   items: z.array(saleItemSchema).min(1, 'At least one item is required'),
   /**
    * The following five fields are computed server-side from `items` +
@@ -71,6 +73,8 @@ export interface Sale {
   waybillNo?: string
   companyRefNo?: string
   carNo?: string
+  /** The date the sale took place (`yyyy-mm-dd`). */
+  saleDate?: string
   customerName?: string
   customerPhone?: string
   customerId?: string

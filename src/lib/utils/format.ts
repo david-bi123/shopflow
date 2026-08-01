@@ -12,7 +12,15 @@ export function formatCurrency(amount: number, currency = DEFAULT_CURRENCY): str
 }
 
 export function formatDate(date: Date | string, format: 'short' | 'long' | 'datetime' = 'short'): string {
-  const d = typeof date === 'string' ? new Date(date) : date
+  let d: Date
+  if (typeof date === 'string') {
+    // A date-only string like "2026-08-01" parses as UTC midnight, which
+    // shifts a day for timezones west of UTC. Re-parse as local midnight
+    // so the displayed calendar day is always the stored one.
+    d = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00`) : new Date(date)
+  } else {
+    d = date
+  }
   const options: Intl.DateTimeFormatOptions = {
     ...(format === 'short' && { month: 'short', day: 'numeric', year: 'numeric' }),
     ...(format === 'long' && { month: 'long', day: 'numeric', year: 'numeric' }),

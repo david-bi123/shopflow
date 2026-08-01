@@ -104,6 +104,9 @@ export const sales = mysqlTable('sales', {
   companyRefNo: varchar('company_ref_no', { length: 100 }),
   /** Optional vehicle registration number shown on the receipt. */
   carNo: varchar('car_no', { length: 100 }),
+  /** The date the sale actually took place (editable at create/edit time).
+   *  Stored as `yyyy-mm-dd`. Defaults to the day the sale was recorded. */
+  saleDate: varchar('sale_date', { length: 50 }),
   createdBy: int('created_by').notNull().references(() => users.id),
   createdAt: varchar('created_at', { length: 50 }).notNull(),
   updatedAt: varchar('updated_at', { length: 50 }).notNull(),

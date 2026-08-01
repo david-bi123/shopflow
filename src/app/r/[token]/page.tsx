@@ -47,6 +47,7 @@ export default async function PublicReceiptPage({
     waybillNo?: string | null
     companyRefNo?: string | null
     carNo?: string | null
+    saleDate?: string | null
     createdAt: string
     updatedAt: string
     currency?: string
@@ -186,7 +187,7 @@ export default async function PublicReceiptPage({
               <div className="flex items-center justify-between gap-4">
                 <span className="text-xs text-muted-foreground">Receipt Date:</span>
                 <span className="font-medium tabular-nums text-foreground">
-                  {formatDate(sale.createdAt, 'long')}
+                  {formatDate(sale.saleDate ?? sale.createdAt, 'long')}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4">
