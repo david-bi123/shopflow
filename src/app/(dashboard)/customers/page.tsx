@@ -47,6 +47,7 @@ import {
 import { DataTable } from '@/components/shared/data-table'
 import { EmptyState } from '@/components/shared/empty-state'
 import { PageHeader } from '@/components/shared/page-header'
+import { EditCustomerDialog, type EditableCustomer } from '@/components/customers/edit-customer-dialog'
 import { formatCurrency, formatDate, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
 
@@ -78,6 +79,7 @@ export default function CustomersPage() {
   const [page, setPage] = useState(1)
   const [filter, setFilter] = useState<FilterMode>('all')
   const [createOpen, setCreateOpen] = useState(false)
+  const [editingCustomer, setEditingCustomer] = useState<EditableCustomer | null>(null)
   const [payingCustomer, setPayingCustomer] = useState<Customer | null>(null)
   const [creating, setCreating] = useState(false)
   const [paying, setPaying] = useState(false)
@@ -454,6 +456,19 @@ export default function CustomersPage() {
                   >
                     <Eye className="size-4 text-muted-foreground" />
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingCustomer(c)
+                    }}
+                    aria-label={`Edit ${c.name}`}
+                    title="Edit customer"
+                  >
+                    <Pencil className="size-4 text-muted-foreground" />
+                  </Button>
                   {c.totalDebt > 0.005 && (
                     <Button
                       size="sm"
@@ -599,6 +614,14 @@ export default function CustomersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit customer dialog */}
+      <EditCustomerDialog
+        customer={editingCustomer}
+        open={!!editingCustomer}
+        onOpenChange={(o) => !o && setEditingCustomer(null)}
+        onSaved={() => void refresh()}
+      />
 
       {/* Record debt payment dialog */}
       <Dialog open={!!payingCustomer} onOpenChange={(o) => !o && setPayingCustomer(null)}>

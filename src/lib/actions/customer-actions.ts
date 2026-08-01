@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
-import { customers, sales } from '@/lib/db/schema'
+import { customers, sales, invoices } from '@/lib/db/schema'
 import { eq, and, or, like, desc, count, isNotNull, isNull, ne } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
 import { createCustomerSchema, updateCustomerSchema } from '@/lib/validations/customer'
@@ -190,15 +190,69 @@ export async function updateCustomer(id: string, data: Partial<CreateCustomerInp
     }
 
     try {
-      await db.update(customers).set({
-        ...validated.data,
-        updatedAt: new Date().toISOString(),
-      }).where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
-      const [customer] = await db.select().from(customers).where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+      // Normalize blank optional fields to null so clearing a value on
+      // the edit form stores NULL (consistent with createCustomer).
+      const name = validated.data.name?.trim()
+      const email = validated.data.email !== undefined
+        ? (validated.data.email.trim() || null)
+        : undefined
+      const phone = validated.data.phone !== undefined
+        ? (validated.data.phone.trim() || null)
+        : undefined
+      const address = validated.data.address !== undefined
+        ? (validated.data.address.trim() || null)
+        : undefined
+      const notes = validated.data.notes !== undefined
+        ? (validated.data.notes.trim() || null)
+        : undefined
+
+      const customer = await db.transaction(async (tx) => {
+        // Load the current row first so we only propagate fields that
+        // actually changed, and so we can bail cleanly if it's gone.
+        const [existing] = await tx.select().from(customers)
+          .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+          .limit(1)
+        if (!existing) return null
+
+        await tx.update(customers).set({
+          ...(name !== undefined && { name }),
+          ...(email !== undefined && { email }),
+          ...(phone !== undefined && { phone }),
+          ...(address !== undefined && { address }),
+          ...(notes !== undefined && { notes }),
+          updatedAt: new Date().toISOString(),
+        }).where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+
+        // Rename propagation: sales/invoices store a snapshot of the
+        // customer's name/phone/email. Keep those in sync so every
+        // receipt, PDF, and list shows the corrected name automatically.
+        if (name !== undefined && name !== existing.name) {
+          await tx.update(sales).set({ customerName: name })
+            .where(and(eq(sales.tenantId, tenantId), eq(sales.customerId, customerId)))
+          await tx.update(invoices).set({ customerName: name })
+            .where(and(eq(invoices.tenantId, tenantId), eq(invoices.customerId, customerId)))
+        }
+        if (phone !== undefined && phone !== (existing.phone ?? null)) {
+          await tx.update(sales).set({ customerPhone: phone })
+            .where(and(eq(sales.tenantId, tenantId), eq(sales.customerId, customerId)))
+          await tx.update(invoices).set({ customerPhone: phone })
+            .where(and(eq(invoices.tenantId, tenantId), eq(invoices.customerId, customerId)))
+        }
+        if (email !== undefined && email !== (existing.email ?? null)) {
+          await tx.update(invoices).set({ customerEmail: email })
+            .where(and(eq(invoices.tenantId, tenantId), eq(invoices.customerId, customerId)))
+        }
+
+        const [fresh] = await tx.select().from(customers)
+          .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+          .limit(1)
+        return fresh
+      })
 
       if (!customer) return { error: 'Customer not found' }
 
       revalidatePath('/customers')
+      revalidatePath(`/customers/${customerId}`)
       return actionOk(serializeRow(customer))
     } catch (err) {
       if (isDuplicateEmailError(err)) {

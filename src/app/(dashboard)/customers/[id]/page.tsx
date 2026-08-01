@@ -20,6 +20,7 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
+  Pencil,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -48,6 +49,7 @@ import {
 } from '@/components/ui/select'
 import { formatCurrency, formatDate, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
+import { EditCustomerDialog } from '@/components/customers/edit-customer-dialog'
 
 interface LedgerEntry {
   id: string
@@ -84,6 +86,8 @@ interface CustomerSummary {
   name: string
   phone: string | null
   email: string | null
+  address: string | null
+  notes: string | null
   totalDebt: number
   firstDebtAt: string | null
   lastDebtActivityAt: string | null
@@ -120,6 +124,7 @@ export default function CustomerDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [payOpen, setPayOpen] = useState(false)
   const [paying, setPaying] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState<'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other'>('cash')
   const [notes, setNotes] = useState('')
@@ -273,6 +278,14 @@ export default function CustomerDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setEditOpen(true)}
+              className="bg-white/80 dark:bg-zinc-900/60"
+            >
+              <Pencil className="mr-2 size-4" />
+              Edit Customer
+            </Button>
             {hasDebt && (
               <Button
                 onClick={openPayDialog}
@@ -569,6 +582,21 @@ export default function CustomerDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit customer dialog */}
+      <EditCustomerDialog
+        customer={summary ? {
+          id: String(summary.id),
+          name: summary.name,
+          email: summary.email,
+          phone: summary.phone,
+          address: summary.address,
+          notes: summary.notes,
+        } : null}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => void refresh()}
+      />
 
       {/* Record Payment dialog */}
       <Dialog open={payOpen} onOpenChange={setPayOpen}>

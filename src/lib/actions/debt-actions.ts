@@ -298,6 +298,8 @@ export async function getCustomerDebtLedger(customerId: string) {
       name: customer.name,
       phone: customer.phone,
       email: customer.email,
+      address: customer.address,
+      notes: customer.notes,
       totalDebt: customer.totalDebt,
       firstDebtAt: customer.firstDebtAt,
       lastDebtActivityAt: customer.lastDebtActivityAt,
