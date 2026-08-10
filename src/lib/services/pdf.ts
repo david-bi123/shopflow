@@ -376,7 +376,7 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     ;['Item', 'Quantity', 'Unit Price', 'Total'].forEach((text, i) => {
       const pad = 8
       if (i === 0) doc.text(text, hx + pad, y + 2, { width: colWidths[i] - 8 })
-      else doc.text(text, hx + colWidths[i] - pad, y + 2, { width: colWidths[i] - 4, align: 'right' })
+      else doc.text(text, hx + 4, y + 2, { width: colWidths[i] - 12, align: 'right' })
       hx += colWidths[i]
     })
     doc.fillColor(TEXT_PRIMARY)
@@ -397,7 +397,7 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
       values.forEach((text, i) => {
         const pad = 8
         if (i === 0) doc.text(text, rx + pad, y + 2, { width: colWidths[i] - 8 })
-        else doc.text(text, rx + colWidths[i] - pad, y + 2, { width: colWidths[i] - 4, align: 'right' })
+        else doc.text(text, rx + 4, y + 2, { width: colWidths[i] - 12, align: 'right' })
         rx += colWidths[i]
       })
       y += rowHeight
@@ -591,7 +591,7 @@ export function generateInvoicePdf(invoice: InvoicePdfData, store: StoreInfo): P
     ;['Description', 'Quantity', 'Unit Price', 'Total'].forEach((text, i) => {
       const pad = 8
       if (i === 0) doc.text(text, hx + pad, y + 2, { width: colWidths[i] - 8 })
-      else doc.text(text, hx + colWidths[i] - pad, y + 2, { width: colWidths[i] - 4, align: 'right' })
+      else doc.text(text, hx + 4, y + 2, { width: colWidths[i] - 12, align: 'right' })
       hx += colWidths[i]
     })
     doc.fillColor(TEXT_PRIMARY)
@@ -615,7 +615,7 @@ export function generateInvoicePdf(invoice: InvoicePdfData, store: StoreInfo): P
       values.forEach((text, i) => {
         const pad = 8
         if (i === 0) doc.text(text, rx + pad, y + 2, { width: colWidths[i] - 8 })
-        else doc.text(text, rx + colWidths[i] - pad, y + 2, { width: colWidths[i] - 4, align: 'right' })
+        else doc.text(text, rx + 4, y + 2, { width: colWidths[i] - 12, align: 'right' })
         rx += colWidths[i]
       })
       y += rowHeight
