@@ -129,7 +129,7 @@ export default function SaleDetailPage() {
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
-      toast.success('Receipt link copied')
+      toast.success('Invoice link copied')
       setTimeout(() => setCopied(false), 2000)
     } catch {
       toast.error('Failed to copy link')

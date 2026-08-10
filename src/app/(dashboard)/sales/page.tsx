@@ -115,7 +115,10 @@ export default function SalesPage() {
       paymentFilter === 'all' || sale.paymentMethod === paymentFilter
     const matchesCustomer =
       customerFilter === 'all' || (sale.customerName ?? '') === customerFilter
-    const matchesDate = isInDateRange(sale as unknown as { [k: string]: unknown }, dateRange)
+    const matchesDate = isInDateRange(
+      { createdAt: sale.saleDate ?? sale.createdAt } as unknown as { [k: string]: unknown },
+      dateRange
+    )
     return matchesSearch && matchesPayment && matchesCustomer && matchesDate
   })
 

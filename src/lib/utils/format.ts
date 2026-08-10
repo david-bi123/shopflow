@@ -21,12 +21,17 @@ export function formatDate(date: Date | string, format: 'short' | 'long' | 'date
   } else {
     d = date
   }
-  const options: Intl.DateTimeFormatOptions = {
-    ...(format === 'short' && { month: 'short', day: 'numeric', year: 'numeric' }),
-    ...(format === 'long' && { month: 'long', day: 'numeric', year: 'numeric' }),
-    ...(format === 'datetime' && { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+  if (Number.isNaN(d.getTime())) return String(date ?? '')
+  // Day-first ordering, e.g. "12 April, 2026" (not "April 12, 2026").
+  const month = d.toLocaleString('en-US', { month: format === 'long' ? 'long' : 'short' })
+  const day = d.getDate()
+  const year = d.getFullYear()
+  const base = `${day} ${month}, ${year}`
+  if (format === 'datetime') {
+    const time = d.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+    return `${base}, ${time}`
   }
-  return new Intl.DateTimeFormat('en-US', options).format(d)
+  return base
 }
 
 export function formatNumber(num: number): string {

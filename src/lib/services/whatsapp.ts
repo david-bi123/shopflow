@@ -15,7 +15,7 @@ export function generateWhatsAppLink(payload: WhatsAppPayload): string {
   if (type === 'receipt') {
     message = [
       `🧾 *${storeName}*`,
-      `Receipt #${number}`,
+      `Invoice #${number}`,
       `Total: ${currency}${total.toFixed(2)}`,
       `View: ${url}`,
       '',

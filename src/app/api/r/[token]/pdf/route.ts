@@ -111,7 +111,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="receipt-${s.saleNumber}.pdf"`,
+        'Content-Disposition': `attachment; filename="invoice-${s.saleNumber}.pdf"`,
         'Cache-Control': 'private, no-store',
       },
     })

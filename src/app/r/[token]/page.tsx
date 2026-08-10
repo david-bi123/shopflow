@@ -74,7 +74,7 @@ export default async function PublicReceiptPage({
 
   const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/r/${token}`
   const pdfUrl = `/api/r/${token}/pdf`
-  const whatsappMessage = `Receipt ${sale.saleNumber} - ${sale.customerName || 'Customer'} - Total: ${formatCurrency(sale.total, currency)}`
+  const whatsappMessage = `Invoice ${sale.saleNumber} - ${sale.customerName || 'Customer'} - Total: ${formatCurrency(sale.total, currency)}`
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}%0A${receiptUrl}`
 
   const paymentMethodLabel = (sale.paymentMethod || 'cash')
@@ -154,10 +154,10 @@ export default async function PublicReceiptPage({
           {/* Title + number + status badge (mirrors PDF body) */}
           <div className="px-5 pt-7 text-center sm:px-10 sm:pt-8">
             <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-500">
-              Receipt
+              Invoice
             </p>
             <h2 className="mt-1 text-3xl font-bold tracking-tight text-[#0f172a] sm:text-4xl">
-              #{sale.saleNumber}
+              Invoice #{sale.saleNumber}
             </h2>
             <div
               className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusConfig.bgClass} ${statusConfig.className}`}
@@ -167,7 +167,7 @@ export default async function PublicReceiptPage({
             </div>
           </div>
 
-          {/* Customer + Receipt details (mirrors PDF side-by-side) */}
+          {/* Customer + Invoice details (mirrors PDF side-by-side) */}
           <div className="grid grid-cols-1 gap-6 border-y border-border/60 px-5 py-5 sm:grid-cols-2 sm:px-10 sm:py-6">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-foreground">
@@ -185,7 +185,7 @@ export default async function PublicReceiptPage({
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between gap-4">
-                <span className="text-xs text-muted-foreground">Receipt Date:</span>
+                <span className="text-xs text-muted-foreground">Invoice Date:</span>
                 <span className="font-medium tabular-nums text-foreground">
                   {formatDate(sale.saleDate ?? sale.createdAt, 'long')}
                 </span>

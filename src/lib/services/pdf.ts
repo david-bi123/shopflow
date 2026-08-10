@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit'
 import type { TaxItem } from '@/lib/validations/sale'
+import { formatDate } from '@/lib/utils/format'
 
 export interface SalePaymentHistoryEntry {
   type: string
@@ -103,15 +104,10 @@ function pdfSafeSymbol(symbol: string): string {
 
 /**
  * Formats an ISO date string the same way the on-screen receipt does
- * (e.g. "31 Jul 2026"). Falls back to the raw value if it isn't a date.
+ * (e.g. "12 April, 2026"). Falls back to the raw value if it isn't a date.
  */
 function formatPdfDate(value: string): string {
-  // Date-only strings ("2026-08-01") parse as UTC midnight and can shift
-  // a day for timezones west of UTC; re-parse as local midnight.
-  const src = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value
-  const d = new Date(src)
-  if (isNaN(d.getTime())) return value
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  return formatDate(value, 'long')
 }
 
 /**
@@ -270,13 +266,13 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
 
     let y = 142
 
-    // --- Title + sale number + payment status badge (centered) ---
+    // --- Title + invoice number + payment status badge (centered) ---
     doc.fontSize(24).font('Helvetica-Bold').fillColor(HEADER_COLOR)
-    doc.text('RECEIPT', 50, y, { width: doc.page.width - 100, align: 'center' })
+    doc.text('INVOICE', 50, y, { width: doc.page.width - 100, align: 'center' })
     y += 20
 
     doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
-    doc.text(`#${sale.saleNumber}`, 50, y, { width: doc.page.width - 100, align: 'center' })
+    doc.text(`Invoice #${sale.saleNumber}`, 50, y, { width: doc.page.width - 100, align: 'center' })
     y += 24
 
     // Payment status badge — Paid (green), Partially Paid (amber), Unpaid (red)
@@ -315,7 +311,7 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     const rightStartX = 350
     let detailY = y
     doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
-    doc.text('Receipt Date:', rightStartX, detailY)
+    doc.text('Invoice Date:', rightStartX, detailY)
     doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
     doc.text(formatPdfDate(sale.saleDate || sale.createdAt), rightStartX + 100, detailY, { width: 145 })
     detailY += 14
