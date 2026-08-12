@@ -24,7 +24,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   AreaChart,
   Area,
 } from 'recharts'
@@ -32,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ChartContainer } from '@/components/shared/chart-container'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -377,9 +377,14 @@ export default function ReportsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-5">
-                  <div className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={report.chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                  <ChartContainer className="h-72">
+                    {({ width, height }) => (
+                      <AreaChart
+                        width={width}
+                        height={height}
+                        data={report.chartData}
+                        margin={{ top: 5, right: 5, left: -10, bottom: 0 }}
+                      >
                         <defs>
                           <linearGradient id="reportRevenueGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.35} />
@@ -411,8 +416,8 @@ export default function ReportsPage() {
                           fill="url(#reportRevenueGradient)"
                         />
                       </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
+                    )}
+                  </ChartContainer>
                 </CardContent>
               </Card>
 
@@ -429,34 +434,34 @@ export default function ReportsPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="pt-5">
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={report.topProducts} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-                          <XAxis
-                            type="number"
-                            tick={{ fontSize: 11 }}
-                            tickLine={false}
-                            axisLine={false}
-                          />
-                          <YAxis
-                            dataKey="name"
-                            type="category"
-                            tick={{ fontSize: 11 }}
-                            tickLine={false}
-                            axisLine={false}
-                            width={100}
-                          />
-                          <Tooltip content={<BarTooltip />} cursor={{ fill: 'var(--primary)', opacity: 0.05 }} />
-                          <Bar
-                            dataKey="quantity"
-                            fill="var(--chart-1)"
-                            radius={[0, 4, 4, 0]}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
+                  <ChartContainer className="h-64">
+                    {({ width, height }) => (
+                      <BarChart width={width} height={height} data={report.topProducts} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          tick={{ fontSize: 11 }}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          tick={{ fontSize: 11 }}
+                          tickLine={false}
+                          axisLine={false}
+                          width={100}
+                        />
+                        <Tooltip content={<BarTooltip />} cursor={{ fill: 'var(--primary)', opacity: 0.05 }} />
+                        <Bar
+                          dataKey="quantity"
+                          fill="var(--chart-1)"
+                          radius={[0, 4, 4, 0]}
+                        />
+                      </BarChart>
+                    )}
+                  </ChartContainer>
+                </CardContent>
                 </Card>
               </div>
             </>

@@ -16,7 +16,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/shared/page-header'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts'
+import { ChartContainer } from '@/components/shared/chart-container'
 
 interface PlatformStats {
   totalTenants: number
@@ -182,9 +183,9 @@ export default function AdminStatsPage() {
               <p className="text-sm text-muted-foreground">No tenant growth data available</p>
             </div>
           ) : (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={growth} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+            <ChartContainer className="h-72">
+              {({ width, height }) => (
+                <BarChart width={width} height={height} data={growth} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis
                     dataKey="month"
@@ -221,8 +222,8 @@ export default function AdminStatsPage() {
                     ))}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
-            </div>
+              )}
+            </ChartContainer>
           )}
         </CardContent>
       </Card>
