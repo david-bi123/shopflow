@@ -204,7 +204,7 @@ export async function getSalesReport(startDate: string, endDate: string) {
 
   const dayExpr = sql<string>`COALESCE(${sales.saleDate}, LEFT(${sales.createdAt}, 10))`.as('day')
 
-  const [[kpis], daily, methodAgg] = await Promise.all([
+  const [[kpis], daily] = await Promise.all([
     db
       .select({
         totalRevenue: sql<number>`COALESCE(SUM(${sales.total}), 0)`.as('total_revenue'),
@@ -222,15 +222,6 @@ export async function getSalesReport(startDate: string, endDate: string) {
       .where(where)
       .groupBy(dayExpr)
       .orderBy(asc(dayExpr)),
-    db
-      .select({
-        method: sales.paymentMethod,
-        count: sql<number>`COUNT(*)`.as('count'),
-        total: sql<number>`COALESCE(SUM(${sales.total}), 0)`.as('total'),
-      })
-      .from(sales)
-      .where(where)
-      .groupBy(sales.paymentMethod),
   ])
 
   const totalRevenue = Number(kpis?.totalRevenue ?? 0)
@@ -272,11 +263,6 @@ export async function getSalesReport(startDate: string, endDate: string) {
       sales: Number(d.sales),
     })),
     topProducts,
-    paymentMethods: methodAgg.map((m) => ({
-      method: m.method,
-      count: Number(m.count),
-      total: Number(m.total),
-    })),
     // `sales` here is the raw list for export. Kept for backward
     // compatibility but the page no longer uses it; consider removing.
     sales: [],

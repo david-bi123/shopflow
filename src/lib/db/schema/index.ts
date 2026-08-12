@@ -96,7 +96,6 @@ export const sales = mysqlTable('sales', {
   amountPaid: double('amount_paid').notNull().default(0),
   /** Outstanding amount owed (total - amountPaid). Always 0 if paid in full. */
   amountOwed: double('amount_owed').notNull().default(0),
-  paymentMethod: varchar('payment_method', { length: 20 }).notNull(),
   notes: text('notes'),
   /** Optional waybill / delivery note number shown on the receipt. */
   waybillNo: varchar('waybill_no', { length: 100 }),
@@ -265,7 +264,6 @@ export const settings = mysqlTable('settings', {
   /** Shop-defined tax lines that the user can enable/disable per transaction. */
   taxes: json('taxes').$type<TaxDefinition[]>().notNull().default([]),
   receiptFooter: text('receipt_footer').notNull(),
-  defaultPaymentMethods: json('default_payment_methods').$type<string[]>().notNull(),
   showLogoOnReceipt: tinyint('show_logo_on_receipt').notNull().default(1),
   showQrOnReceipt: tinyint('show_qr_on_receipt').notNull().default(1),
   createdAt: varchar('created_at', { length: 50 }).notNull(),

@@ -37,13 +37,6 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { DataTable } from '@/components/shared/data-table'
 import { EmptyState } from '@/components/shared/empty-state'
 import { PageHeader } from '@/components/shared/page-header'
@@ -84,7 +77,6 @@ export default function CustomersPage() {
   const [creating, setCreating] = useState(false)
   const [paying, setPaying] = useState(false)
   const [payAmount, setPayAmount] = useState('')
-  const [payMethod, setPayMethod] = useState<'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other'>('cash')
   const [payNotes, setPayNotes] = useState('')
   const [form, setForm] = useState({
     name: '',
@@ -187,7 +179,6 @@ export default function CustomersPage() {
   function openPayDialog(c: Customer) {
     setPayingCustomer(c)
     setPayAmount(String(c.totalDebt.toFixed(2)))
-    setPayMethod('cash')
     setPayNotes('')
   }
 
@@ -208,7 +199,6 @@ export default function CustomersPage() {
       const res = await recordDebtPayment({
         customerId: payingCustomer.id,
         amount,
-        paymentMethod: payMethod,
         notes: payNotes || undefined,
       })
       if ('error' in res && res.error) {
@@ -664,21 +654,6 @@ export default function CustomersPage() {
                   Pay All
                 </Button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="payMethod">Payment Method</Label>
-              <Select value={payMethod} onValueChange={(v) => setPayMethod(v as typeof payMethod)}>
-                <SelectTrigger id="payMethod">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="payNotes">Notes (optional)</Label>

@@ -27,9 +27,6 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  PieChart,
-  Pie,
-  Cell,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -52,7 +49,6 @@ interface SalesReportData {
   averageSale: number
   chartData: Array<{ label: string; revenue: number; sales: number }>
   topProducts: Array<{ name: string; quantity: number; revenue: number }>
-  paymentMethods: Array<{ method: string; count: number; total: number }>
 }
 
 const PRESETS: { key: DatePreset; label: string }[] = [
@@ -420,8 +416,8 @@ export default function ReportsPage() {
                 </CardContent>
               </Card>
 
-              {/* Bottom charts */}
-              <div className="grid gap-6 lg:grid-cols-2">
+              {/* Bottom chart */}
+              <div className="grid gap-6">
                 {/* Top Products */}
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between border-b border-border/60">
@@ -458,42 +454,6 @@ export default function ReportsPage() {
                             radius={[0, 4, 4, 0]}
                           />
                         </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Payment Methods */}
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between border-b border-border/60">
-                    <div>
-                      <CardTitle className="text-base">Payment Methods</CardTitle>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Breakdown by transaction count
-                      </p>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-5">
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={report.paymentMethods}
-                            dataKey="count"
-                            nameKey="method"
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={80}
-                            label={({ name, percent }: { name?: string; percent?: number }) =>
-                              `${name ?? ''} ${((Number(percent) || 0) * 100).toFixed(0)}%`
-                            }
-                          >
-                            {report.paymentMethods.map((_, idx) => (
-                              <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip content={<ChartTooltip />} />
-                        </PieChart>
                       </ResponsiveContainer>
                     </div>
                   </CardContent>

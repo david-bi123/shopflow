@@ -40,13 +40,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { formatCurrency, formatDate, formatNumber } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
 import { EditCustomerDialog } from '@/components/customers/edit-customer-dialog'
@@ -77,7 +70,6 @@ interface SaleHistoryItem {
   total: number
   amountPaid: number
   amountOwed: number
-  paymentMethod: string
   createdAt: string
 }
 
@@ -126,7 +118,6 @@ export default function CustomerDetailPage() {
   const [paying, setPaying] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [amount, setAmount] = useState('')
-  const [method, setMethod] = useState<'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other'>('cash')
   const [notes, setNotes] = useState('')
 
   async function refresh() {
@@ -159,7 +150,6 @@ export default function CustomerDetailPage() {
   function openPayDialog() {
     if (!summary) return
     setAmount(summary.totalDebt.toFixed(2))
-    setMethod('cash')
     setNotes('')
     setPayOpen(true)
   }
@@ -181,7 +171,6 @@ export default function CustomerDetailPage() {
       const res = await recordDebtPayment({
         customerId: id,
         amount: a,
-        paymentMethod: method,
         notes: notes || undefined,
       })
       if ('error' in res && res.error) {
@@ -562,7 +551,7 @@ export default function CustomerDetailPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{s.saleNumber}</p>
                       <p className="text-[11px] text-muted-foreground">
-                        {formatDate(s.createdAt, 'short')} \u00b7 {s.paymentMethod.replace('_', ' ')}
+                        {formatDate(s.createdAt, 'short')}
                       </p>
                     </div>
                     <div className="text-right">
@@ -639,21 +628,6 @@ export default function CustomerDetailPage() {
                   Pay All
                 </Button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="payMethod2">Payment Method</Label>
-              <Select value={method} onValueChange={(v) => setMethod(v as typeof method)}>
-                <SelectTrigger id="payMethod2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="payNotes2">Notes (optional)</Label>

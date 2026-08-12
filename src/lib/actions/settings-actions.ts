@@ -36,7 +36,6 @@ export async function getSettings() {
       storeDescription: null,
       taxNumber: null,
       receiptFooter: 'Thank you for your purchase!',
-      defaultPaymentMethods: ['cash', 'card', 'mobile_money'],
       taxes: DEFAULT_TAXES,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

@@ -117,7 +117,6 @@ export async function createSale(data: CreateSaleInput) {
       total: calculatedTotal,
       amountPaid,
       amountOwed,
-      paymentMethod: validated.data.paymentMethod as 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other',
       notes: (data.notes as string | undefined) ?? null,
       waybillNo: (data.waybillNo as string | undefined)?.trim() || null,
       companyRefNo: (data.companyRefNo as string | undefined)?.trim() || null,
@@ -235,9 +234,6 @@ export async function getSales(page = 1, limit = 20, filters?: Record<string, st
       sql`CAST(${sales.items} AS CHAR) LIKE ${term}`,
     )
     if (searchCondition) conditions.push(searchCondition)
-  }
-  if (filters?.paymentMethod) {
-    conditions.push(eq(sales.paymentMethod, filters.paymentMethod as 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other'))
   }
   if (filters?.startDate) {
     conditions.push(sql`COALESCE(${sales.saleDate}, LEFT(${sales.createdAt}, 10)) >= ${filters.startDate}`)
@@ -419,7 +415,6 @@ export async function updateSale(id: string, data: CreateSaleInput) {
         total: calculatedTotal,
         amountPaid,
         amountOwed,
-        paymentMethod: validated.data.paymentMethod as 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other',
         notes: (validated.data.notes as string | undefined) ?? null,
         waybillNo: (validated.data.waybillNo as string | undefined)?.trim() || null,
         companyRefNo: (validated.data.companyRefNo as string | undefined)?.trim() || null,
@@ -599,7 +594,6 @@ export async function getSaleByPublicToken(token: string) {
       total: sales.total,
       amountPaid: sales.amountPaid,
       amountOwed: sales.amountOwed,
-      paymentMethod: sales.paymentMethod,
       notes: sales.notes,
       waybillNo: sales.waybillNo,
       companyRefNo: sales.companyRefNo,

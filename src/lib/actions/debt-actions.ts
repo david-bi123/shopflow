@@ -104,7 +104,6 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
       ))
       .orderBy(asc(invoices.createdAt), asc(invoices.id))
 
-    const paymentMethodLabel = validated.data.paymentMethod.replace('_', ' ')
     const distributions: DistributionEntry[] = []
     let runningBalance = customer.totalDebt
     let remaining = paymentAmount
@@ -126,7 +125,7 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
         type: 'manual_payment',
         referenceType: 'sale',
         referenceId: sale.id,
-        notes: `Payment toward ${sale.saleNumber} via ${paymentMethodLabel}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
+        notes: `Payment toward ${sale.saleNumber}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
         balanceAfter: Math.max(0, Math.round((runningBalance - apply) * 100) / 100),
         createdBy: userId,
         createdAt: lastPaymentAt,
@@ -152,7 +151,7 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
         type: 'manual_payment',
         referenceType: 'invoice',
         referenceId: inv.id,
-        notes: `Payment toward ${inv.invoiceNumber} via ${paymentMethodLabel}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
+        notes: `Payment toward ${inv.invoiceNumber}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
         balanceAfter: Math.max(0, Math.round((runningBalance - apply) * 100) / 100),
         createdBy: userId,
         createdAt: lastPaymentAt,
@@ -171,7 +170,7 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
         type: 'manual_payment',
         referenceType: null,
         referenceId: null,
-        notes: `Credit from overpayment via ${paymentMethodLabel}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
+        notes: `Credit from overpayment${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
         balanceAfter: Math.max(0, Math.round((runningBalance - remaining) * 100) / 100),
         createdBy: userId,
         createdAt: lastPaymentAt,
@@ -201,7 +200,7 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
     entityId: String(customerId),
     performedBy: userId,
     performedByName: session.user.name || 'Unknown',
-    details: { amount: paymentAmount, paymentMethod: validated.data.paymentMethod, balanceAfter: result.balanceAfter, distributions: result.distributions },
+    details: { amount: paymentAmount, balanceAfter: result.balanceAfter, distributions: result.distributions },
   })
 
   await createNotification({
@@ -280,7 +279,6 @@ export async function getCustomerDebtLedger(customerId: string) {
       total: sales.total,
       amountPaid: sales.amountPaid,
       amountOwed: sales.amountOwed,
-      paymentMethod: sales.paymentMethod,
       createdAt: sales.createdAt,
     })
       .from(sales)
@@ -406,7 +404,6 @@ export async function recordSalePayment(saleId: string, data: SalePaymentInput) 
     const newSalePaid = Math.round((sale.amountPaid + paymentAmount) * 100) / 100
     const newSaleOwed = Math.max(0, Math.round((owed - paymentAmount) * 100) / 100)
     const newCustomerDebt = Math.max(0, Math.round((customer.totalDebt - paymentAmount) * 100) / 100)
-    const paymentMethodLabel = validated.data.paymentMethod.replace('_', ' ')
 
     // Race-safe update: only succeed if the sale STILL has at least
     // `paymentAmount` outstanding. The WHERE-clause guard is what stops
@@ -436,7 +433,7 @@ export async function recordSalePayment(saleId: string, data: SalePaymentInput) 
       type: 'manual_payment',
       referenceType: 'sale',
       referenceId: numericSaleId,
-      notes: `Payment toward ${sale.saleNumber} via ${paymentMethodLabel}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
+      notes: `Payment toward ${sale.saleNumber}${validated.data.notes ? ` \u2014 ${validated.data.notes}` : ''}`,
       balanceAfter: newCustomerDebt,
       createdBy: userId,
       createdAt: now,
@@ -467,7 +464,7 @@ export async function recordSalePayment(saleId: string, data: SalePaymentInput) 
     entityId: String(numericSaleId),
     performedBy: userId,
     performedByName: session.user.name || 'Unknown',
-    details: { amount: paymentAmount, paymentMethod: validated.data.paymentMethod, balanceAfter: result.balanceAfter },
+    details: { amount: paymentAmount, balanceAfter: result.balanceAfter },
   })
 
   await createNotification({

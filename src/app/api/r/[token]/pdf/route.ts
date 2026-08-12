@@ -84,7 +84,6 @@ export async function GET(
         total: s.total,
         amountPaid: s.amountPaid,
         amountOwed: s.amountOwed,
-        paymentMethod: s.paymentMethod,
         notes: s.notes || undefined,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,

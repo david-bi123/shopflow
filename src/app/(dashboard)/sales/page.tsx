@@ -48,15 +48,6 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils/cn'
 import type { Sale } from '@/lib/validations/sale'
 
-const PAYMENT_METHODS = [
-  { value: 'all', label: 'All Methods' },
-  { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
-  { value: 'mobile_money', label: 'Mobile Money' },
-  { value: 'bank_transfer', label: 'Bank Transfer' },
-  { value: 'other', label: 'Other' },
-]
-
 const ITEMS_PER_PAGE = 10
 
 export default function SalesPage() {
@@ -64,7 +55,6 @@ export default function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [paymentFilter, setPaymentFilter] = useState('all')
   const [customerFilter, setCustomerFilter] = useState('all')
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
   const [dateFrom, setDateFrom] = useState('')
@@ -78,7 +68,7 @@ export default function SalesPage() {
     ;(async () => {
       setLoading(true)
       try {
-        const data = await getSales()
+        const data = await getSales(1, 1000)
         if (cancelled) return
         if ('error' in data) { toast.error(data.error); setSales([]); return }
         setSales((data.sales ?? []) as unknown as Sale[])
@@ -94,7 +84,7 @@ export default function SalesPage() {
   async function fetchSales() {
     setLoading(true)
     try {
-      const data = await getSales()
+      const data = await getSales(1, 1000)
       if ('error' in data) { toast.error(data.error); setSales([]); return }
       setSales((data.sales ?? []) as unknown as Sale[])
     } catch {
@@ -111,15 +101,13 @@ export default function SalesPage() {
       sale.saleNumber.toLowerCase().includes(q) ||
       (sale.customerName ?? '').toLowerCase().includes(q) ||
       sale.items.some((item) => item.name.toLowerCase().includes(q))
-    const matchesPayment =
-      paymentFilter === 'all' || sale.paymentMethod === paymentFilter
     const matchesCustomer =
       customerFilter === 'all' || (sale.customerName ?? '') === customerFilter
     const matchesDate = isInDateRange(
       { createdAt: sale.saleDate ?? sale.createdAt } as unknown as { [k: string]: unknown },
       dateRange
     )
-    return matchesSearch && matchesPayment && matchesCustomer && matchesDate
+    return matchesSearch && matchesCustomer && matchesDate
   })
 
   const customerOptions = Array.from(
@@ -207,24 +195,6 @@ export default function SalesPage() {
             className="h-10 rounded-full border border-input/60 bg-card pl-10 pr-4 shadow-sm transition-all placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-emerald-500/20"
           />
         </div>
-        <Select
-          value={paymentFilter}
-          onValueChange={(v) => {
-            setPaymentFilter(v)
-            setCurrentPage(1)
-          }}
-        >
-          <SelectTrigger className="h-10 w-full rounded-full border border-input/60 bg-card shadow-sm sm:w-44 focus:ring-2 focus:ring-emerald-500/20">
-            <SelectValue placeholder="Payment method" />
-          </SelectTrigger>
-          <SelectContent>
-            {PAYMENT_METHODS.map((m) => (
-              <SelectItem key={m.value} value={m.value}>
-                {m.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select
           value={customerFilter}
           onValueChange={(v) => {

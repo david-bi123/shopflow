@@ -60,7 +60,6 @@ export const createSaleSchema = z.object({
   total: z.number().positive('Sale total must be greater than zero').optional(),
   /** Amount paid at sale time. Defaults to total (paid in full). */
   amountPaid: z.number().min(0).default(0),
-  paymentMethod: z.string().max(50).optional().or(z.literal('')),
   notes: z.string().max(1000).optional().or(z.literal('')),
 })
 
@@ -93,7 +92,6 @@ export interface Sale {
   total: number
   amountPaid: number
   amountOwed: number
-  paymentMethod: string
   notes?: string
   createdAt: string
   updatedAt: string

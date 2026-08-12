@@ -70,7 +70,6 @@ export async function registerShop(formData: FormData) {
     currency: 'GHS',
     storePhone: raw.phone || '',
     receiptFooter: 'Thank you for your purchase!',
-    defaultPaymentMethods: ['cash', 'card', 'mobile_money'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   })

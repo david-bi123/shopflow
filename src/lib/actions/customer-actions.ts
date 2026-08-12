@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { dbConnect } from '@/lib/db/connect'
 import { customers, sales, invoices } from '@/lib/db/schema'
-import { eq, and, or, like, desc, count, isNotNull, isNull, ne } from 'drizzle-orm'
+import { eq, and, or, like, desc, count, isNotNull, isNull, ne, sql } from 'drizzle-orm'
 import { toNum, serializeRow, serializeList } from '@/lib/db/helpers'
 import { createCustomerSchema, updateCustomerSchema } from '@/lib/validations/customer'
 import { auth } from '@/lib/auth/auth'
@@ -137,7 +137,7 @@ export async function getCustomerById(id: string) {
       id: sales.id,
       saleNumber: sales.saleNumber,
       total: sales.total,
-      status: sales.paymentMethod,
+      status: sql`CASE WHEN ${sales.amountOwed} > 0.005 THEN 'partial' ELSE 'paid' END`,
       createdAt: sales.createdAt,
     }).from(sales)
       .where(and(eq(sales.tenantId, tenantId), eq(sales.customerId, customerId)))

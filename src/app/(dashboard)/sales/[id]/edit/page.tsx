@@ -98,7 +98,6 @@ export default function EditSalePage() {
       tax: 0,
       taxItems: [],
       amountPaid: 0,
-      paymentMethod: 'cash',
       notes: '',
     },
   })
@@ -186,7 +185,6 @@ export default function EditSalePage() {
           taxItems: (data.taxItems as TaxItem[]) ?? [],
           total: Number(data.total ?? 0),
           amountPaid: Number(data.amountPaid ?? data.total ?? 0),
-          paymentMethod: (data.paymentMethod as FormValues['paymentMethod']) ?? 'cash',
           notes: (data.notes as string | null) ?? '',
         })
       } catch {
@@ -578,25 +576,6 @@ export default function EditSalePage() {
                   placeholder="Optional vehicle registration"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="paymentMethod">Payment Method *</Label>
-              <Select
-                value={watch('paymentMethod') ?? 'cash'}
-                onValueChange={(v) => form.setValue('paymentMethod', v as FormValues['paymentMethod'])}
-              >
-                <SelectTrigger id="paymentMethod">
-                  <SelectValue placeholder="Select payment method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-2">

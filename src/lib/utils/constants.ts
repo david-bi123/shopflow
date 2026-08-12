@@ -63,11 +63,3 @@ export const TIMEZONES = [
   'Asia/Singapore',
   'Australia/Sydney',
 ] as const
-
-export const PAYMENT_METHODS = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
-  { value: 'mobile_money', label: 'Mobile Money' },
-  { value: 'bank_transfer', label: 'Bank Transfer' },
-  { value: 'other', label: 'Other' },
-] as const

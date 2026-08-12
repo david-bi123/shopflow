@@ -59,6 +59,9 @@ const toDateInputValue = (d: Date) => {
 }
 const todayStr = toDateInputValue(new Date())
 
+/** `yyyy-mm-dd` -> `dd-mm-yyyy` for display on the sale date field. */
+const toDmy = (iso: string) => iso.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3-$2-$1')
+
 const DEFAULT_TAXES = [
   { name: 'VAT', rate: 15, enabled: true },
   { name: 'NHIS', rate: 2.5, enabled: true },
@@ -129,7 +132,6 @@ export default function NewSalePage() {
       tax: 0,
       taxItems: [],
       amountPaid: 0,
-      paymentMethod: 'cash',
       notes: '',
     },
   })
@@ -152,6 +154,7 @@ export default function NewSalePage() {
   const discountPercent = watch('discountPercent') || 0
   const taxItems = watch('taxItems') ?? []
   const amountPaid = watch('amountPaid') ?? 0
+  const saleDate = watch('saleDate') || todayStr
 
   const subtotal = items.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
@@ -482,12 +485,28 @@ export default function NewSalePage() {
                 <CalendarDays className="size-3.5 text-muted-foreground" />
                 Sale Date
               </Label>
-              <Input
-                id="saleDate"
-                type="date"
-                max={todayStr}
-                {...register('saleDate')}
-              />
+              <div className="relative">
+                <Input
+                  type="text"
+                  readOnly
+                  value={toDmy(saleDate)}
+                  placeholder="DD-MM-YYYY"
+                  className="cursor-pointer pr-9"
+                  onClick={() =>
+                    (document.getElementById('saleDatePicker') as HTMLInputElement | null)?.showPicker()
+                  }
+                />
+                <Input
+                  id="saleDatePicker"
+                  type="date"
+                  max={todayStr}
+                  {...register('saleDate')}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+                />
+                <CalendarDays className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              </div>
               <p className="text-xs text-muted-foreground">
                 The date this sale took place. Defaults to today \u2014 change it when recording a past sale.
               </p>
@@ -544,26 +563,6 @@ export default function NewSalePage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="paymentMethod">Payment Method *</Label>
-              <Select
-                defaultValue="cash"
-                onValueChange={(v) => form.setValue('paymentMethod', v as FormValues['paymentMethod'])}
-              >
-                <SelectTrigger id="paymentMethod">
-                  <SelectValue placeholder="Select payment method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Discount as percentage */}
             <div className="space-y-2">
               <Label htmlFor="discountPercent" className="flex items-center gap-1.5">
                 <Percent className="size-3.5 text-muted-foreground" />

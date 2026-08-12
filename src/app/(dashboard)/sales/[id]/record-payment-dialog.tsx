@@ -16,25 +16,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { recordSalePayment } from '@/lib/actions/debt-actions'
 import { formatCurrency } from '@/lib/utils/format'
-
-type PaymentMethod = 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other'
-
-const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
-  { value: 'mobile_money', label: 'Mobile Money' },
-  { value: 'bank_transfer', label: 'Bank Transfer' },
-  { value: 'other', label: 'Other' },
-]
 
 interface RecordPaymentDialogProps {
   open: boolean
@@ -58,7 +41,6 @@ export function RecordPaymentDialog({
   onSuccess,
 }: RecordPaymentDialogProps) {
   const [amount, setAmount] = useState<string>('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [notes, setNotes] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -67,7 +49,6 @@ export function RecordPaymentDialog({
   useEffect(() => {
     if (open) {
       setAmount(balanceDue > 0 ? balanceDue.toFixed(2) : '')
-      setPaymentMethod('cash')
       setNotes('')
       setError(null)
     }
@@ -92,7 +73,6 @@ export function RecordPaymentDialog({
     try {
       const result = await recordSalePayment(saleId, {
         amount: numericAmount,
-        paymentMethod,
         notes: notes.trim() || undefined,
       })
       if ('error' in result && result.error) {
@@ -178,28 +158,12 @@ export function RecordPaymentDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Payment Method *</Label>
-            <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-              <SelectTrigger id="paymentMethod">
-                <SelectValue placeholder="Select a method" />
-              </SelectTrigger>
-              <SelectContent>
-                {PAYMENT_METHODS.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="notes">Notes (optional)</Label>
             <Textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Momo ref, partial deposit, etc."
+              placeholder="e.g. deposit reference, instalment details, etc."
               rows={2}
               maxLength={500}
             />

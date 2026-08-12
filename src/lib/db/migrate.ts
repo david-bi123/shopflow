@@ -79,6 +79,21 @@ const alters: Alter[] = [
   { table: 'sales', column: 'sale_date', ddl: 'ALTER TABLE `sales` ADD COLUMN `sale_date` VARCHAR(50)' },
 ]
 
+/**
+ * Destructive, one-way column removals. Unlike `alters` (which are
+ * additive and safe to re-run), each DROP permanently removes the column
+ * and its data. They are guarded with try/catch for the "column does not
+ * exist" case so re-running the migration on a finished database is a
+ * no-op.
+ *
+ * Payment methods were removed from sales + settings. The columns are
+ * dropped for real so no trace of the mode-of-payment data remains.
+ */
+const drops: { table: string; column: string; ddl: string }[] = [
+  { table: 'sales', column: 'payment_method', ddl: 'ALTER TABLE `sales` DROP COLUMN `payment_method`' },
+  { table: 'settings', column: 'default_payment_methods', ddl: 'ALTER TABLE `settings` DROP COLUMN `default_payment_methods`' },
+]
+
 const createTableStatements: { name: string; ddl: string }[] = [
   {
     name: 'tenants',
@@ -167,7 +182,6 @@ const createTableStatements: { name: string; ddl: string }[] = [
         \`total\` DOUBLE NOT NULL,
         \`amount_paid\` DOUBLE NOT NULL DEFAULT 0,
         \`amount_owed\` DOUBLE NOT NULL DEFAULT 0,
-        \`payment_method\` VARCHAR(20) NOT NULL,
         \`notes\` TEXT,
         \`created_by\` INT NOT NULL,
         \`created_at\` VARCHAR(50) NOT NULL,
@@ -310,7 +324,6 @@ const createTableStatements: { name: string; ddl: string }[] = [
         \`tax_rate\` DOUBLE NOT NULL DEFAULT 0,
         \`taxes\` JSON NOT NULL,
         \`receipt_footer\` TEXT NOT NULL,
-        \`default_payment_methods\` JSON NOT NULL,
         \`show_logo_on_receipt\` TINYINT NOT NULL DEFAULT 1,
         \`show_qr_on_receipt\` TINYINT NOT NULL DEFAULT 1,
         \`created_at\` VARCHAR(50) NOT NULL,
@@ -389,6 +402,21 @@ function isAlreadyExists(err: unknown): boolean {
   )
 }
 
+/** True when an ALTER failed purely because the target column is missing. */
+function isMissingColumn(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  const code = (err as { cause?: { code?: string } })?.cause?.code
+  const errno = (err as { cause?: { errno?: number } })?.cause?.errno
+  return (
+    msg.includes('check that column/key exists') ||
+    msg.includes('Unknown column') ||
+    code === 'ER_CANT_DROP_FIELD_OR_KEY' ||
+    code === 'ER_BAD_FIELD_ERROR' ||
+    errno === 1091 ||
+    errno === 1054
+  )
+}
+
 async function migrate() {
   console.log('Connecting to database...')
   const db = await dbConnect()
@@ -417,6 +445,21 @@ async function migrate() {
     } catch (err) {
       if (isAlreadyExists(err)) {
         console.log('     already exists, skipping')
+      } else {
+        throw err
+      }
+    }
+  }
+
+  console.log('\n--- Step 2.5: DROP columns (destructive, one-way) ---')
+  for (const { table, column, ddl } of drops) {
+    try {
+      console.log(`  -> ${table}.${column}`)
+      await db.execute(sql.raw(ddl))
+      console.log('     dropped')
+    } catch (err) {
+      if (isMissingColumn(err)) {
+        console.log('     already dropped, skipping')
       } else {
         throw err
       }

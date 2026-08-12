@@ -7,7 +7,6 @@ import {
   AlertCircle,
   Globe,
   Receipt,
-  CreditCard,
   Store as StoreIcon,
   Settings as SettingsIcon,
   Check,
@@ -19,7 +18,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -29,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { CURRENCIES, TIMEZONES, PAYMENT_METHODS } from '@/lib/utils/constants'
+import { CURRENCIES, TIMEZONES } from '@/lib/utils/constants'
 import { formatCurrency } from '@/lib/utils/format'
 
 interface TaxLine {
@@ -53,7 +51,6 @@ interface Settings {
   receiptFooter: string
   showLogoOnReceipt: boolean
   showQrOnReceipt: boolean
-  defaultPaymentMethods: string[]
 }
 
 const defaultSettings: Settings = {
@@ -76,7 +73,6 @@ const defaultSettings: Settings = {
   receiptFooter: 'Thank you for your business!',
   showLogoOnReceipt: true,
   showQrOnReceipt: true,
-  defaultPaymentMethods: ['cash', 'mobile_money'],
 }
 
 export default function SettingsPage() {
@@ -132,15 +128,6 @@ export default function SettingsPage() {
     } finally {
       setSaving(false)
     }
-  }
-
-  function togglePaymentMethod(method: string) {
-    setSettings((prev) => ({
-      ...prev,
-      defaultPaymentMethods: prev.defaultPaymentMethods.includes(method)
-        ? prev.defaultPaymentMethods.filter((m) => m !== method)
-        : [...prev.defaultPaymentMethods, method],
-    }))
   }
 
   if (loading) {
@@ -424,38 +411,6 @@ export default function SettingsPage() {
                 onCheckedChange={(v) => setSettings({ ...settings, showQrOnReceipt: v })}
               />
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="overflow-hidden border-0 shadow-sm">
-        <CardHeader className="border-b bg-gradient-to-r from-emerald-500/5 to-transparent pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
-              <CreditCard className="h-4 w-4 text-emerald-600" />
-            </div>
-            <div>
-              <CardTitle className="text-base">Payment Methods</CardTitle>
-              <p className="text-xs text-muted-foreground">Default options shown when recording sales</p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-5">
-          <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
-            {PAYMENT_METHODS.map((pm) => (
-              <label
-                key={pm.value}
-                htmlFor={`pm-${pm.value}`}
-                className="flex cursor-pointer items-center gap-2.5 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30 hover:border-primary/30"
-              >
-                <Checkbox
-                  id={`pm-${pm.value}`}
-                  checked={settings.defaultPaymentMethods.includes(pm.value)}
-                  onCheckedChange={() => togglePaymentMethod(pm.value)}
-                />
-                <span className="text-sm font-medium">{pm.label}</span>
-              </label>
-            ))}
           </div>
         </CardContent>
       </Card>

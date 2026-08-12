@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   CircleDot,
   FileText,
-  CreditCard,
   Receipt,
   Wallet,
   ClipboardList,
@@ -42,7 +41,6 @@ export default async function PublicReceiptPage({
     total: number
     amountPaid: number
     amountOwed: number
-    paymentMethod: string
     notes?: string | null
     waybillNo?: string | null
     companyRefNo?: string | null
@@ -76,11 +74,6 @@ export default async function PublicReceiptPage({
   const pdfUrl = `/api/r/${token}/pdf`
   const whatsappMessage = `Invoice ${sale.saleNumber} - ${sale.customerName || 'Customer'} - Total: ${formatCurrency(sale.total, currency)}`
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}%0A${receiptUrl}`
-
-  const paymentMethodLabel = (sale.paymentMethod || 'cash')
-    .split('_')
-    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
 
   const owed = Math.max(0, Math.round((sale.amountOwed ?? 0) * 100) / 100)
   const paid = Math.max(0, Math.round((sale.amountPaid ?? 0) * 100) / 100)
@@ -188,13 +181,6 @@ export default async function PublicReceiptPage({
                 <span className="text-xs text-muted-foreground">Invoice Date:</span>
                 <span className="font-medium tabular-nums text-foreground">
                   {formatDate(sale.saleDate ?? sale.createdAt, 'long')}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-xs text-muted-foreground">Payment Method:</span>
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
-                  <CreditCard className="h-3 w-3" />
-                  {paymentMethodLabel}
                 </span>
               </div>
               {isUpdated && (

@@ -4,8 +4,6 @@ export type TenantStatus = 'pending' | 'active' | 'suspended' | 'rejected'
 
 export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'canceled' | 'expired'
 
-export type SalePaymentMethod = 'cash' | 'card' | 'mobile_money' | 'bank_transfer' | 'other'
-
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
 
 export type NotificationType =

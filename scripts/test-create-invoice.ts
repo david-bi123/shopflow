@@ -96,7 +96,6 @@ async function main() {
     total,
     amountPaid,
     amountOwed,
-    paymentMethod: 'cash',
     notes: 'Smoke test sale',
     createdBy: owner.id,
     createdAt: now,

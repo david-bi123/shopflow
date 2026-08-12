@@ -9,12 +9,10 @@ import {
   Trash2,
   User,
   Phone,
-  CreditCard,
   Calendar,
   Hash,
   FileText,
   Receipt,
-  Banknote,
   ReceiptText,
   CircleCheck,
   Printer,
@@ -40,34 +38,6 @@ import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import type { Sale } from '@/lib/validations/sale'
-
-const PAYMENT_META: Record<string, { label: string; icon: React.ElementType; className: string }> = {
-  cash: {
-    label: 'Cash',
-    icon: Banknote,
-    className: 'text-emerald-700 dark:text-emerald-300',
-  },
-  card: {
-    label: 'Card',
-    icon: CreditCard,
-    className: 'text-blue-700 dark:text-blue-300',
-  },
-  mobile_money: {
-    label: 'Mobile Money',
-    icon: Phone,
-    className: 'text-violet-700 dark:text-violet-300',
-  },
-  bank_transfer: {
-    label: 'Bank Transfer',
-    icon: ReceiptText,
-    className: 'text-amber-700 dark:text-amber-300',
-  },
-  other: {
-    label: 'Other',
-    icon: CircleCheck,
-    className: 'text-slate-700 dark:text-slate-300',
-  },
-}
 
 export default function SaleDetailPage() {
   const params = useParams()
@@ -181,10 +151,6 @@ export default function SaleDetailPage() {
       </div>
     )
   }
-
-  const paymentKey = (sale.paymentMethod || 'other').toLowerCase()
-  const payment = PAYMENT_META[paymentKey] ?? PAYMENT_META.other
-  const PaymentIcon = payment.icon
 
   const paidHistory = paymentHistory.filter((h) => h.type !== 'sale_created')
 
@@ -309,16 +275,6 @@ export default function SaleDetailPage() {
                 <dd className="text-right font-medium text-foreground">{sale.carNo}</dd>
               </div>
             )}
-            <div className="flex items-start justify-between gap-4">
-              <dt className="flex shrink-0 items-center gap-2 text-muted-foreground">
-                <CreditCard className="size-4" />
-                Payment
-              </dt>
-              <dd className="flex items-center gap-1.5 text-right font-medium text-foreground">
-                <PaymentIcon className={`size-3.5 ${payment.className}`} />
-                {payment.label}
-              </dd>
-            </div>
             <div className="flex items-start justify-between gap-4">
               <dt className="flex shrink-0 items-center gap-2 text-muted-foreground">
                 <Calendar className="size-4" />

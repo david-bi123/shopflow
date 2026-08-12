@@ -27,7 +27,6 @@ export interface SalePdfData {
   total: number
   amountPaid: number
   amountOwed: number
-  paymentMethod: string
   notes?: string
   createdAt: string
   updatedAt: string
@@ -314,15 +313,6 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     doc.text('Invoice Date:', rightStartX, detailY)
     doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
     doc.text(formatPdfDate(sale.saleDate || sale.createdAt), rightStartX + 100, detailY, { width: 145 })
-    detailY += 14
-    doc.fillColor(TEXT_MUTED).font('Helvetica')
-    doc.text('Payment Method:', rightStartX, detailY)
-    doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-    const methodLabel = sale.paymentMethod
-      .split('_')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ')
-    doc.text(methodLabel, rightStartX + 100, detailY, { width: 145 })
     detailY += 14
     if (sale.updatedAt && sale.updatedAt !== sale.createdAt) {
       doc.fillColor(TEXT_MUTED).font('Helvetica')

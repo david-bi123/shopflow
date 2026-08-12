@@ -131,7 +131,6 @@ export async function createTenant(data: { shopName: string; ownerEmail: string;
       currency: 'GHS',
       timezone: 'Africa/Accra',
       receiptFooter: 'Thank you for your purchase!',
-      defaultPaymentMethods: ['cash', 'card', 'mobile_money'],
       taxes: [],
       createdAt: now,
       updatedAt: now,
