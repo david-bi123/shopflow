@@ -173,7 +173,12 @@ export default function SalesPage() {
             <TrendingUp className="h-6 w-6 text-emerald-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold sm:text-2xl">Sales</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold sm:text-2xl">Sales</h1>
+              <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 ring-1 ring-emerald-500/20">
+                {sales.length} total
+              </span>
+            </div>
             <p className="mt-0.5 text-sm text-muted-foreground">
               Track and manage your sales transactions in one place.
             </p>
