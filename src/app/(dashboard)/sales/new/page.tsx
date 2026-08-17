@@ -62,6 +62,26 @@ const todayStr = toDateInputValue(new Date())
 /** `yyyy-mm-dd` -> `dd-mm-yyyy` for display on the sale date field. */
 const toDmy = (iso: string) => iso.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3-$2-$1')
 
+/** Parse a typed `dd-mm-yyyy` string into `yyyy-mm-dd`, or null if invalid (incl. future dates). */
+const dmyToIso = (dmy: string): string | null => {
+  const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(dmy.trim())
+  if (!m) return null
+  const day = Number(m[1])
+  const month = Number(m[2])
+  const year = Number(m[3])
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+  const iso = `${m[3]}-${m[2]}-${m[1]}`
+  if (iso > todayStr) return null
+  return iso
+}
+
 const DEFAULT_TAXES = [
   { name: 'VAT', rate: 15, enabled: true },
   { name: 'NHIS', rate: 2.5, enabled: true },
@@ -155,6 +175,7 @@ export default function NewSalePage() {
   const taxItems = watch('taxItems') ?? []
   const amountPaid = watch('amountPaid') ?? 0
   const saleDate = watch('saleDate') || todayStr
+  const [saleDateDmy, setSaleDateDmy] = useState(() => toDmy(saleDate))
 
   const subtotal = items.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
@@ -487,14 +508,33 @@ export default function NewSalePage() {
               </Label>
               <div className="relative">
                 <Input
+                  id="saleDate"
                   type="text"
-                  readOnly
-                  value={toDmy(saleDate)}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={10}
+                  value={saleDateDmy}
                   placeholder="DD-MM-YYYY"
-                  className="cursor-pointer pr-9"
-                  onClick={() =>
-                    (document.getElementById('saleDatePicker') as HTMLInputElement | null)?.showPicker()
-                  }
+                  className="pr-9"
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    setSaleDateDmy(raw)
+                    const iso = dmyToIso(raw)
+                    setValue('saleDate', iso ?? '', { shouldValidate: true })
+                  }}
+                  onBlur={() => {
+                    const iso = dmyToIso(saleDateDmy)
+                    if (iso) {
+                      setValue('saleDate', iso, { shouldValidate: true })
+                      setSaleDateDmy(toDmy(iso))
+                    } else {
+                      setValue('saleDate', saleDate, { shouldValidate: true })
+                      setSaleDateDmy(toDmy(saleDate))
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                  }}
                 />
                 <Input
                   id="saleDatePicker"
@@ -504,8 +544,25 @@ export default function NewSalePage() {
                   tabIndex={-1}
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+                  onChange={(e) => {
+                    const v = e.target.value
+                    if (v) {
+                      setValue('saleDate', v, { shouldValidate: true })
+                      setSaleDateDmy(toDmy(v))
+                    }
+                  }}
                 />
-                <CalendarDays className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <button
+                  type="button"
+                  aria-label="Open date picker"
+                  tabIndex={-1}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() =>
+                    (document.getElementById('saleDatePicker') as HTMLInputElement | null)?.showPicker()
+                  }
+                >
+                  <CalendarDays className="size-3.5" />
+                </button>
               </div>
               <p className="text-xs text-muted-foreground">
                 The date this sale took place. Defaults to today \u2014 change it when recording a past sale.
