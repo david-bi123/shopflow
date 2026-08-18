@@ -18,7 +18,6 @@ import {
   Printer,
   Copy,
   Check,
-  AlertTriangle,
   HandCoins,
   Pencil,
   ClipboardList,
@@ -28,7 +27,6 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getSaleById, deleteSale } from '@/lib/actions/sale-actions'
@@ -165,22 +163,9 @@ export default function SaleDetailPage() {
             </Link>
           </Button>
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-xl font-bold tracking-tight text-foreground">
-                {sale.saleNumber}
-              </h1>
-              {(sale.amountOwed ?? 0) > 0.005 ? (
-                <Badge className="bg-red-100 text-red-700 ring-1 ring-red-200/60 dark:bg-red-950/60 dark:text-red-300 dark:ring-red-800/40">
-                  <AlertTriangle className="mr-1 size-3" />
-                  Owes {formatCurrency(sale.amountOwed)}
-                </Badge>
-              ) : (
-                <Badge className="bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800/40">
-                  <CircleCheck className="mr-1 size-3" />
-                  Paid
-                </Badge>
-              )}
-            </div>
+            <h1 className="truncate text-xl font-bold tracking-tight text-foreground">
+              {sale.saleNumber}
+            </h1>
             <p className="mt-0.5 text-xs text-muted-foreground">
               <Calendar className="mr-1 inline size-3" />
               {formatDate(sale.saleDate ?? sale.createdAt, 'long')}

@@ -265,7 +265,7 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
 
     let y = 142
 
-    // --- Title + invoice number + payment status badge (centered) ---
+    // --- Title + invoice number (centered) ---
     doc.fontSize(24).font('Helvetica-Bold').fillColor(HEADER_COLOR)
     doc.text('INVOICE', 50, y, { width: doc.page.width - 100, align: 'center' })
     y += 20
@@ -273,29 +273,6 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
     doc.text(`Invoice #${sale.saleNumber}`, 50, y, { width: doc.page.width - 100, align: 'center' })
     y += 24
-
-    // Payment status badge — Paid (green), Partially Paid (amber), Unpaid (red)
-    const owed = Math.max(0, Math.round((sale.amountOwed ?? 0) * 100) / 100)
-    const paid = Math.max(0, Math.round((sale.amountPaid ?? 0) * 100) / 100)
-    let statusLabel: string
-    let statusColor: string
-    if (owed <= 0.005) {
-      statusLabel = 'Paid in Full'
-      statusColor = SUCCESS_GREEN
-    } else if (paid > 0.005) {
-      statusLabel = 'Partially Paid'
-      statusColor = '#d97706'
-    } else {
-      statusLabel = 'Unpaid'
-      statusColor = '#dc2626'
-    }
-    const badgeWidth = statusLabel.length > 10 ? 110 : 90
-    const badgeX = (doc.page.width - badgeWidth) / 2
-    doc.roundedRect(badgeX, y - 2, badgeWidth, 20, 5).fill(statusColor)
-    doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold')
-    doc.text(statusLabel, badgeX, y + 2, { align: 'center', width: badgeWidth })
-    doc.fillColor(TEXT_PRIMARY)
-    y += 30
 
     // --- Customer + Date / Payment side-by-side ---
     doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
@@ -412,6 +389,8 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     y += 6
 
     // --- Payment summary (highlighted box) ---
+    const owed = Math.max(0, Math.round((sale.amountOwed ?? 0) * 100) / 100)
+    const paid = Math.max(0, Math.round((sale.amountPaid ?? 0) * 100) / 100)
     const paymentBoxX = 330
     const paymentBoxW = 215
     const paymentBoxY = y

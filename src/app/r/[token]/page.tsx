@@ -2,9 +2,6 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import {
   ArrowLeft,
-  CheckCircle2,
-  AlertTriangle,
-  CircleDot,
   FileText,
   Receipt,
   Wallet,
@@ -78,32 +75,6 @@ export default async function PublicReceiptPage({
   const owed = Math.max(0, Math.round((sale.amountOwed ?? 0) * 100) / 100)
   const paid = Math.max(0, Math.round((sale.amountPaid ?? 0) * 100) / 100)
 
-  const status: 'paid' | 'partial' | 'unpaid' =
-    owed <= 0.005 ? 'paid' : paid > 0.005 ? 'partial' : 'unpaid'
-
-  const statusConfig = {
-    paid: {
-      label: 'Paid in Full',
-      Icon: CheckCircle2,
-      className: 'text-emerald-700 dark:text-emerald-300',
-      bgClass: 'bg-emerald-50 ring-emerald-200/60 dark:bg-emerald-950/60 dark:ring-emerald-800/40',
-    },
-    partial: {
-      label: 'Partially Paid',
-      Icon: CircleDot,
-      className: 'text-amber-700 dark:text-amber-300',
-      bgClass: 'bg-amber-50 ring-amber-200/60 dark:bg-amber-950/60 dark:ring-amber-800/40',
-    },
-    unpaid: {
-      label: 'Unpaid',
-      Icon: AlertTriangle,
-      className: 'text-red-700 dark:text-red-300',
-      bgClass: 'bg-red-50 ring-red-200/60 dark:bg-red-950/60 dark:ring-red-800/40',
-    },
-  }[status]
-
-  const StatusIcon = statusConfig.Icon
-
   const history = (sale.paymentHistory ?? []).filter((h) => h.type !== 'sale_created')
   const isUpdated = sale.updatedAt && sale.updatedAt !== sale.createdAt
 
@@ -144,7 +115,7 @@ export default async function PublicReceiptPage({
             </div>
           </div>
 
-          {/* Title + number + status badge (mirrors PDF body) */}
+          {/* Title + number (mirrors PDF body) */}
           <div className="px-5 pt-7 text-center sm:px-10 sm:pt-8">
             <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-500">
               Invoice
@@ -152,12 +123,6 @@ export default async function PublicReceiptPage({
             <h2 className="mt-1 text-3xl font-bold tracking-tight text-[#0f172a] sm:text-4xl">
               Invoice #{sale.saleNumber}
             </h2>
-            <div
-              className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusConfig.bgClass} ${statusConfig.className}`}
-            >
-              <StatusIcon className="h-3.5 w-3.5" />
-              {statusConfig.label}
-            </div>
           </div>
 
           {/* Customer + Invoice details (mirrors PDF side-by-side) */}
