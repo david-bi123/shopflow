@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
+import { DateInput } from '@/components/shared/date-input'
 import { createSaleSchema, type CreateSaleInput, type TaxItem } from '@/lib/validations/sale'
 import { updateSale } from '@/lib/actions/sale-actions'
 import { formatCurrency } from '@/lib/utils/format'
@@ -516,11 +517,13 @@ export default function EditSalePage() {
                 <CalendarDays className="size-3.5 text-muted-foreground" />
                 Sale Date
               </Label>
-              <Input
+              <DateInput
                 id="saleDate"
-                type="date"
+                value={watch('saleDate') || todayStr}
                 max={todayStr}
-                {...register('saleDate')}
+                onChange={(iso) => {
+                  setValue('saleDate', iso, { shouldValidate: true })
+                }}
               />
               <p className="text-xs text-muted-foreground">
                 The date this sale took place. Change it when correcting a past sale.

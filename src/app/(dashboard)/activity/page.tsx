@@ -61,7 +61,7 @@ function groupByDate(entries: ActivityEntry[]): Map<string, ActivityEntry[]> {
     } else if (date.toDateString() === yesterday.toDateString()) {
       label = 'Yesterday'
     } else {
-      label = date.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      label = formatDate(date)
     }
 
     if (!groups.has(label)) groups.set(label, [])

@@ -12,10 +12,8 @@ import {
   Package,
   CreditCard,
   Receipt,
-  ShoppingCart,
   Percent,
   CheckCircle2,
-  X,
   Building2,
   HandCoins,
   AlertTriangle,
@@ -38,7 +36,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
-import { FormError } from '@/components/shared/form-error'
+import { DateInput } from '@/components/shared/date-input'
 import { FormErrorSummary, flattenErrors } from '@/components/shared/form-error-summary'
 import { createSaleSchema, type CreateSaleInput, type TaxItem } from '@/lib/validations/sale'
 import { createSale } from '@/lib/actions/sale-actions'
@@ -51,36 +49,7 @@ type FormValues = CreateSaleInput
 
 const defaultItem = { name: '', quantity: 1, price: 0, subtotal: 0 }
 
-const toDateInputValue = (d: Date) => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-const todayStr = toDateInputValue(new Date())
-
-/** `yyyy-mm-dd` -> `dd-mm-yyyy` for display on the sale date field. */
-const toDmy = (iso: string) => iso.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3-$2-$1')
-
-/** Parse a typed `dd-mm-yyyy` string into `yyyy-mm-dd`, or null if invalid (incl. future dates). */
-const dmyToIso = (dmy: string): string | null => {
-  const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(dmy.trim())
-  if (!m) return null
-  const day = Number(m[1])
-  const month = Number(m[2])
-  const year = Number(m[3])
-  const date = new Date(year, month - 1, day)
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null
-  }
-  const iso = `${m[3]}-${m[2]}-${m[1]}`
-  if (iso > todayStr) return null
-  return iso
-}
+const todayStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
 
 const DEFAULT_TAXES = [
   { name: 'VAT', rate: 15, enabled: true },
@@ -174,8 +143,6 @@ export default function NewSalePage() {
   const discountPercent = watch('discountPercent') || 0
   const taxItems = watch('taxItems') ?? []
   const amountPaid = watch('amountPaid') ?? 0
-  const saleDate = watch('saleDate') || todayStr
-  const [saleDateDmy, setSaleDateDmy] = useState(() => toDmy(saleDate))
 
   const subtotal = items.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
@@ -501,71 +468,21 @@ export default function NewSalePage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-5 pt-5">
-            <div className="space-y-2">
+<div className="space-y-2">
               <Label htmlFor="saleDate" className="flex items-center gap-1.5">
                 <CalendarDays className="size-3.5 text-muted-foreground" />
                 Sale Date
               </Label>
-              <div className="relative">
-                <Input
-                  id="saleDate"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  maxLength={10}
-                  value={saleDateDmy}
-                  placeholder="DD-MM-YYYY"
-                  className="pr-9"
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    setSaleDateDmy(raw)
-                    const iso = dmyToIso(raw)
-                    setValue('saleDate', iso ?? '', { shouldValidate: true })
-                  }}
-                  onBlur={() => {
-                    const iso = dmyToIso(saleDateDmy)
-                    if (iso) {
-                      setValue('saleDate', iso, { shouldValidate: true })
-                      setSaleDateDmy(toDmy(iso))
-                    } else {
-                      setValue('saleDate', saleDate, { shouldValidate: true })
-                      setSaleDateDmy(toDmy(saleDate))
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                  }}
-                />
-                <Input
-                  id="saleDatePicker"
-                  type="date"
-                  max={todayStr}
-                  {...register('saleDate')}
-                  tabIndex={-1}
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
-                  onChange={(e) => {
-                    const v = e.target.value
-                    if (v) {
-                      setValue('saleDate', v, { shouldValidate: true })
-                      setSaleDateDmy(toDmy(v))
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  aria-label="Open date picker"
-                  tabIndex={-1}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() =>
-                    (document.getElementById('saleDatePicker') as HTMLInputElement | null)?.showPicker()
-                  }
-                >
-                  <CalendarDays className="size-3.5" />
-                </button>
-              </div>
+              <DateInput
+                id="saleDate"
+                value={watch('saleDate') || todayStr}
+                max={todayStr}
+                onChange={(iso) => {
+                  setValue('saleDate', iso, { shouldValidate: true })
+                }}
+              />
               <p className="text-xs text-muted-foreground">
-                The date this sale took place. Defaults to today \u2014 change it when recording a past sale.
+                The date this sale took place. Defaults to today — change it when recording a past sale.
               </p>
             </div>
 

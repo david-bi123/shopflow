@@ -70,7 +70,9 @@ interface ActivityItem {
 
 function formatShortDate(d: string) {
   const date = new Date(d)
-  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return `${day}-${month}`
 }
 
 const ACTIVITY_ICON: Record<string, React.ElementType> = {

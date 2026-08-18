@@ -22,11 +22,11 @@ export function formatDate(date: Date | string, format: 'short' | 'long' | 'date
     d = date
   }
   if (Number.isNaN(d.getTime())) return String(date ?? '')
-  // Day-first ordering, e.g. "12 April, 2026" (not "April 12, 2026").
-  const month = d.toLocaleString('en-US', { month: format === 'long' ? 'long' : 'short' })
-  const day = d.getDate()
+  // Day-first numeric ordering, e.g. "12/04/2026" (not "April 12, 2026").
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear()
-  const base = `${day} ${month}, ${year}`
+  const base = `${day}/${month}/${year}`
   if (format === 'datetime') {
     const time = d.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
     return `${base}, ${time}`

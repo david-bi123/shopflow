@@ -9,8 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { DateInput } from '@/components/shared/date-input'
 import { cn } from '@/lib/utils/cn'
 
 export type DatePreset =
@@ -139,20 +139,18 @@ export function DateFilter({
 
       {showCustom && (
         <div className="flex items-center gap-1.5">
-          <Input
-            type="date"
+          <DateInput
             value={from}
             max={to || undefined}
-            onChange={(e) => onFromChange(e.target.value)}
+            onChange={onFromChange}
             className={cn('h-10 w-36 rounded-full border border-input/60 bg-card px-3 text-sm shadow-sm', ring)}
             aria-label="From date"
           />
           <span className="text-xs text-muted-foreground">→</span>
-          <Input
-            type="date"
+          <DateInput
             value={to}
             min={from || undefined}
-            onChange={(e) => onToChange(e.target.value)}
+            onChange={onToChange}
             className={cn('h-10 w-36 rounded-full border border-input/60 bg-card px-3 text-sm shadow-sm', ring)}
             aria-label="To date"
           />
