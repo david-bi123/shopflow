@@ -17,7 +17,6 @@ import {
   ChevronRight,
   Check,
   Link2,
-  Loader2,
   X,
 } from 'lucide-react'
 
@@ -68,7 +67,6 @@ export default function SalesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [shareOpen, setShareOpen] = useState(false)
-  const [downloadingPdf, setDownloadingPdf] = useState(false)
 
   const dateRange = useDateRange(datePreset, dateFrom, dateTo)
 
@@ -169,38 +167,6 @@ export default function SalesPage() {
     () => sales.filter((s) => selectedIds.has(s.id)),
     [sales, selectedIds]
   )
-
-  async function handleBulkPdf() {
-    const ids = Array.from(selectedIds)
-    if (ids.length === 0) return
-    setDownloadingPdf(true)
-    try {
-      const res = await fetch('/api/sales/bulk-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids }),
-      })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        toast.error(text || 'Failed to generate PDF')
-        return
-      }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `invoices-${ids.length}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      setShareOpen(false)
-    } catch {
-      toast.error('Failed to generate PDF')
-    } finally {
-      setDownloadingPdf(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -347,26 +313,12 @@ export default function SalesPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
               size="sm"
               onClick={() => setShareOpen(true)}
-              className="rounded-full"
-            >
-              <Link2 className="mr-1.5 size-4" />
-              Share Links
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => void handleBulkPdf()}
-              disabled={downloadingPdf}
               className="rounded-full bg-emerald-600 text-white shadow-md hover:bg-emerald-700"
             >
-              {downloadingPdf ? (
-                <Loader2 className="mr-1.5 size-4 animate-spin" />
-              ) : (
-                <Download className="mr-1.5 size-4" />
-              )}
-              Share PDF
+              <Link2 className="mr-1.5 size-4" />
+              Share
             </Button>
           </div>
         </div>
@@ -594,8 +546,6 @@ export default function SalesPage() {
           saleNumber: s.saleNumber,
           publicToken: (s as { publicToken?: string }).publicToken,
         }))}
-        downloadingPdf={downloadingPdf}
-        onDownloadPdf={() => void handleBulkPdf()}
       />
     </div>
   )

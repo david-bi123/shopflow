@@ -3,49 +3,52 @@ import { dbConnect } from '@/lib/db/connect'
 import { sales, tenants, settings, debtLedger } from '@/lib/db/schema'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import { generateMultiSaleReceiptPdf } from '@/lib/services/pdf'
-import { auth } from '@/lib/auth/auth'
-import { hasPermission, PERMISSIONS } from '@/lib/auth/roles'
-import { toNum } from '@/lib/db/helpers'
+import { verifyPublicToken } from '@/lib/services/public-token'
 import { getCurrencySymbol } from '@/lib/utils/constants'
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/utils/rate-limit'
 import type { SalePdfData, StoreInfo } from '@/lib/services/pdf'
 
-const MAX_SALES_PER_PDF = 500
+const MAX_INVOICES_PER_PDF = 500
 
-export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  if (!hasPermission(session.user.role, PERMISSIONS.sales.read)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
+/**
+ * Public combined PDF: every invoice identified by the `tokens` query
+ * param (comma-separated public sale tokens) rendered as one PDF, one
+ * receipt per A4 page. This powers the "Download PDF" button on the
+ * combined `/r/bulk?tokens=...` page.
+ */
+export async function GET(req: NextRequest) {
+  // PDFKit is heavy — cap generation per IP.
   const ip = getClientIp(req.headers)
-  const rl = rateLimit(`bulk-pdf:${ip}`, { limit: 20, windowSeconds: 60 })
+  const rl = rateLimit(`pdf-sale-bulk:${ip}`, { limit: 20, windowSeconds: 60 })
   if (!rl.allowed) return rateLimitResponse(rl)
 
-  let ids: number[]
   try {
-    const body = (await req.json()) as { ids?: unknown }
-    if (!Array.isArray(body.ids)) throw new Error('invalid body')
-    ids = body.ids.map((id) => toNum(id)).filter((n) => Number.isFinite(n) && n > 0)
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
-  if (ids.length === 0) {
-    return NextResponse.json({ error: 'No sales selected' }, { status: 400 })
-  }
-  if (ids.length > MAX_SALES_PER_PDF) {
-    return NextResponse.json(
-      { error: `Select at most ${MAX_SALES_PER_PDF} sales per PDF` },
-      { status: 400 },
-    )
-  }
+    const url = new URL(req.url)
+    const raw = url.searchParams.get('tokens') ?? ''
+    const tokens = [...new Set(raw.split(',').map((t) => t.trim()).filter(Boolean))]
 
-  const tenantId = toNum(session.user.tenantId)
+    if (tokens.length === 0) {
+      return new NextResponse('No invoices selected', { status: 400 })
+    }
+    if (tokens.length > MAX_INVOICES_PER_PDF) {
+      return new NextResponse(`Select at most ${MAX_INVOICES_PER_PDF} invoices`, { status: 400 })
+    }
 
-  try {
+    const payloads = tokens
+      .map((t) => verifyPublicToken(t))
+      .filter((p): p is { t: 's'; tn: number; id: number } => !!p && p.t === 's')
+    if (payloads.length === 0) {
+      return new NextResponse('Not found', { status: 404 })
+    }
+
+    // A combined PDF carries a single store header, so require all the
+    // invoices to belong to the same tenant.
+    const tenantId = payloads[0].tn
+    if (!payloads.every((p) => p.tn === tenantId)) {
+      return new NextResponse('Invoices must belong to the same store', { status: 400 })
+    }
+    const ids = payloads.map((p) => p.id)
+
     const db = await dbConnect()
 
     const rows = await db
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest) {
       .orderBy(asc(sales.createdAt), asc(sales.id))
 
     if (rows.length === 0) {
-      return NextResponse.json({ error: 'No sales found' }, { status: 404 })
+      return new NextResponse('Not found', { status: 404 })
     }
 
     const storeRow = rows[0]
@@ -84,7 +87,6 @@ export async function POST(req: NextRequest) {
       currencySymbol: getCurrencySymbol(storeRow.currency),
     }
 
-    // Payment history for every selected sale in one query, grouped by sale.
     const saleIds = rows.map((r) => r.sale.id)
     const history = await db
       .select({
@@ -151,7 +153,7 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Bulk PDF generation error:', error)
-    return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 })
+    console.error('Bulk public PDF generation error:', error)
+    return new NextResponse('Failed to generate PDF', { status: 500 })
   }
 }
