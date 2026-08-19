@@ -252,6 +252,213 @@ function drawTotals(opts: DrawTotalsOpts) {
   return y
 }
 
+function drawSaleReceipt(doc: PDFKit.PDFDocument, sale: SalePdfData, store: StoreInfo): void {
+  drawA4Header(doc, store)
+
+  let y = 142
+
+  // --- Title + invoice number (centered) ---
+  doc.fontSize(24).font('Helvetica-Bold').fillColor(HEADER_COLOR)
+  doc.text('INVOICE', 50, y, { width: doc.page.width - 100, align: 'center' })
+  y += 20
+
+  doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
+  doc.text(`Invoice #${sale.saleNumber}`, 50, y, { width: doc.page.width - 100, align: 'center' })
+  y += 24
+
+  // --- Customer + Date / Payment side-by-side ---
+  doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
+  doc.text('Customer:', 50, y)
+  y += 14
+  doc.fontSize(10).font('Helvetica').fillColor(TEXT_PRIMARY)
+  doc.text(sale.customerName || 'Walk-in customer', 50, y)
+  y += 12
+  if (sale.customerPhone) { doc.text(sale.customerPhone, 50, y); y += 11 }
+  y += 4
+
+  const rightStartX = 350
+  let detailY = y
+  doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
+  doc.text('Invoice Date:', rightStartX, detailY)
+  doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+  doc.text(formatPdfDate(sale.saleDate || sale.createdAt), rightStartX + 100, detailY, { width: 145 })
+  detailY += 14
+  if (sale.updatedAt && sale.updatedAt !== sale.createdAt) {
+    doc.fillColor(TEXT_MUTED).font('Helvetica')
+    doc.text('Last Updated:', rightStartX, detailY)
+    doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+    doc.text(formatPdfDate(sale.updatedAt), rightStartX + 100, detailY, { width: 145 })
+    detailY += 14
+  }
+  if (store.taxNumber) {
+    doc.fillColor(TEXT_MUTED).font('Helvetica')
+    doc.text('Our Tax ID:', rightStartX, detailY)
+    doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+    doc.text(store.taxNumber, rightStartX + 100, detailY, { width: 145 })
+    detailY += 14
+  }
+  if (sale.waybillNo) {
+    doc.fillColor(TEXT_MUTED).font('Helvetica')
+    doc.text('WAY-BILL NO:', rightStartX, detailY)
+    doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+    doc.text(sale.waybillNo, rightStartX + 100, detailY, { width: 145 })
+    detailY += 14
+  }
+  if (sale.companyRefNo) {
+    doc.fillColor(TEXT_MUTED).font('Helvetica')
+    doc.text('COMPANY REF NO:', rightStartX, detailY)
+    doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+    doc.text(sale.companyRefNo, rightStartX + 100, detailY, { width: 145 })
+    detailY += 14
+  }
+  if (sale.carNo) {
+    doc.fillColor(TEXT_MUTED).font('Helvetica')
+    doc.text('CAR NO:', rightStartX, detailY)
+    doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
+    doc.text(sale.carNo, rightStartX + 100, detailY, { width: 145 })
+    detailY += 14
+  }
+
+  if (detailY > y) y = detailY
+  y += 14
+
+  // --- Items table ---
+  doc.moveTo(50, y).lineTo(545, y).stroke(BORDER_COLOR)
+  y += 8
+
+  const colWidths = [200, 70, 110, 115]
+  const tableTotalWidth = colWidths.reduce((a, b) => a + b, 0)
+
+  doc.rect(50, y - 3, tableTotalWidth, 22).fill(TABLE_HEADER_BG)
+  doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold')
+  let hx = 50
+  ;['Item', 'Quantity', 'Unit Price', 'Total'].forEach((text, i) => {
+    const pad = 8
+    if (i === 0) doc.text(text, hx + pad, y + 2, { width: colWidths[i] - 8 })
+    else doc.text(text, hx + 4, y + 2, { width: colWidths[i] - 12, align: 'right' })
+    hx += colWidths[i]
+  })
+  doc.fillColor(TEXT_PRIMARY)
+  y += 22
+
+  sale.items.forEach((item, idx) => {
+    const rowHeight = 18
+    const rowColor = idx % 2 === 0 ? ROW_EVEN : ROW_ODD
+    doc.rect(50, y - 3, tableTotalWidth, rowHeight).fill(rowColor)
+    doc.fillColor(TEXT_PRIMARY).fontSize(9).font('Helvetica')
+    let rx = 50
+    const values = [
+      item.name,
+      String(item.quantity),
+      formatMoney(item.price, store),
+      formatMoney(item.subtotal, store),
+    ]
+    values.forEach((text, i) => {
+      const pad = 8
+      if (i === 0) doc.text(text, rx + pad, y + 2, { width: colWidths[i] - 8 })
+      else doc.text(text, rx + 4, y + 2, { width: colWidths[i] - 12, align: 'right' })
+      rx += colWidths[i]
+    })
+    y += rowHeight
+  })
+
+  y += 10
+
+  // --- Totals box on the right (subtotal, discount, tax) ---
+  y = drawTotals({
+    doc,
+    startX: 330,
+    width: 215,
+    subtotal: sale.subtotal,
+    discountPercent: sale.discountPercent,
+    discount: sale.discount,
+    taxItems: sale.taxItems,
+    tax: sale.tax,
+    total: sale.total,
+    store,
+  })
+
+  y += 6
+
+  // --- Payment summary (highlighted box) ---
+  const owed = Math.max(0, Math.round((sale.amountOwed ?? 0) * 100) / 100)
+  const paid = Math.max(0, Math.round((sale.amountPaid ?? 0) * 100) / 100)
+  const paymentBoxX = 330
+  const paymentBoxW = 215
+  const paymentBoxY = y
+  const paymentBoxH = owed > 0.005 ? 96 : 60
+  doc.roundedRect(paymentBoxX, paymentBoxY, paymentBoxW, paymentBoxH, 4).fillAndStroke('#f1f5f9', BORDER_COLOR)
+  let py = paymentBoxY + 10
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(TEXT_MUTED)
+  doc.text('PAYMENT SUMMARY', paymentBoxX + 10, py, { width: paymentBoxW - 20 })
+  py += 14
+
+  doc.fontSize(9).font('Helvetica').fillColor(TEXT_PRIMARY)
+  doc.text('Total', paymentBoxX + 10, py, { width: 100 })
+  doc.text(formatMoney(sale.total, store), paymentBoxX + 10, py, { width: paymentBoxW - 20, align: 'right' })
+  py += 13
+
+  doc.text('Amount Paid', paymentBoxX + 10, py, { width: 100 })
+  doc.fillColor(SUCCESS_GREEN).text(formatMoney(paid, store), paymentBoxX + 10, py, { width: paymentBoxW - 20, align: 'right' })
+  doc.fillColor(TEXT_PRIMARY)
+  py += 13
+
+  if (owed > 0.005) {
+    doc.moveTo(paymentBoxX + 10, py - 2).lineTo(paymentBoxX + paymentBoxW - 10, py - 2).stroke(BORDER_COLOR)
+    py += 6
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#dc2626')
+    doc.text('Balance Due', paymentBoxX + 10, py, { width: 120 })
+    doc.text(formatMoney(owed, store), paymentBoxX + 10, py, { width: paymentBoxW - 20, align: 'right' })
+    doc.fillColor(TEXT_PRIMARY)
+    py += 16
+  }
+
+  y = paymentBoxY + paymentBoxH + 10
+
+  // --- Payment history (if any linked debt_ledger entries) ---
+  const history = (sale.paymentHistory ?? []).filter((h) => h.type !== 'sale_created')
+  if (history.length > 0) {
+    doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
+    doc.text('Payment History', 50, y)
+    y += 14
+    doc.moveTo(50, y).lineTo(545, y).stroke(BORDER_COLOR)
+    y += 6
+    doc.fontSize(8).font('Helvetica').fillColor(TEXT_MUTED)
+    ;['Date', 'Type', 'Notes', 'Amount'].forEach((label, i) => {
+      const xs = [50, 160, 260, 480]
+      const ws = [100, 90, 210, 65]
+      if (i === 3) doc.text(label, xs[i], y, { width: ws[i], align: 'right' })
+      else doc.text(label, xs[i], y, { width: ws[i] })
+    })
+    y += 12
+    history.forEach((h, idx) => {
+      const rowColor = idx % 2 === 0 ? ROW_EVEN : ROW_ODD
+      doc.rect(50, y - 3, 495, 16).fill(rowColor)
+      doc.fontSize(8).font('Helvetica').fillColor(TEXT_PRIMARY)
+      const typeLabel = h.type === 'manual_payment' ? 'Payment' : h.type.replace(/_/g, ' ')
+      const amountStr = `${h.amount < 0 ? '-' : ''}${formatMoney(Math.abs(h.amount), store)}`
+      doc.text(formatPdfDate(h.createdAt), 50, y, { width: 100 })
+      doc.text(typeLabel, 160, y, { width: 90 })
+      doc.text(h.notes ?? '', 260, y, { width: 210 })
+      doc.text(amountStr, 480, y, { width: 65, align: 'right' })
+      y += 16
+    })
+    doc.fillColor(TEXT_PRIMARY)
+    y += 6
+  }
+
+  if (sale.notes) {
+    doc.moveDown(1)
+    doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
+    doc.text('Notes:')
+    doc.moveDown(0.4)
+    doc.font('Helvetica').fillColor(TEXT_MUTED)
+    doc.text(sale.notes, { width: 280 })
+  }
+
+  drawA4Footer(doc, store)
+}
+
 export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 })
@@ -261,210 +468,30 @@ export function generateSaleReceiptPdf(sale: SalePdfData, store: StoreInfo): Pro
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
-    drawA4Header(doc, store)
+    drawSaleReceipt(doc, sale, store)
 
-    let y = 142
+    doc.end()
+  })
+}
 
-    // --- Title + invoice number (centered) ---
-    doc.fontSize(24).font('Helvetica-Bold').fillColor(HEADER_COLOR)
-    doc.text('INVOICE', 50, y, { width: doc.page.width - 100, align: 'center' })
-    y += 20
+/**
+ * Combine several sale receipts into a single PDF, one receipt per page.
+ * Each receipt keeps its own navy header and footer (with its own page
+ * number), so the output reads like a booklet of invoices.
+ */
+export function generateMultiSaleReceiptPdf(sales: SalePdfData[], store: StoreInfo): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 50 })
+    const chunks: Buffer[] = []
 
-    doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
-    doc.text(`Invoice #${sale.saleNumber}`, 50, y, { width: doc.page.width - 100, align: 'center' })
-    y += 24
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
 
-    // --- Customer + Date / Payment side-by-side ---
-    doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
-    doc.text('Customer:', 50, y)
-    y += 14
-    doc.fontSize(10).font('Helvetica').fillColor(TEXT_PRIMARY)
-    doc.text(sale.customerName || 'Walk-in customer', 50, y)
-    y += 12
-    if (sale.customerPhone) { doc.text(sale.customerPhone, 50, y); y += 11 }
-    y += 4
-
-    const rightStartX = 350
-    let detailY = y
-    doc.fontSize(10).font('Helvetica').fillColor(TEXT_MUTED)
-    doc.text('Invoice Date:', rightStartX, detailY)
-    doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-    doc.text(formatPdfDate(sale.saleDate || sale.createdAt), rightStartX + 100, detailY, { width: 145 })
-    detailY += 14
-    if (sale.updatedAt && sale.updatedAt !== sale.createdAt) {
-      doc.fillColor(TEXT_MUTED).font('Helvetica')
-      doc.text('Last Updated:', rightStartX, detailY)
-      doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-      doc.text(formatPdfDate(sale.updatedAt), rightStartX + 100, detailY, { width: 145 })
-      detailY += 14
-    }
-    if (store.taxNumber) {
-      doc.fillColor(TEXT_MUTED).font('Helvetica')
-      doc.text('Our Tax ID:', rightStartX, detailY)
-      doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-      doc.text(store.taxNumber, rightStartX + 100, detailY, { width: 145 })
-      detailY += 14
-    }
-    if (sale.waybillNo) {
-      doc.fillColor(TEXT_MUTED).font('Helvetica')
-      doc.text('WAY-BILL NO:', rightStartX, detailY)
-      doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-      doc.text(sale.waybillNo, rightStartX + 100, detailY, { width: 145 })
-      detailY += 14
-    }
-    if (sale.companyRefNo) {
-      doc.fillColor(TEXT_MUTED).font('Helvetica')
-      doc.text('COMPANY REF NO:', rightStartX, detailY)
-      doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-      doc.text(sale.companyRefNo, rightStartX + 100, detailY, { width: 145 })
-      detailY += 14
-    }
-    if (sale.carNo) {
-      doc.fillColor(TEXT_MUTED).font('Helvetica')
-      doc.text('CAR NO:', rightStartX, detailY)
-      doc.fillColor(TEXT_PRIMARY).font('Helvetica-Bold')
-      doc.text(sale.carNo, rightStartX + 100, detailY, { width: 145 })
-      detailY += 14
-    }
-
-    if (detailY > y) y = detailY
-    y += 14
-
-    // --- Items table ---
-    doc.moveTo(50, y).lineTo(545, y).stroke(BORDER_COLOR)
-    y += 8
-
-    const colWidths = [200, 70, 110, 115]
-    const tableTotalWidth = colWidths.reduce((a, b) => a + b, 0)
-
-    doc.rect(50, y - 3, tableTotalWidth, 22).fill(TABLE_HEADER_BG)
-    doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold')
-    let hx = 50
-    ;['Item', 'Quantity', 'Unit Price', 'Total'].forEach((text, i) => {
-      const pad = 8
-      if (i === 0) doc.text(text, hx + pad, y + 2, { width: colWidths[i] - 8 })
-      else doc.text(text, hx + 4, y + 2, { width: colWidths[i] - 12, align: 'right' })
-      hx += colWidths[i]
+    sales.forEach((sale, idx) => {
+      if (idx > 0) doc.addPage()
+      drawSaleReceipt(doc, sale, store)
     })
-    doc.fillColor(TEXT_PRIMARY)
-    y += 22
-
-    sale.items.forEach((item, idx) => {
-      const rowHeight = 18
-      const rowColor = idx % 2 === 0 ? ROW_EVEN : ROW_ODD
-      doc.rect(50, y - 3, tableTotalWidth, rowHeight).fill(rowColor)
-      doc.fillColor(TEXT_PRIMARY).fontSize(9).font('Helvetica')
-      let rx = 50
-      const values = [
-        item.name,
-        String(item.quantity),
-        formatMoney(item.price, store),
-        formatMoney(item.subtotal, store),
-      ]
-      values.forEach((text, i) => {
-        const pad = 8
-        if (i === 0) doc.text(text, rx + pad, y + 2, { width: colWidths[i] - 8 })
-        else doc.text(text, rx + 4, y + 2, { width: colWidths[i] - 12, align: 'right' })
-        rx += colWidths[i]
-      })
-      y += rowHeight
-    })
-
-    y += 10
-
-    // --- Totals box on the right (subtotal, discount, tax) ---
-    y = drawTotals({
-      doc,
-      startX: 330,
-      width: 215,
-      subtotal: sale.subtotal,
-      discountPercent: sale.discountPercent,
-      discount: sale.discount,
-      taxItems: sale.taxItems,
-      tax: sale.tax,
-      total: sale.total,
-      store,
-    })
-
-    y += 6
-
-    // --- Payment summary (highlighted box) ---
-    const owed = Math.max(0, Math.round((sale.amountOwed ?? 0) * 100) / 100)
-    const paid = Math.max(0, Math.round((sale.amountPaid ?? 0) * 100) / 100)
-    const paymentBoxX = 330
-    const paymentBoxW = 215
-    const paymentBoxY = y
-    const paymentBoxH = owed > 0.005 ? 96 : 60
-    doc.roundedRect(paymentBoxX, paymentBoxY, paymentBoxW, paymentBoxH, 4).fillAndStroke('#f1f5f9', BORDER_COLOR)
-    let py = paymentBoxY + 10
-    doc.fontSize(8).font('Helvetica-Bold').fillColor(TEXT_MUTED)
-    doc.text('PAYMENT SUMMARY', paymentBoxX + 10, py, { width: paymentBoxW - 20 })
-    py += 14
-
-    doc.fontSize(9).font('Helvetica').fillColor(TEXT_PRIMARY)
-    doc.text('Total', paymentBoxX + 10, py, { width: 100 })
-    doc.text(formatMoney(sale.total, store), paymentBoxX + 10, py, { width: paymentBoxW - 20, align: 'right' })
-    py += 13
-
-    doc.text('Amount Paid', paymentBoxX + 10, py, { width: 100 })
-    doc.fillColor(SUCCESS_GREEN).text(formatMoney(paid, store), paymentBoxX + 10, py, { width: paymentBoxW - 20, align: 'right' })
-    doc.fillColor(TEXT_PRIMARY)
-    py += 13
-
-    if (owed > 0.005) {
-      doc.moveTo(paymentBoxX + 10, py - 2).lineTo(paymentBoxX + paymentBoxW - 10, py - 2).stroke(BORDER_COLOR)
-      py += 6
-      doc.fontSize(10).font('Helvetica-Bold').fillColor('#dc2626')
-      doc.text('Balance Due', paymentBoxX + 10, py, { width: 120 })
-      doc.text(formatMoney(owed, store), paymentBoxX + 10, py, { width: paymentBoxW - 20, align: 'right' })
-      doc.fillColor(TEXT_PRIMARY)
-      py += 16
-    }
-
-    y = paymentBoxY + paymentBoxH + 10
-
-    // --- Payment history (if any linked debt_ledger entries) ---
-    const history = (sale.paymentHistory ?? []).filter((h) => h.type !== 'sale_created')
-    if (history.length > 0) {
-      doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
-      doc.text('Payment History', 50, y)
-      y += 14
-      doc.moveTo(50, y).lineTo(545, y).stroke(BORDER_COLOR)
-      y += 6
-      doc.fontSize(8).font('Helvetica').fillColor(TEXT_MUTED)
-      ;['Date', 'Type', 'Notes', 'Amount'].forEach((label, i) => {
-        const xs = [50, 160, 260, 480]
-        const ws = [100, 90, 210, 65]
-        if (i === 3) doc.text(label, xs[i], y, { width: ws[i], align: 'right' })
-        else doc.text(label, xs[i], y, { width: ws[i] })
-      })
-      y += 12
-      history.forEach((h, idx) => {
-        const rowColor = idx % 2 === 0 ? ROW_EVEN : ROW_ODD
-        doc.rect(50, y - 3, 495, 16).fill(rowColor)
-        doc.fontSize(8).font('Helvetica').fillColor(TEXT_PRIMARY)
-        const typeLabel = h.type === 'manual_payment' ? 'Payment' : h.type.replace(/_/g, ' ')
-        const amountStr = `${h.amount < 0 ? '-' : ''}${formatMoney(Math.abs(h.amount), store)}`
-        doc.text(formatPdfDate(h.createdAt), 50, y, { width: 100 })
-        doc.text(typeLabel, 160, y, { width: 90 })
-        doc.text(h.notes ?? '', 260, y, { width: 210 })
-        doc.text(amountStr, 480, y, { width: 65, align: 'right' })
-        y += 16
-      })
-      doc.fillColor(TEXT_PRIMARY)
-      y += 6
-    }
-
-    if (sale.notes) {
-      doc.moveDown(1)
-      doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_PRIMARY)
-      doc.text('Notes:')
-      doc.moveDown(0.4)
-      doc.font('Helvetica').fillColor(TEXT_MUTED)
-      doc.text(sale.notes, { width: 280 })
-    }
-
-    drawA4Footer(doc, store)
 
     doc.end()
   })

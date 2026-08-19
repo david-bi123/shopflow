@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Checkbox } from '@/components/ui/checkbox'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils/cn'
 
@@ -55,6 +56,15 @@ interface DataTableProps<T> {
    * they can tap a card to open the row. Defaults to "Tap a card to open".
    */
   cardListHint?: string
+  /**
+   * When provided, a selection checkbox column is added to the desktop
+   * table and a checkbox is shown on each mobile card. `onToggleSelect`
+   * toggles one row; `onToggleSelectAll` toggles every row currently in
+   * `data` (i.e. the current page).
+   */
+  selectedKeys?: string[]
+  onToggleSelect?: (key: string) => void
+  onToggleSelectAll?: () => void
 }
 
 function EmptyState({ colSpan }: { colSpan: number }) {
@@ -126,6 +136,9 @@ export function DataTable<T>({
   onRowClick,
   renderCardActions,
   cardListHint = 'Tap a card to open',
+  selectedKeys,
+  onToggleSelect,
+  onToggleSelectAll,
 }: DataTableProps<T>) {
   // Identify the primary column for the card view (largest text)
   const primaryCol = columns.find((c) => c.primaryOnCard) ?? columns[0]
@@ -136,6 +149,13 @@ export function DataTable<T>({
       : col.hideBelow === 'lg'
         ? 'hidden lg:table-cell'
         : ''
+
+  const selectable = selectedKeys !== undefined
+  const pageKeys = data.map((item) => keyExtractor(item))
+  const allSelected = selectable && data.length > 0 && pageKeys.every((k) => selectedKeys.includes(k))
+  const someSelected =
+    selectable && data.some((item) => selectedKeys.includes(keyExtractor(item)))
+  const headerColSpan = columns.length + (selectable ? 1 : 0)
 
   return (
     <>
@@ -169,6 +189,15 @@ export function DataTable<T>({
                     )}
                   >
                     <div className="flex items-start gap-3">
+                      {selectable && (
+                        <div className="mt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedKeys.includes(keyExtractor(item))}
+                            onCheckedChange={() => onToggleSelect?.(keyExtractor(item))}
+                            aria-label={`Select ${keyExtractor(item)}`}
+                          />
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-semibold text-foreground">
                           {primary}
@@ -214,6 +243,16 @@ export function DataTable<T>({
           <Table>
             <TableHeader className="bg-slate-50/60">
               <TableRow className="border-b transition-colors hover:bg-slate-50/60">
+                {selectable && (
+                  <TableHead className="w-10 whitespace-nowrap px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <Checkbox
+                      checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                      onCheckedChange={() => onToggleSelectAll?.()}
+                      aria-label="Select all rows on this page"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </TableHead>
+                )}
                 {columns.map((col) => (
                   <TableHead
                     key={col.key}
@@ -231,7 +270,7 @@ export function DataTable<T>({
 
             <TableBody>
               {data.length === 0 ? (
-                <EmptyState colSpan={columns.length} />
+                <EmptyState colSpan={headerColSpan} />
               ) : (
                 data.map((item, index) => (
                   <TableRow
@@ -246,6 +285,15 @@ export function DataTable<T>({
                     )}
                     onClick={() => onRowClick?.(item)}
                   >
+                    {selectable && (
+                      <TableCell className="w-10 px-3" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedKeys.includes(keyExtractor(item))}
+                          onCheckedChange={() => onToggleSelect?.(keyExtractor(item))}
+                          aria-label={`Select ${keyExtractor(item)}`}
+                        />
+                      </TableCell>
+                    )}
                     {columns.map((col) => (
                       <TableCell
                         key={col.key}

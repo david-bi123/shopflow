@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -15,10 +15,15 @@ import {
   Inbox,
   ChevronLeft,
   ChevronRight,
+  Check,
+  Link2,
+  Loader2,
+  X,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -47,6 +52,7 @@ import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils/cn'
 import type { Sale } from '@/lib/validations/sale'
+import { BulkShareDialog } from '@/components/sales/bulk-share-dialog'
 
 const ITEMS_PER_PAGE = 10
 
@@ -60,6 +66,9 @@ export default function SalesPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [shareOpen, setShareOpen] = useState(false)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
 
   const dateRange = useDateRange(datePreset, dateFrom, dateTo)
 
@@ -127,6 +136,69 @@ export default function SalesPage() {
       fetchSales()
     } catch {
       toast.error('Failed to delete sale')
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const togglePageSelection = () => {
+    const pageIds = paginated.map((s) => s.id)
+    const allOnPage = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id))
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allOnPage) pageIds.forEach((id) => next.delete(id))
+      else pageIds.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
+  const selectAllFiltered = () => {
+    setSelectedIds(new Set(filtered.map((s) => s.id)))
+  }
+
+  const clearSelection = () => setSelectedIds(new Set())
+
+  const selectedSales = useMemo(
+    () => sales.filter((s) => selectedIds.has(s.id)),
+    [sales, selectedIds]
+  )
+
+  async function handleBulkPdf() {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    setDownloadingPdf(true)
+    try {
+      const res = await fetch('/api/sales/bulk-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        toast.error(text || 'Failed to generate PDF')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `invoices-${ids.length}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setShareOpen(false)
+    } catch {
+      toast.error('Failed to generate PDF')
+    } finally {
+      setDownloadingPdf(false)
     }
   }
 
@@ -245,6 +317,61 @@ export default function SalesPage() {
         </Button>
       </div>
 
+      {/* Selection toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSelection}
+              className="rounded-full text-muted-foreground hover:text-foreground"
+            >
+              <X className="mr-1.5 size-4" />
+              Clear
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{selectedIds.size}</span> selected
+            </p>
+            {selectedIds.size < filtered.length && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={selectAllFiltered}
+                className="rounded-full border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-300"
+              >
+                <Check className="mr-1.5 size-4" />
+                Select all {filtered.length}
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShareOpen(true)}
+              className="rounded-full"
+            >
+              <Link2 className="mr-1.5 size-4" />
+              Share Links
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => void handleBulkPdf()}
+              disabled={downloadingPdf}
+              className="rounded-full bg-emerald-600 text-white shadow-md hover:bg-emerald-700"
+            >
+              {downloadingPdf ? (
+                <Loader2 className="mr-1.5 size-4 animate-spin" />
+              ) : (
+                <Download className="mr-1.5 size-4" />
+              )}
+              Share PDF
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
         <DataTable
           columns={[
@@ -350,6 +477,9 @@ export default function SalesPage() {
           data={paginated}
           keyExtractor={(sale) => sale.id}
           onRowClick={(sale) => router.push(`/sales/${sale.id}`)}
+          selectedKeys={Array.from(selectedIds)}
+          onToggleSelect={toggleSelect}
+          onToggleSelectAll={togglePageSelection}
           renderCardActions={(sale) => (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -454,6 +584,19 @@ export default function SalesPage() {
           </div>
         </div>
       )}
+
+      {/* Share selected sales as links or a combined PDF */}
+      <BulkShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        sales={selectedSales.map((s) => ({
+          id: s.id,
+          saleNumber: s.saleNumber,
+          publicToken: (s as { publicToken?: string }).publicToken,
+        }))}
+        downloadingPdf={downloadingPdf}
+        onDownloadPdf={() => void handleBulkPdf()}
+      />
     </div>
   )
 }
