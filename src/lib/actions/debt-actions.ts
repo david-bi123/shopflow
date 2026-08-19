@@ -12,6 +12,7 @@ import { createAuditLog } from '@/lib/services/audit'
 import { createNotification } from '@/lib/services/notification'
 import { actionHandler } from '@/lib/utils/action-handler'
 import { actionOk } from '@/lib/utils/action-result'
+import { computeCustomerAggregates } from '@/lib/services/customer-aggregates'
 
 /**
  * Record a manual payment against a customer's outstanding debt.
@@ -66,9 +67,14 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
       .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
       .limit(1)
     if (!customer) return { ok: false, error: 'Customer not found' }
-    if (customer.totalDebt < 0.01) return { ok: false, error: 'Customer has no outstanding debt' }
-    if (paymentAmount > customer.totalDebt + 0.001) {
-      return { ok: false, error: `Payment exceeds outstanding debt of ${customer.totalDebt.toFixed(2)}` }
+
+    // Use the authoritative balance derived from debt_ledger rather than
+    // the cached customers.totalDebt column, which can drift when sales
+    // are edited or deleted.
+    const currentDebt = (await computeCustomerAggregates(tx, tenantId, customerId)).totalDebt
+    if (currentDebt < 0.01) return { ok: false, error: 'Customer has no outstanding debt' }
+    if (paymentAmount > currentDebt + 0.001) {
+      return { ok: false, error: `Payment exceeds outstanding debt of ${currentDebt.toFixed(2)}` }
     }
 
     // FIFO across open sales (oldest first), then open invoices (oldest first).
@@ -105,7 +111,7 @@ export async function recordDebtPayment(data: DebtPaymentInput) {
       .orderBy(asc(invoices.createdAt), asc(invoices.id))
 
     const distributions: DistributionEntry[] = []
-    let runningBalance = customer.totalDebt
+    let runningBalance = currentDebt
     let remaining = paymentAmount
     const lastPaymentAt = now
 
@@ -238,6 +244,10 @@ export async function getCustomerDebtLedger(customerId: string) {
     .limit(1)
   if (!customer) return { error: 'Customer not found' }
 
+  // Recompute totals from the source tables so the detail page shows
+  // accurate revenue / debt even if the cached columns drifted.
+  const aggregates = await computeCustomerAggregates(db, tenantId, numericId)
+
   const entries = await db
     .select({
       id: debtLedger.id,
@@ -298,11 +308,11 @@ export async function getCustomerDebtLedger(customerId: string) {
       email: customer.email,
       address: customer.address,
       notes: customer.notes,
-      totalDebt: customer.totalDebt,
-      firstDebtAt: customer.firstDebtAt,
-      lastDebtActivityAt: customer.lastDebtActivityAt,
-      totalSales: customer.totalSales,
-      totalRevenue: customer.totalRevenue,
+      totalDebt: aggregates.totalDebt,
+      firstDebtAt: aggregates.firstDebtAt,
+      lastDebtActivityAt: aggregates.lastDebtActivityAt,
+      totalSales: aggregates.totalSales,
+      totalRevenue: aggregates.totalRevenue,
     },
     ledger: serializeList(entries as unknown as Record<string, unknown>[]),
     openSales,
@@ -395,15 +405,18 @@ export async function recordSalePayment(saleId: string, data: SalePaymentInput) 
     }
 
     const [customer] = await tx
-      .select({ id: customers.id, name: customers.name, totalDebt: customers.totalDebt })
+      .select({ id: customers.id, name: customers.name })
       .from(customers)
       .where(and(eq(customers.id, sale.customerId), eq(customers.tenantId, tenantId)))
       .limit(1)
     if (!customer) return { ok: false, error: 'Customer not found' }
 
+    // Authoritative balance from the ledger, not the possibly-stale cache.
+    const customerDebt = (await computeCustomerAggregates(tx, tenantId, customer.id)).totalDebt
+
     const newSalePaid = Math.round((sale.amountPaid + paymentAmount) * 100) / 100
     const newSaleOwed = Math.max(0, Math.round((owed - paymentAmount) * 100) / 100)
-    const newCustomerDebt = Math.max(0, Math.round((customer.totalDebt - paymentAmount) * 100) / 100)
+    const newCustomerDebt = Math.max(0, Math.round((customerDebt - paymentAmount) * 100) / 100)
 
     // Race-safe update: only succeed if the sale STILL has at least
     // `paymentAmount` outstanding. The WHERE-clause guard is what stops

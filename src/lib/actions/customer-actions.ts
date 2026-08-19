@@ -10,6 +10,7 @@ import { auth } from '@/lib/auth/auth'
 import { hasPermission, PERMISSIONS } from '@/lib/auth/roles'
 import { actionHandler } from '@/lib/utils/action-handler'
 import { actionOk } from '@/lib/utils/action-result'
+import { computeCustomerAggregatesForMany } from '@/lib/services/customer-aggregates'
 import type { CreateCustomerInput } from '@/lib/validations/customer'
 
 function isDuplicateEmailError(err: unknown): boolean {
@@ -106,8 +107,21 @@ export async function getCustomers(page = 1, limit = 20, search?: string) {
     .offset((page - 1) * limit)
     .limit(limit)
 
+  // Override the cached totalSales/totalRevenue/totalDebt columns with
+  // freshly-computed values from the source tables. The cache drifts when
+  // sales are edited or deleted, so trusting it here makes the customer
+  // list totals not add up.
+  const ids = result.map((c) => c.id)
+  const aggregates = await computeCustomerAggregatesForMany(db, tenantId, ids)
+  const customersWithAggregates = result.map((c) => {
+    const agg = aggregates.get(String(c.id))
+    return agg
+      ? { ...c, ...agg }
+      : c
+  })
+
   return {
-    customers: serializeList(result),
+    customers: serializeList(customersWithAggregates as unknown as Record<string, unknown>[]),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   }
 }
@@ -130,6 +144,11 @@ export async function getCustomerById(id: string) {
 
   if (!customer) return { error: 'Customer not found' }
 
+  // Recompute aggregates from source tables so the detail view shows
+  // accurate revenue / debt even if the cached columns drifted.
+  const aggregates = await computeCustomerAggregatesForMany(db, tenantId, [customer.id])
+  const agg = aggregates.get(String(customer.id)) ?? {}
+
   // Keep the recent-activity list bounded so a customer with thousands
   // of sales doesn't trigger a slow query.
   const [recentSalesResult] = await Promise.all([
@@ -148,6 +167,7 @@ export async function getCustomerById(id: string) {
   return {
     customer: {
       ...serializeRow(customer),
+      ...agg,
       recentSales: serializeList(recentSalesResult as unknown as Record<string, unknown>[]),
     },
   }

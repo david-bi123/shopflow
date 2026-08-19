@@ -14,6 +14,7 @@ import { createNotification } from '@/lib/services/notification'
 import { actionHandler } from '@/lib/utils/action-handler'
 import { actionOk } from '@/lib/utils/action-result'
 import { buildPublicToken, verifyPublicToken } from '@/lib/services/public-token'
+import { recomputeCustomerTotals } from '@/lib/services/customer-aggregates'
 import type { CreateSaleInput } from '@/lib/validations/sale'
 
 export async function createSale(data: CreateSaleInput) {
@@ -130,14 +131,7 @@ export async function createSale(data: CreateSaleInput) {
     })
     const [newSale] = await tx.select().from(sales).where(eq(sales.id, inserted[0].insertId))
 
-    if (debtorCustomerId) {
-      await tx.update(customers)
-        .set({
-          totalSales: sql`${customers.totalSales} + 1`,
-          totalRevenue: sql`${customers.totalRevenue} + ${calculatedTotal}`,
-        })
-        .where(eq(customers.id, debtorCustomerId))
-    } else if (data.customerName) {
+    if (!debtorCustomerId && data.customerName) {
       // Walk-in / first-time customer. We create the row so the debt can
       // be attributed to it.
       const ins = await tx.insert(customers).values({
@@ -154,8 +148,7 @@ export async function createSale(data: CreateSaleInput) {
       await tx.update(sales).set({ customerId: newCustomerId }).where(eq(sales.id, newSale.id))
     }
 
-    // Write a debt_ledger entry whenever the customer didn't pay in full,
-    // and bump their cached totalDebt.
+    // Write a debt_ledger entry whenever the customer didn't pay in full.
     if (amountOwed > 0 && debtorCustomerId) {
       const [last] = await tx.select({ balance: debtLedger.balanceAfter })
         .from(debtLedger)
@@ -179,11 +172,13 @@ export async function createSale(data: CreateSaleInput) {
         createdBy: userId,
         createdAt: now,
       })
-      await tx.update(customers).set({
-        totalDebt: newBalance,
-        firstDebtAt: sql`COALESCE(${customers.firstDebtAt}, ${now})`,
-        lastDebtActivityAt: now,
-      }).where(eq(customers.id, debtorCustomerId))
+    }
+
+    // Recompute the customer's aggregate columns from the source tables so
+    // totalSales / totalRevenue / totalDebt are always correct (including
+    // for customers created just now by this sale).
+    if (debtorCustomerId) {
+      await recomputeCustomerTotals(tx, tenantId, debtorCustomerId)
     }
 
     return newSale
@@ -475,6 +470,16 @@ export async function updateSale(id: string, data: CreateSaleInput) {
         })
         .where(eq(customers.id, debtorCustomerId))
     }
+
+    // 4) Recompute the affected customers' aggregate columns from the
+    // source tables. This keeps totalSales / totalRevenue / totalDebt
+    // accurate when the sale's total, payment, or customer changes.
+    const affectedCustomerIds = new Set<number>()
+    if (oldSale.customerId) affectedCustomerIds.add(oldSale.customerId)
+    if (debtorCustomerId) affectedCustomerIds.add(debtorCustomerId)
+    for (const cid of affectedCustomerIds) {
+      await recomputeCustomerTotals(tx, tenantId, cid)
+    }
   })
 
   await createAuditLog({
@@ -540,6 +545,12 @@ export async function deleteSale(id: string) {
     await tx.delete(sales).where(
       and(eq(sales.id, saleId), eq(sales.tenantId, tenantId))
     )
+
+    // Recompute the customer's aggregates so totalSales / totalRevenue /
+    // totalDebt reflect the sale no longer existing.
+    if (sale.customerId) {
+      await recomputeCustomerTotals(tx, tenantId, sale.customerId)
+    }
   })
 
   await createAuditLog({
